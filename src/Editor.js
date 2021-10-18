@@ -415,7 +415,7 @@ export class Editor extends Component
                     }
                     else /*if (line[lastWordStartIndex - 1] === " ")*/ //Whitespace before last word start
                     {
-                        while (finalLine.at(-1) === " " && this.getStringWidth(finalLine) > totalWidth) //Trailing whitespace but no space for it
+                        while (finalLine.at(-1) === " ")
                             finalLine.length -= 1; //Remove the trailing whitespace
 
                         finalLines.push(finalLine);
@@ -466,8 +466,6 @@ export class Editor extends Component
 
     getNewCursorPosition(newText)
     {
-        //BUG: Typing a word like "keep" an the end of the line and having it shoved down after "ke" will place the caret like "ke|e" on the next line
-
         let i, j, cursorPos;
         let oldText = this.state.text;
         oldText = oldText.replaceAll("\n", " ");
@@ -513,7 +511,7 @@ export class Editor extends Component
         return cursorPos;
     }
 
-    setTextState(newText, cursorPos, event)
+    setTextState(newText, cursorPos, autoAdjustScroll)
     {
         this.setState
         ({
@@ -525,17 +523,17 @@ export class Editor extends Component
                 textareaWidth: this.myInput.current.offsetWidth,
             });
 
-            if (event != null)
-                SetTextareaCursorPos(event.target, cursorPos);
+            if (cursorPos >= 0)
+                SetTextareaCursorPos(cursorPos, autoAdjustScroll);
         });
     }
 
-    setNewText(newText, event)
+    setNewText(newText, autoAdjustScroll)
     {
         newText = this.formatString(this.formatString(newText)); //Format twice to fix copy-paste errors
         let cursorPos = this.getNewCursorPosition(newText);
         this.addTextToUndo(this.state.text, this.state.prevCursorPosition);
-        this.setTextState(newText, cursorPos, event);
+        this.setTextState(newText, cursorPos, autoAdjustScroll);
         this.setState({redoTextStack: [], redoCursorStack: []}); //Nothing to redo anymore
         return newText;
     }
@@ -550,7 +548,7 @@ export class Editor extends Component
             prevCursorPosition: this.state.cursorPosition,
         }, () =>
         {
-            this.setNewText(newText, event);
+            this.setNewText(newText, false);
         });
         
     }
@@ -667,7 +665,7 @@ export class Editor extends Component
                     let newText = this.formatString(finalText).trim();
                     newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses
                     newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses - intentional duplicate
-                    this.setNewText(newText, null);
+                    this.setNewText(newText, false);
     
                     Swal.fire("Prettified!", "", "success");
                 });
@@ -701,7 +699,7 @@ export class Editor extends Component
 
             let newText = textP1.concat(Array.from(textToAdd)).concat(textP2).join("");
 
-            let newFormattedText = this.setNewText(newText, null);
+            let newFormattedText = this.setNewText(newText, true);
             newCursorPos += (newFormattedText.length - newText.length); //Adjust if text was shoved onto new line
 
             this.setState
@@ -710,7 +708,7 @@ export class Editor extends Component
                 prevCursorPosition: this.state.cursorPosition,
             }, () =>
             {
-                SetTextareaCursorPos(elem, newCursorPos);
+                SetTextareaCursorPos(newCursorPos, true);
             });
         }
     }
@@ -730,7 +728,7 @@ export class Editor extends Component
             let lastTextState = this.state.undoTextStack.pop();
             let lastCursorPosState = this.state.undoCursorStack.length > 0 ? this.state.undoCursorStack.pop() : 0;
             this.setState({undoTextStack: this.state.undoTextStack, undoCursorStack: this.state.undoCursorStack});
-            this.setTextState(lastTextState, lastCursorPosState, null);
+            this.setTextState(lastTextState, lastCursorPosState, true);
         }
     }
 
@@ -754,11 +752,8 @@ export class Editor extends Component
             //Actually perform redo
             let lastTextState = this.state.redoTextStack.pop();
             let lastCursorPosState = this.state.redoCursorStack.length > 0 ? this.state.redoCursorStack.pop() : 0;
-            console.log(lastTextState, this.state.redoTextStack);
             this.setState({redoTextStack: this.state.redoTextStack, redoCursorStack: this.state.redoCursorStack});
-            console.log(lastTextState, this.state.redoTextStack);
-            this.setTextState(lastTextState, lastCursorPosState, null);
-            console.log(lastTextState, this.state.redoTextStack);
+            this.setTextState(lastTextState, lastCursorPosState, true);
         }
     }
 
@@ -859,15 +854,23 @@ export class Editor extends Component
     }
 }
 
-function SetTextareaCursorPos(textArea, cursorPos)
+function SetTextareaCursorPos(cursorPos, autoAdjustScroll)
 {
-    textArea.focus();
-    textArea.setSelectionRange(cursorPos, cursorPos);
-
-    let charsPerRow = textArea.cols; //Number of chars in a row
-    let selectionRow = (cursorPos - (cursorPos % charsPerRow)) / charsPerRow; //Which row selection starts
-    let lineHeight = textArea.clientHeight / textArea.rows; //Row's height, in pixels
-    textArea.scrollTop = lineHeight * selectionRow; //Set scroll
+    var textArea = document.getElementById("main-textarea");
+    if (textArea != null)
+    {
+        textArea.focus();
+        textArea.setSelectionRange(cursorPos, cursorPos);
+    
+        if (autoAdjustScroll)
+        {
+            let charsPerRow = textArea.cols; //Number of chars in a row
+            let selectionRow = (cursorPos - (cursorPos % charsPerRow)) / charsPerRow; //Which row selection starts
+            let lineHeight = textArea.clientHeight / textArea.rows; //Row's height, in pixels
+            let newScrollTop = lineHeight * selectionRow;
+            textArea.scrollTop = newScrollTop; //Set scroll
+        }
+    }
 }
 
 export default Editor;
