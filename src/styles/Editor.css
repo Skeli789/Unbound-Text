@@ -1,0 +1,209 @@
+/* The CSS for the main page */
+
+.editor-page
+{
+    /* Centre horizontally and vertically */
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+    align-items: center;
+    text-align: center;
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    height: 100%;
+    width: 100%;
+}
+
+.editor-grid
+{
+    display: grid;
+    grid-template-columns: auto auto auto;
+    grid-template-rows: auto auto auto auto;
+    grid-template-areas: 
+        "topLeft quickButtons topRight"
+        "lockButton textAreaMain undoButtons"
+        "bottomLeft textAreaSub bottomRight"
+        "bottomLeft lowerEditor bottomRight";
+}
+
+
+/* Buttons on Top */
+
+.quick-buttons
+{
+    display: flex;
+    grid-area: quickButtons;
+}
+
+.quick-button
+{
+    border-radius: 0px !important;
+    font-size: 0.75rem !important;
+    height: fit-content !important;
+}
+
+
+/* Text Areas */
+
+.fr-text
+{
+    
+    font-family: 'Pokemon Fire Red' !important;
+    font-size: 1.75rem !important;
+    line-height: 1.75rem !important;
+    word-spacing: 0.5rem !important;
+    letter-spacing: -0.5px !important;
+}
+
+.main-textarea
+{
+    grid-area: textAreaMain;
+}
+
+.converted-text
+{
+    cursor: copy;
+    padding-top: 0px !important;
+    overflow-y: hidden !important;
+    overflow-x: auto !important;
+    grid-area: textAreaSub;
+}
+
+textarea
+{
+    resize: none !important;
+    margin: 0;
+    -webkit-appearance: none;
+    padding: .78571429em 1em;
+    background: #fff;
+    border: 1px solid rgba(34,36,38,.15);
+    outline: 0;
+    color: rgba(0,0,0,.87);
+    border-radius: .28571429rem;
+    box-shadow: 0 0 0 0 transparent inset;
+    transition: color .1s ease,border-color .1s ease;
+    overflow-x: hidden;
+}
+
+textarea:focus
+{
+    color: rgba(0,0,0,.95);
+    border-color: #85b7d9;
+    border-radius: .28571429rem;
+    background: #fff;
+    box-shadow: 0 0 0 0 rgb(34 36 38 / 35%) inset;
+    -webkit-appearance: none;
+}
+
+
+/* Buttons & Details Below */
+
+.editor-underneath
+{
+    display: flex;
+    justify-content: space-between;
+    grid-area: lowerEditor;
+}
+
+.space-info
+{
+    padding: 1px 0.75rem;
+    border: solid 1px black;
+    margin-top: 3px;
+    width: 10.5rem;
+}
+
+.hidden-div
+{
+    visibility: hidden;
+    position: fixed;
+    top: 0;
+    left: 0;
+}
+
+button, svg
+{
+    cursor: pointer;
+    -webkit-touch-callout: none; /* iOS Safari */
+    -webkit-user-select: none; /* Safari */
+     -khtml-user-select: none; /* Konqueror HTML */
+       -moz-user-select: none; /* Old versions of Firefox */
+        -ms-user-select: none; /* Internet Explorer/Edge */
+            user-select: none; /* Non-prefixed version, currently
+                                  supported by Chrome, Edge, Opera and Firefox */
+}
+
+.prettify-button
+{
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+    margin-top: 3px !important;
+}
+
+
+/* Undo & Redo Buttons on Right */
+
+.undo-redo-buttons
+{
+    display: flex;
+    flex-direction: column;
+    grid-area: undoButtons;
+}
+
+.undo-redo-button
+{
+    cursor: pointer;
+    margin-left: 5px;
+    margin-bottom: 10px;
+    padding: 5px;
+    border-radius: 0.25rem;
+    color: white;
+}
+
+.active-undo-redo-button
+{
+    background-color: #0d6efd;
+}
+
+.active-undo-redo-button:hover
+{
+    background-color: #0b5ed7;
+}
+
+.disabled-undo-redo-button
+{
+    cursor: initial !important;
+    background-color: #6c757d;
+}
+
+
+/* Lock Button On Left */
+
+.lock-buttons
+{
+    display: flex;
+    flex-direction: column;
+    grid-area: lockButton;
+    justify-content: flex-end;
+}
+
+.lock-button
+{
+    cursor: pointer;
+    margin-right: 5px;
+    padding: 5px;
+    border-radius: 0.25rem;
+    color: white;
+}
+
+.text-unlocked
+{
+    background-color: #dc3545;
+}
+
+.text-locked
+{
+    color: black;
+    background-color: #ffc107;
+}
