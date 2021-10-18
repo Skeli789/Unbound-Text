@@ -1,6 +1,6 @@
 import React, {Component} from 'react';
 import {Button, OverlayTrigger, Tooltip} from "react-bootstrap";
-import {Form, TextArea} from 'semantic-ui-react';
+import {TextArea} from 'semantic-ui-react';
 import Swal from 'sweetalert2';
 
 import {FaUndo, FaRedo, FaLock, FaUnlock} from "react-icons/fa";
@@ -297,6 +297,8 @@ export class Editor extends Component
         text = text.replaceAll("[.]", "…").replaceAll("...", "…");
         text = text.replaceAll("[[", "[").replaceAll("]]", "]");
         text = text.replaceAll("\\e", "é");
+        text = text.replaceAll("“", '"');
+        text = text.replaceAll("”", '"');
 
         if (this.state.lockFinalLine)
             text = text.replace(/\n*$/, "") //Remove blank line at the end
@@ -569,6 +571,7 @@ export class Editor extends Component
     {
         let finalText = "";
         let newTextbox = true;
+        let inQuote = false;
         let text = this.state.text;
 
         text = text.trim();
@@ -589,8 +592,7 @@ export class Editor extends Component
                         continue;
                 }
             }
-
-            if (letter === "\n")
+            else if (letter === "\n")
             {
                 if (i + 1 < text.length)
                 {
@@ -612,6 +614,30 @@ export class Editor extends Component
                     }
                 }
             }
+            else if (letter == '"')
+            {
+                if (inQuote)
+                {
+                    if (i - 1 >= 0 && text[i - 1] === "\\")
+                        finalText += '"'; //Don't add an extra backslash
+                    else
+                        finalText += '\\"';
+
+                    inQuote = false;
+                }
+                else
+                {
+                    finalText += '"';
+                    inQuote = true;
+                }
+            }
+            else if (letter === "$")
+            {
+                if (i - 1 >= 0 && text[i - 1] === "\\")
+                    finalText += '$'; //Don't add an extra backslash
+                else
+                    finalText += '\\$';
+            }
             else
                 finalText += letter;
         }
@@ -632,15 +658,23 @@ export class Editor extends Component
             {
                 let finalText = "";
                 let inMacro = false;
+                let skipNextChar = false;
                 let skipNextCharIfWhitespace = false;
                 let text = this.state.text;
         
                 text = text.replaceAll("\n", " "); //First, remove all of the new lines
                 text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
                 text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
-                
-                for (let letter of text)
+                text = Array.from(text)
+
+                for (let [i, letter] of text.entries())
                 {
+                    if (skipNextChar)
+                    {
+                        skipNextChar = false;
+                        continue;
+                    }
+
                     if (!skipNextCharIfWhitespace || letter !== " ")
                         finalText += letter;
         
@@ -654,6 +688,12 @@ export class Editor extends Component
                     {
                         if (letter === "." || letter === "?" || letter === "!") //Sentence punctuation (not including ellipses)
                         {
+                            if (i + 1 < text.length && text[i + 1] === '"')
+                            {
+                                finalText += '"'; //Place the quote before moving to the next textbox
+                                skipNextChar = true;
+                            }
+
                             finalText += "\n\n"; //Move to new textbox
                             skipNextCharIfWhitespace = true;
                         }
