@@ -592,7 +592,8 @@ export class Editor extends Component
                         continue;
                 }
             }
-            else if (letter === "\n")
+
+            if (letter === "\n") //Intentionally not else if
             {
                 if (i + 1 < text.length)
                 {
