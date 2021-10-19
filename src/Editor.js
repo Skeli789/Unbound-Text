@@ -246,6 +246,19 @@ export class Editor extends Component
         return false;
     }
 
+    lineHasCharAfterIndexBeforeOtherChar(line, index, char, otherChar)
+    {
+        for (let i = index; i < line.length; ++i)
+        {
+            if (line[i] === otherChar)
+                return false;
+            else if (line[i] === char)
+                return true;
+        }
+
+        return false;
+    }
+
     getCursorLine()
     {
         let text = this.state.text;
@@ -286,9 +299,7 @@ export class Editor extends Component
     formatString(text)
     {
         let width = 0;
-        let macroText = "";
         let finalLines = [];
-        let inMacro = false;
         let addedLine = false;
 
         //Replace certain text strings
@@ -307,6 +318,8 @@ export class Editor extends Component
         let lines = text.split("\n");
         for (let [i, line] of lines.entries())
         {
+            let inMacro = false; //Macros can't exist over multiple lines
+            let macroText = "";
             let finalLine = [];
             let currWord = [];
             let lastWordStartIndex = 0;
@@ -369,7 +382,9 @@ export class Editor extends Component
                     }
                     else //Build up the macro
                     {
-                        letter = letter.toUpperCase();
+                        if (this.lineHasCharAfterIndexBeforeOtherChar(line, j, "]", "["))
+                            letter = letter.toUpperCase();
+
                         macroText += letter;
                     }
                 }
@@ -615,7 +630,7 @@ export class Editor extends Component
                     }
                 }
             }
-            else if (letter == '"')
+            else if (letter === '"')
             {
                 if (inQuote)
                 {
