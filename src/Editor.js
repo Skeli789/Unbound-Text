@@ -310,6 +310,7 @@ export class Editor extends Component
         text = text.replaceAll("\\e", "é");
         text = text.replaceAll("“", '"');
         text = text.replaceAll("”", '"');
+        text = text.replaceAll("_FR]", "]").replaceAll("_EM]", "]"); //XSE Colour Endings
 
         if (this.state.lockFinalLine)
             text = text.replace(/\n*$/, "") //Remove blank line at the end
