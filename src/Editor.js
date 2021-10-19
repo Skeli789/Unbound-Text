@@ -677,7 +677,7 @@ export class Editor extends Component
                 let skipNextChar = false;
                 let skipNextCharIfWhitespace = false;
                 let text = this.state.text;
-        
+
                 text = text.replaceAll("\n", " "); //First, remove all of the new lines
                 text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
                 text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
@@ -693,7 +693,7 @@ export class Editor extends Component
 
                     if (!skipNextCharIfWhitespace || letter !== " ")
                         finalText += letter;
-        
+
                     skipNextCharIfWhitespace = false;
         
                     if (letter === "[")
@@ -712,6 +712,23 @@ export class Editor extends Component
 
                             finalText += "\n\n"; //Move to new textbox
                             skipNextCharIfWhitespace = true;
+                        }
+                        else if (letter === "…")
+                        {
+                            if (i - 1 > 0 && i - 1 !== " " //Didn't lead the line
+                            && i + 1 < text.length)
+                            {
+                                if (text[i + 1] !== " ") //And sandwiched between two words (eg. Hi...there)
+                                    finalText += " "; //Add a whitespace after the ellipses
+                                else //Whitespace after the ellipses
+                                {
+                                    if (i + 2 < text.length && /^[A-Z]*$/.test(text[i + 2])) //And next character is an uppercase letter
+                                    {
+                                        finalText += "\n\n"; //Move to new textbox
+                                        skipNextCharIfWhitespace = true;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
