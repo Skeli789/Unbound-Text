@@ -304,7 +304,7 @@ export class Editor extends Component
 
         //Replace certain text strings
         text = text.trimStart();
-        text = text.replaceAll("\\n", "\n").replaceAll("\\p", "\n\n").replaceAll("\\l", "\n"); //Enable copy-paste
+        text = text.replaceAll("\\pn", "\n\n").replaceAll("\\n", "\n").replaceAll("\\p", "\n\n").replaceAll("\\l", "\n"); //Enable copy-paste - first is from HexManiac
         text = text.replaceAll("[.]", "…").replaceAll("...", "…");
         text = text.replaceAll("[[", "[").replaceAll("]]", "]");
         text = text.replaceAll("\\e", "é");
