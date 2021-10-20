@@ -48,8 +48,7 @@
 
 .fr-text
 {
-    
-    font-family: 'Pokemon Fire Red' !important;
+    font-family: "Pokemon Fire Red", "Arial Narrow" !important;
     font-size: 1.75rem !important;
     line-height: 1.75rem !important;
     word-spacing: 0.5rem !important;
