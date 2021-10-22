@@ -18,13 +18,14 @@
 .editor-grid
 {
     display: grid;
-    grid-template-columns: auto auto auto;
-    grid-template-rows: auto auto auto auto;
+    grid-template-columns: auto auto auto 10.5rem auto;
+    grid-template-rows: auto auto auto auto auto;
     grid-template-areas: 
-        "topLeft quickButtons topRight"
-        "lockButton textAreaMain undoButtons"
-        "bottomLeft textAreaSub bottomRight"
-        "bottomLeft lowerEditor bottomRight";
+        "topLeft quickButtons quickButtons quickButtons topRight"
+        "lockButton textAreaMain textAreaMain textAreaMain undoButtons"
+        "bottomLeft textAreaSub textAreaSub textAreaSub bottomRight"
+        "bottomLeft prettifier undoMobile spaceCount bottomRight"
+        "lockMobile lockMobile lockMobile lockMobile lockMobile"
 }
 
 
@@ -98,19 +99,14 @@ textarea:focus
 
 /* Buttons & Details Below */
 
-.editor-underneath
-{
-    display: flex;
-    justify-content: space-between;
-    grid-area: lowerEditor;
-}
-
 .space-info
 {
     padding: 1px 0.75rem;
     border: solid 1px black;
     margin-top: 3px;
     width: 10.5rem;
+    margin-left: auto; /*Aligns right*/
+    grid-area: spaceCount;
 }
 
 .hidden-div
@@ -138,6 +134,7 @@ button, svg
     padding-top: 1px !important;
     padding-bottom: 1px !important;
     margin-top: 3px !important;
+    grid-area: prettifier;
 }
 
 
@@ -148,6 +145,34 @@ button, svg
     display: flex;
     flex-direction: column;
     grid-area: undoButtons;
+}
+
+@media (max-width: 800px)
+{
+    /* Displayed if width is <= than 500px goes here */
+    textarea
+    {
+        overflow-x: auto !important;
+    }
+
+    .undo-redo-buttons
+    {
+        flex-direction: row;
+        margin: auto;
+        grid-area: undoMobile !important;
+        margin-bottom: 5px;
+        margin-top: 5px;
+    }
+
+    .undo-redo-button
+    {
+        margin-bottom: 0px !important;
+    }
+
+    .lock-buttons
+    {
+        grid-area: lockMobile !important;
+    }
 }
 
 .undo-redo-button

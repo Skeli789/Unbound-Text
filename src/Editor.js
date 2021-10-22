@@ -887,10 +887,8 @@ export class Editor extends Component
                     />
 
                     {/*Space Details & Prettifier*/}
-                    <div className="editor-underneath">
-                        <div><Button onClick={this.prettifyText.bind(this)} variant="danger" className="prettify-button">Prettify</Button></div>
-                        <div className="space-info"><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth} ~ <span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</div>
-                    </div>
+                    <Button onClick={this.prettifyText.bind(this)} variant="danger" className="prettify-button">Prettify</Button>
+                    <div className="space-info"><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth} ~ <span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</div>
 
                     {/*Lock Final Line Button*/}
                     <div className="lock-buttons">
