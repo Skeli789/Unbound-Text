@@ -147,7 +147,7 @@ button, svg
     grid-area: undoButtons;
 }
 
-@media (max-width: 800px)
+@media (max-width: 500px)
 {
     /* Displayed if width is <= than 500px goes here */
     textarea
