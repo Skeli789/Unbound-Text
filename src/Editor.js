@@ -69,17 +69,9 @@ export class Editor extends Component
         this.myInput = React.createRef()
     }
 
-    isColour(char)
-    {
-        return char === "🟢"
-            || char === "🔵"
-            || char === "🔴"
-            || char === "⚫";
-    }
-
     getCharacterWidth(char)
     {
-        if (this.isColour(char))
+        if (IsColour(char))
             return 0;
         else if (char in FontSizes.charSizes)
             return FontSizes.charSizes[char];
@@ -695,15 +687,16 @@ export class Editor extends Component
                     if (!skipNextCharIfWhitespace || letter !== " ")
                         finalText += letter;
 
-                    skipNextCharIfWhitespace = false;
-        
+                    if (!IsColour(letter)) //Not a real character, so continue trying to skip
+                        skipNextCharIfWhitespace = false;
+
                     if (letter === "[")
                         inMacro = true;
                     else if (letter === "]")
                         inMacro = false;
                     else if (!inMacro)
                     {
-                        if (letter === "." || letter === "?" || letter === "!") //Sentence punctuation (not including ellipses)
+                        if (IsPunctuation(letter)) //Sentence punctuation (not including ellipses)
                         {
                             if (i + 1 < text.length && text[i + 1] === '"')
                             {
@@ -719,17 +712,35 @@ export class Editor extends Component
                             if (i - 1 > 0 && i - 1 !== " " //Didn't lead the line
                             && i + 1 < text.length)
                             {
-                                if (text[i + 1] !== " ") //And sandwiched between two words (eg. Hi...there)
+                                let nextLetterIndex = GetNextLetterIndex(text, i + 1);
+                                let nextLetter = text[nextLetterIndex];
+                                console.log(nextLetter);
+
+                                if (nextLetter !== " " && !IsPunctuation(nextLetter)) //And sandwiched between two words (eg. Hi...there)
                                     finalText += " "; //Add a whitespace after the ellipses
                                 else //Whitespace after the ellipses
                                 {
-                                    if (i + 2 < text.length && /^[A-Z]*$/.test(text[i + 2])) //And next character is an uppercase letter
+                                    let secondNextLetterIndex = GetNextLetterIndex(text, nextLetterIndex + 1);
+                                    if (secondNextLetterIndex < text.length)
                                     {
-                                        finalText += "\n\n"; //Move to new textbox
-                                        skipNextCharIfWhitespace = true;
+                                        if (/^[A-Z]*$/.test(text[secondNextLetterIndex])) //And next character is an uppercase letter
+                                        {
+                                            let nextIndex = i + 1;
+                                            while (text[nextIndex] === " ") ++nextIndex; //Fixes problems like "... [PAUSE][20]I hate it!"
+
+                                            if (!IsPause(text, nextIndex)) //Pause between ... and capital letter clearly indicates it should be in the same textbox
+                                            {
+                                                finalText += "\n\n"; //Move to new textbox
+                                                skipNextCharIfWhitespace = true;
+                                            }
+                                        }
+                                        else if (IsPunctuation(text[secondNextLetterIndex]))
+                                            skipNextCharIfWhitespace = true; //Shouldn't be space between ellipses and punctuation
                                     }
                                 }
                             }
+                            else
+                                skipNextCharIfWhitespace = true; //Shouldn't be space between and first word of line
                         }
                     }
                 }
@@ -943,6 +954,55 @@ function SetTextareaCursorPos(cursorPos, autoAdjustScroll)
             textArea.scrollTop = newScrollTop; //Set scroll
         }
     }
+}
+
+function IsColour(char)
+{
+    return char === "🟢"
+        || char === "🔵"
+        || char === "🔴"
+        || char === "⚫";
+}
+
+function IsPunctuation(char)
+{
+    return char === "." || char === "!" || char === "?";
+}
+
+function IsPause(text, nextLetterIndex)
+{
+    return text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[PAUSE]";
+}
+
+function GetNextLetterIndex(text, nextLetterIndex)
+{
+    if (nextLetterIndex >= text.length)
+        return nextLetterIndex; //No more letters
+
+    if (IsColour(text[nextLetterIndex]))
+        return GetNextLetterIndex(text, nextLetterIndex + 1); //Skip past colour
+    else if (IsPause(text, nextLetterIndex))
+        return GetNextLetterIndex(text, nextLetterIndex + 7); //Skip past pause start
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[RIVAL]")
+        return "R";
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 8).join("") === "[PLAYER]")
+        return "P";
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[BUFFER")
+        return "B";
+    else if (text[nextLetterIndex] === "[")
+    {
+        while (nextLetterIndex < text.length && text[nextLetterIndex] !== "]")
+            ++nextLetterIndex;
+
+        ++nextLetterIndex;
+
+        if (nextLetterIndex < text.length)
+            return GetNextLetterIndex(text, nextLetterIndex); //Try after the macro
+
+        //No more letters
+    }
+
+    return nextLetterIndex;
 }
 
 export default Editor;
