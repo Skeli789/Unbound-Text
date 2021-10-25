@@ -698,10 +698,15 @@ export class Editor extends Component
                     {
                         if (IsPunctuation(letter)) //Sentence punctuation (not including ellipses)
                         {
-                            if (i + 1 < text.length && text[i + 1] === '"')
+                            if (i + 1 < text.length)
                             {
-                                finalText += '"'; //Place the quote before moving to the next textbox
-                                skipNextChar = true;
+                                if (text[i + 1] === '"')
+                                {
+                                    finalText += '"'; //Place the quote before moving to the next textbox
+                                    skipNextChar = true;
+                                }
+                                else if (IsPunctuation(text[i + 1])) //Eg. !?
+                                    continue; //Don't add the new line yet
                             }
 
                             finalText += "\n\n"; //Move to new textbox
