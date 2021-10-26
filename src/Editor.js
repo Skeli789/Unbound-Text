@@ -69,10 +69,12 @@ export class Editor extends Component
         this.myInput = React.createRef()
     }
 
-    getCharacterWidth(char)
+    getCharacterWidth(char, nextChar)
     {
         if (IsColour(char))
             return 0;
+        else if (nextChar === "\n" && char in FontSizes.actulCharSizes)
+            return FontSizes.actulCharSizes[char]; //Get the reduced width for being at the end of the line
         else if (char in FontSizes.charSizes)
             return FontSizes.charSizes[char];
         else
@@ -111,13 +113,15 @@ export class Editor extends Component
                 else //Build up the macro
                     macroText += letter;
             }
-           else
-           {
-               if (letter === " " && (i + 1 >= text.length || text[i + 1] === "\n"))
+            else
+            {
+                let nextChar = (i + 1 >= text.length) ? "\n" : text[i + 1];
+
+                if (letter === " " && nextChar === "\n")
                     break; //Ignore trailing whitespace
 
-               width += this.getCharacterWidth(letter);
-           }
+                width += this.getCharacterWidth(letter, nextChar);
+            }
 
             if (letter === "\n")
                 break;
@@ -383,10 +387,12 @@ export class Editor extends Component
                 }
                 else
                 {
-                    if (letter === " " && j + 1 >= line.length)
+                    let nextChar = (j + 1 >= line.length) ? "\n" : line[j + 1];
+
+                    if (letter === " " && nextChar === "\n")
                         {} //Ignore trailing whitespace
                     else
-                        width += this.getCharacterWidth(letter);
+                        width += this.getCharacterWidth(letter, nextChar);
                 }
 
                 if (letter === " ") //Whitespace
@@ -719,7 +725,6 @@ export class Editor extends Component
                             {
                                 let nextLetterIndex = GetNextLetterIndex(text, i + 1);
                                 let nextLetter = text[nextLetterIndex];
-                                console.log(nextLetter);
 
                                 if (nextLetter !== " " && !IsPunctuation(nextLetter)) //And sandwiched between two words (eg. Hi...there)
                                     finalText += " "; //Add a whitespace after the ellipses
@@ -833,7 +838,6 @@ export class Editor extends Component
 
     redoButton()
     {
-        console.log("Redoing");
         if (this.state.redoTextStack.length > 0)
         {
             //Update Undo State
