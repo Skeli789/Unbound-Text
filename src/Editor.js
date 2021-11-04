@@ -10,6 +10,8 @@ import FontSizes from "./FontSizes.json";
 
 import "./styles/Editor.css";
 
+//TODO: Better cursor adjustment
+
 const blackTextTooltip = props => (<Tooltip {...props}>Black</Tooltip>);
 const blueTextTooltip = props => (<Tooltip {...props}>Blue</Tooltip>);
 const greenTextTooltip = props => (<Tooltip {...props}>Green</Tooltip>);
@@ -720,37 +722,46 @@ export class Editor extends Component
                         }
                         else if (letter === "…")
                         {
-                            if (i - 1 > 0 && i - 1 !== " " //Didn't lead the line
-                            && i + 1 < text.length)
+                            if (i + 1 < text.length)
                             {
+                                let doesntLeadLine = i - 1 > 0 && i - 1 !== " " //Didn't lead the line
                                 let nextLetterIndex = GetNextLetterIndex(text, i + 1);
                                 let nextLetter = text[nextLetterIndex];
 
-                                if (nextLetter !== " " && !IsPunctuation(nextLetter)) //And sandwiched between two words (eg. Hi...there)
-                                    finalText += " "; //Add a whitespace after the ellipses
-                                else //Whitespace after the ellipses
+                                if (!doesntLeadLine) //Leads line
                                 {
-                                    let secondNextLetterIndex = GetNextLetterIndex(text, nextLetterIndex + 1);
-                                    if (secondNextLetterIndex < text.length)
-                                    {
-                                        if (/^[A-Z]*$/.test(text[secondNextLetterIndex])) //And next character is an uppercase letter
-                                        {
-                                            let nextIndex = i + 1;
-                                            while (text[nextIndex] === " ") ++nextIndex; //Fixes problems like "... [PAUSE][20]I hate it!"
+                                    if (nextLetter === "…")
+                                        doesntLeadLine = true; //Should always be space between ... and ...
+                                }
 
-                                            if (!IsPause(text, nextIndex)) //Pause between ... and capital letter clearly indicates it should be in the same textbox
+                                if (doesntLeadLine)
+                                {
+                                    if (nextLetter !== " " && !IsPunctuation(nextLetter)) //And sandwiched between two words (eg. Hi...there)
+                                        finalText += " "; //Add a whitespace after the ellipses
+                                    else //Whitespace after the ellipses
+                                    {
+                                        let secondNextLetterIndex = GetNextLetterIndex(text, nextLetterIndex + 1);
+                                        if (secondNextLetterIndex < text.length)
+                                        {
+                                            if (/^[A-Z]*$/.test(text[secondNextLetterIndex])) //And next character is an uppercase letter
                                             {
-                                                finalText += "\n\n"; //Move to new textbox
-                                                skipNextCharIfWhitespace = true;
+                                                let nextIndex = i + 1;
+                                                while (text[nextIndex] === " ") ++nextIndex; //Fixes problems like "... [PAUSE][20]I hate it!"
+
+                                                if (!IsPause(text, nextIndex)) //Pause between ... and capital letter clearly indicates it should be in the same textbox
+                                                {
+                                                    finalText += "\n\n"; //Move to new textbox
+                                                    skipNextCharIfWhitespace = true;
+                                                }
                                             }
+                                            else if (IsPunctuation(text[secondNextLetterIndex]))
+                                                skipNextCharIfWhitespace = true; //Shouldn't be space between ellipses and punctuation
                                         }
-                                        else if (IsPunctuation(text[secondNextLetterIndex]))
-                                            skipNextCharIfWhitespace = true; //Shouldn't be space between ellipses and punctuation
                                     }
                                 }
+                                else
+                                    skipNextCharIfWhitespace = true; //Shouldn't be space between and first word of line    
                             }
-                            else
-                                skipNextCharIfWhitespace = true; //Shouldn't be space between and first word of line
                         }
                     }
                 }
