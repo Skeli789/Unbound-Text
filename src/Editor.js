@@ -301,13 +301,10 @@ export class Editor extends Component
         let addedLine = false;
 
         //Replace certain text strings
-        text = text.trimStart();
         text = text.replaceAll("\\pn", "\n\n").replaceAll("\\n", "\n").replaceAll("\\p", "\n\n").replaceAll("\\l", "\n"); //Enable copy-paste - first is from HexManiac
-        text = text.replaceAll("[.]", "…").replaceAll("...", "…");
+        text = text.replaceAll("[.]", "…").replaceAll("...", "…").replaceAll("…]", "…"); //Remove accidental extra square bracket
         text = text.replaceAll("[[", "[").replaceAll("]]", "]");
         text = text.replaceAll("\\e", "é");
-        text = text.replaceAll("“", '"');
-        text = text.replaceAll("”", '"');
         text = text.replaceAll("_FR]", "]").replaceAll("_EM]", "]"); //XSE Colour Endings
 
         if (this.state.lockFinalLine)
@@ -356,7 +353,7 @@ export class Editor extends Component
             //Go through each character in the line
             for (let [j, letter] of line.entries())
             {
-                if (letter === " " && line[j - 1] === " ") //Two whitespaces in a row
+                if (letter === " " && j - 2 >= 0 && line[j - 1] === " " && line[j - 2] === " ") //Three whitespaces in a row
                     continue; //Don't allow
                 else if (letter === "[") //Start of macro
                 {
@@ -593,6 +590,9 @@ export class Editor extends Component
         text = text.trim();
         text = text.replaceAll("Pokemon", "Pok\\emon");
         text = text.replaceAll("é", "\\e");
+        text = text.replaceAll("–", "-");
+        text = text.replaceAll("“", '"');
+        text = text.replaceAll("”", '"');
         text = this.replaceWithMacros(text, COLOURS);
         text = this.replaceWithMacros(text, OTHER_REPLACEMENT_MACROS);
 
@@ -617,7 +617,9 @@ export class Editor extends Component
                     {
                         finalText += "\\p";
                         newTextbox = true;
-                        ++i; //Skip the next \n
+
+                        while (i < text.length && text[i + 1] === "\n")
+                            ++i; //Skip to the next textbox
                     }
                     else
                     {
