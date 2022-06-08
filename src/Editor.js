@@ -814,9 +814,9 @@ export class Editor extends Component
             let actualTextList = [];
             text = this.createIngameText()
             text = text.replaceAll("\\e", "é").replaceAll('\\"', '"').replaceAll("[.]", "…");
-            text = text.replaceAll(/(\.)\\n/g, ".\r"); //\n's with a . before them
-            text = text.replaceAll(/(\!)\\n/g, "!\r"); //\n's with a ! before them
-            text = text.replaceAll(/(\?)\\n/g, "?\r"); //\n's with a ? before them
+            text = text.replaceAll(/(\.)\\n/g, ".\n"); //\n's with a . before them
+            text = text.replaceAll(/(\!)\\n/g, "!\n"); //\n's with a ! before them
+            text = text.replaceAll(/(\?)\\n/g, "?\n"); //\n's with a ? before them
             text = text.replaceAll(/(\…)\\n/g, "…\n"); //\n's with a … before them
             text = text.replaceAll("\\n", " ").replaceAll("\\l", " ").replaceAll("\\p", "\n"); //
             text = text.replaceAll("[PLAYER]", "Billybobbydoe").replaceAll("[RIVAL]", "Billybobbyfoe"); //So they provide the correct context in the sentence
