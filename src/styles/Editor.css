@@ -18,14 +18,14 @@
 .editor-grid
 {
     display: grid;
-    grid-template-columns: auto auto auto 10.5rem auto;
+    grid-template-columns: auto auto auto auto 10.5rem auto;
     grid-template-rows: auto auto auto auto auto;
     grid-template-areas: 
-        "topLeft quickButtons quickButtons quickButtons topRight"
-        "lockButton textAreaMain textAreaMain textAreaMain undoButtons"
-        "bottomLeft textAreaSub textAreaSub textAreaSub bottomRight"
-        "bottomLeft prettifier undoMobile spaceCount bottomRight"
-        "lockMobile lockMobile lockMobile lockMobile lockMobile"
+        "topLeft quickButtons quickButtons quickButtons quickButtons topRight"
+        "lockButton textAreaMain textAreaMain textAreaMain textAreaMain undoButtons"
+        "bottomLeft textAreaSub textAreaSub textAreaSub textAreaSub bottomRight"
+        "bottomLeft prettifier lockMobile undoMobile spaceCount bottomRight"
+        "bottomLeft translator translator translator translator bottomRight"
 }
 
 
@@ -117,7 +117,7 @@ textarea:focus
     left: 0;
 }
 
-button, svg
+button, svg, .navbar-brand
 {
     cursor: pointer;
     -webkit-touch-callout: none; /* iOS Safari */
@@ -135,6 +135,14 @@ button, svg
     padding-bottom: 1px !important;
     margin-top: 3px !important;
     grid-area: prettifier;
+}
+
+.translate-button
+{
+    padding-top: 1px !important;
+    padding-bottom: 1px !important;
+    margin-top: 3px !important;
+    grid-area: translator;
 }
 
 
