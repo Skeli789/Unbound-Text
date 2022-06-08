@@ -1,5 +1,6 @@
+import axios from 'axios';
 import React, {Component} from 'react';
-import {Button, OverlayTrigger, Tooltip} from "react-bootstrap";
+import {Button, OverlayTrigger, Tooltip, Navbar, Container, Nav, NavDropdown} from "react-bootstrap";
 import {TextArea} from 'semantic-ui-react';
 import Swal from 'sweetalert2';
 
@@ -26,6 +27,7 @@ const unlockTooltip = props => (<Tooltip className="show" {...props}>Final Line 
 
 const FULL_LINE_WIDTH = 206;
 const SEMI_LINE_WIDTH = 196;
+const TRANSLATION_CHAR_LIMIT = 250; //Imposed by the API
 
 const COLOURS =
 {
@@ -47,6 +49,14 @@ const OTHER_REPLACEMENT_MACROS =
     "B_BUTTON": "🅱",
 };
 
+const SUPPORTED_LANGUAGES =
+{
+    "Spanish": "es",
+    "French": "fr",
+    "German": "de",
+    "Italian": "it",
+};
+
 
 export class Editor extends Component
 {
@@ -65,7 +75,8 @@ export class Editor extends Component
             undoCursorStack: [],
             redoTextStack: [],
             redoCursorStack: [],
-            lockFinalLine:  false,
+            lockFinalLine: false,
+            translateToLanguage: "Language",
         };
 
         this.myInput = React.createRef()
@@ -781,6 +792,103 @@ export class Editor extends Component
         });
     }
 
+    setTranslationLanguage(language)
+    {
+        this.setState({translateToLanguage: language});
+    }
+
+    async translateText()
+    {
+        if (!(this.state.translateToLanguage in SUPPORTED_LANGUAGES))
+        {
+            Swal.fire("Please choose a language first.", "", "error");
+        }
+        else if (this.state.text === "")
+        {
+            Swal.fire("Please add some text to translate first.", "", "error");
+        }
+        else
+        {
+            let text, textList, currText;
+            let translatedTextList = [];
+            let actualTextList = [];
+            text = this.createIngameText()
+            text = text.replaceAll("\\e", "é").replaceAll('\\"', '"').replaceAll("[.]", "…");
+            text = text.replaceAll(/(\.)\\n/g, ".\r"); //\n's with a . before them
+            text = text.replaceAll(/(\!)\\n/g, "!\r"); //\n's with a ! before them
+            text = text.replaceAll(/(\?)\\n/g, "?\r"); //\n's with a ? before them
+            text = text.replaceAll(/(\…)\\n/g, "…\n"); //\n's with a … before them
+            text = text.replaceAll("\\n", " ").replaceAll("\\l", " ").replaceAll("\\p", "\n"); //
+            text = text.replaceAll("[PLAYER]", "Billybobbydoe").replaceAll("[RIVAL]", "Billybobbyfoe"); //So they provide the correct context in the sentence
+            text = text.replaceAll("[PAUSE][", "[PAUSE").replaceAll("[BUFFER][0", "[BUFFER0");
+            text = text.replaceAll("[", "<").replaceAll("]", ">"); //Prevent buffers from being removed by turning them into HTML tags
+            textList = text.split("\n");
+
+            Swal.fire
+            ({
+                title: "Translating...",
+                showConfirmButton: false,
+                scrollbarPadding: false,
+                allowOutsideClick: false,
+                didOpen: () =>
+                {
+                    Swal.showLoading();
+                },
+            });
+
+            //Seperate text into groups of TRANSLATION_CHAR_LIMIT
+            currText = "";
+            for (text of textList)
+            {
+                if (currText.length + text.length + "\n".length > TRANSLATION_CHAR_LIMIT)
+                {
+                    if (currText.length > 0)
+                        actualTextList.push(currText);
+                    currText = text;
+                }
+                else
+                {
+                    if (currText !== "")
+                        currText += "\n";
+
+                    currText += text;
+                }
+            }
+
+            if (currText.length > 0)
+                actualTextList.push(currText);
+
+            try
+            {
+                for (text of actualTextList) //Translate each paragraph at a time as to not overwhelm the server
+                {
+                    let data =
+                    {
+                        q: text,
+                        source: "en",
+                        format: "html",
+                        target: SUPPORTED_LANGUAGES[this.state.translateToLanguage],
+                    };
+    
+                    let response = await axios.post(`https://libretranslate.de/translate`, data);
+                    text = response.data.translatedText;
+                    text = text.replaceAll("Billybobbydoe", "[PLAYER]").replaceAll("Billybobbyfoe", "[RIVAL]"); //Give Player and Rival their buffers back
+                    text = text.replaceAll(/<\/.*>/g, ""); //Remove closing tags added in
+                    text = text.replaceAll("<pause", "<pause><").replaceAll("<buffer0", "<buffer><0"); //Restore newer buffers
+                    text = text.replaceAll("<", "[").replaceAll(">", "]"); //Convert all buffers back
+                    translatedTextList.push(text);
+                }
+
+                this.setNewText(translatedTextList.join("\\p").replaceAll("\n", "\\p"), false);
+                Swal.close();
+            }
+            catch (e)
+            {
+                Swal.fire("Translation site was overwhelmed!\nPlease wait 1 minute before trying again.", "", "error");
+            }
+        }
+    }
+
     copyConvertedText()
     {
         var elem = document.getElementById("converted-text");
@@ -869,6 +977,33 @@ export class Editor extends Component
         this.setState({lockFinalLine: lockLine});
     }
 
+    printTranslationBar()
+    {
+        var languages = [];
+
+        for (let language of Object.keys(SUPPORTED_LANGUAGES))
+            languages.push(<NavDropdown.Item key={SUPPORTED_LANGUAGES[language]} onClick={this.setTranslationLanguage.bind(this, language)}>{language}</NavDropdown.Item>);
+
+        return (
+            <Navbar variant="dark" bg="dark" expand="lg" className="translate-button">
+                <Container fluid>
+                    <Navbar.Brand onClick={this.translateText.bind(this)}>Translate</Navbar.Brand>
+                    <Navbar.Toggle aria-controls="navbar-dark-example" />
+                    <Navbar.Collapse>
+                    <Nav>
+                        <NavDropdown
+                            title={this.state.translateToLanguage}
+                            menuVariant="dark"
+                        >
+                            {languages}
+                        </NavDropdown>
+                    </Nav>
+                    </Navbar.Collapse>
+                </Container>
+            </Navbar>
+        );
+    }
+
     render()
     {
         let cursorLineWidth = this.getCursorLineWidth();
@@ -922,6 +1057,9 @@ export class Editor extends Component
                     {/*Space Details & Prettifier*/}
                     <Button onClick={this.prettifyText.bind(this)} variant="danger" className="prettify-button">Prettify</Button>
                     <div className="space-info"><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth} ~ <span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</div>
+
+                    {/*Translation*/}
+                    {this.printTranslationBar()}
 
                     {/*Lock Final Line Button*/}
                     <div className="lock-buttons">
