@@ -894,7 +894,7 @@ export class Editor extends Component
 
     copyConvertedText()
     {
-        var elem = document.getElementById("converted-text");
+        var elem = document.getElementById(GetConvertedTextId(!this.state.showTranslate));
         if (elem != null)
         {
             elem.select(); //Select all text
@@ -1061,7 +1061,7 @@ export class Editor extends Component
                 <TextArea
                     readOnly={true}
                     className="fr-text converted-text"
-                    id = "converted-text"
+                    id = {GetConvertedTextId(!this.state.showTranslate)}
                     rows={1}
                     style={textAreaStyle}
                     value={this.createIngameText()}
@@ -1113,9 +1113,17 @@ export class Editor extends Component
 function GetTextAreaId(isTranslationBox)
 {
     if (isTranslationBox)
-        return "translated-textarea"
+        return "translated-textarea";
     else
         return "main-textarea";
+}
+
+function GetConvertedTextId(isTranslationBox)
+{
+    if (isTranslationBox)
+        return "converted-text-translated"
+    else
+        return "converted-text"
 }
 
 function SetTextareaCursorPos(cursorPos, autoAdjustScroll, isTranslationBox)
