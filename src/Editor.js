@@ -66,7 +66,7 @@ export class Editor extends Component
 
         this.state =
         {
-            text: "",
+            text: props.text,
             firstLineWidth: 0,
             cursorPosition: 0,
             prevCursorPosition: 0,
@@ -76,6 +76,8 @@ export class Editor extends Component
             redoTextStack: [],
             redoCursorStack: [],
             lockFinalLine: false,
+            showTranslate: props.showTranslate,
+            showTranslationBox: props.showTranslationBox,
             translateToLanguage: "Language",
         };
 
@@ -550,7 +552,7 @@ export class Editor extends Component
             });
 
             if (cursorPos >= 0)
-                SetTextareaCursorPos(cursorPos, autoAdjustScroll);
+                SetTextareaCursorPos(cursorPos, autoAdjustScroll, !this.state.showTranslate);
         });
     }
 
@@ -815,9 +817,9 @@ export class Editor extends Component
             text = this.createIngameText()
             text = text.replaceAll("\\e", "é").replaceAll('\\"', '"').replaceAll("[.]", "…");
             text = text.replaceAll(/(\.)\\n/g, ".\n"); //\n's with a . before them
-            text = text.replaceAll(/(\!)\\n/g, "!\n"); //\n's with a ! before them
+            text = text.replaceAll(/(!)\\n/g, "!\n"); //\n's with a ! before them
             text = text.replaceAll(/(\?)\\n/g, "?\n"); //\n's with a ? before them
-            text = text.replaceAll(/(\…)\\n/g, "…\n"); //\n's with a … before them
+            text = text.replaceAll(/(…)\\n/g, "…\n"); //\n's with a … before them
             text = text.replaceAll("\\n", " ").replaceAll("\\l", " ").replaceAll("\\p", "\n"); //
             text = text.replaceAll("[PLAYER]", "Billybobbydoe").replaceAll("[RIVAL]", "Billybobbyfoe"); //So they provide the correct context in the sentence
             text = text.replaceAll("[PAUSE][", "[PAUSE").replaceAll("[BUFFER][0", "[BUFFER0");
@@ -879,7 +881,8 @@ export class Editor extends Component
                     translatedTextList.push(text);
                 }
 
-                this.setNewText(translatedTextList.join("\\p").replaceAll("\n", "\\p"), false);
+                let translatedText = translatedTextList.join("\\p").replaceAll("\n", "\\p");
+                this.state.showTranslationBox(this.formatString(this.formatString(translatedText)));
                 Swal.close();
             }
             catch (e)
@@ -902,7 +905,7 @@ export class Editor extends Component
 
     addTextAtSelectionStart(textToAdd)
     {
-        var elem = document.getElementById("main-textarea");
+        var elem = document.getElementById(GetTextAreaId(!this.state.showTranslate));
         if (elem != null)
         {
             let oldText = this.state.text;
@@ -924,7 +927,7 @@ export class Editor extends Component
                 prevCursorPosition: this.state.cursorPosition,
             }, () =>
             {
-                SetTextareaCursorPos(newCursorPos, true);
+                SetTextareaCursorPos(newCursorPos, true, !this.state.showTranslate);
             });
         }
     }
@@ -984,6 +987,18 @@ export class Editor extends Component
         for (let language of Object.keys(SUPPORTED_LANGUAGES))
             languages.push(<NavDropdown.Item key={SUPPORTED_LANGUAGES[language]} onClick={this.setTranslationLanguage.bind(this, language)}>{language}</NavDropdown.Item>);
 
+        if (!this.state.showTranslate) //Is the translated text box
+        {
+            return (
+                <Navbar variant="dark" bg="dark" expand="lg" className="translate-button">
+                    <Container fluid className="translated-text-navbar-container">
+                        <Navbar.Brand>Translated Text</Navbar.Brand>
+                        <Navbar.Toggle aria-controls="navbar-dark-example" />
+                    </Container>
+                </Navbar>
+            );
+        }
+        
         return (
             <Navbar variant="dark" bg="dark" expand="lg" className="translate-button">
                 <Container fluid>
@@ -1017,89 +1032,95 @@ export class Editor extends Component
         let whichLockTooltip = !this.state.lockFinalLine ? unlockTooltip : lockTooltip;
 
         return (
-            <div className="editor-page">
-                <div className="editor-grid">
-                    {/*Toolbar*/}
-                    <div className="quick-buttons" style={buttonsContainerStyle}>
-                        <QuickButton text="⚫" tooltip={blackTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                        <QuickButton text="🔵" tooltip={blueTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                        <QuickButton text="🔴" tooltip={redTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                        <QuickButton text="🟢" tooltip={greenTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                        <QuickButton text="[PLAYER]" tooltip={playerTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                        <QuickButton text="[RIVAL]" tooltip={rivalTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                        <QuickButton text="[PAUSE][]" tooltip={pauseTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                    </div>
-
-                    {/*Text Input*/}
-                    <TextArea
-                        className="fr-text main-textarea"
-                        id = "main-textarea"
-                        rows={5}
-                        style={textAreaStyle}
-                        value={this.state.text}
-                        onChange={(e) => this.handleTextChange(e)}
-                        onClick={(e) => this.handleCursorChange(e)}
-                        onKeyDown={(e) => this.onKeyDown(e)}
-                        onKeyUp={(e) => this.handleCursorChange(e)}
-                    />
-
-                    {/*Converted Text*/}
-                    <TextArea
-                        readOnly={true}
-                        className="fr-text converted-text"
-                        id = "converted-text"
-                        rows={1}
-                        style={textAreaStyle}
-                        value={this.createIngameText()}
-                        onClick={this.copyConvertedText.bind(this)}
-                    />
-
-                    {/*Space Details & Prettifier*/}
-                    <Button onClick={this.prettifyText.bind(this)} variant="danger" className="prettify-button">Prettify</Button>
-                    <div className="space-info"><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth} ~ <span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</div>
-
-                    {/*Translation*/}
-                    {this.printTranslationBar()}
-
-                    {/*Lock Final Line Button*/}
-                    <div className="lock-buttons">
-                        <OverlayTrigger placement="left" overlay={whichLockTooltip}>
-                            <span> 
-                            { //Span is necessary for the tooltip to work here
-                                !this.state.lockFinalLine ?
-                                    <FaUnlock onClick={this.lockFinalLine.bind(this, true)} size={30} //Lock final line on click
-                                        className="lock-button text-locked"/>
-                                :
-                                    <FaLock onClick={this.lockFinalLine.bind(this, false)} size={30} //Unlock final line on click
-                                        className="lock-button text-unlocked"/>
-                            }
-                            </span>
-                        </OverlayTrigger>
-                    </div>
-
-                    {/*Undo & Redo Buttons*/}
-                    <div className="undo-redo-buttons">
-                        <OverlayTrigger placement="right" overlay={undoTooltip}>
-                            <span><FaUndo onClick={this.undoButton.bind(this)} size={30} //Span is necessary for the tooltip to work here
-                                    className={"undo-redo-button " + (this.state.undoTextStack.length === 0 ? "disabled-undo-redo-button" : "active-undo-redo-button")}/></span>
-                        </OverlayTrigger>
-                        <OverlayTrigger placement="right" overlay={redoTooltip}>
-                            <span><FaRedo onClick={this.redoButton.bind(this)} size={30}
-                                    className={"undo-redo-button " + (this.state.redoTextStack.length === 0 ? "disabled-undo-redo-button" : "active-undo-redo-button")}/></span>
-                        </OverlayTrigger>
-                    </div>
-
-                    {/*Hidden div for matching the width of the textarea to*/}
-                    <div className="fr-text hidden-div" ref={this.myInput}>{this.createDivText()}</div>
+            <div className="editor-grid">
+                {/*Toolbar*/}
+                <div className="quick-buttons" style={buttonsContainerStyle}>
+                    <QuickButton text="⚫" tooltip={blackTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
+                    <QuickButton text="🔵" tooltip={blueTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
+                    <QuickButton text="🔴" tooltip={redTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
+                    <QuickButton text="🟢" tooltip={greenTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
+                    <QuickButton text="[PLAYER]" tooltip={playerTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
+                    <QuickButton text="[RIVAL]" tooltip={rivalTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
+                    <QuickButton text="[PAUSE][]" tooltip={pauseTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
                 </div>
+
+                {/*Text Input*/}
+                <TextArea
+                    className="fr-text main-textarea"
+                    id = {GetTextAreaId(!this.state.showTranslate)}
+                    rows={5}
+                    style={textAreaStyle}
+                    value={this.state.text}
+                    onChange={(e) => this.handleTextChange(e)}
+                    onClick={(e) => this.handleCursorChange(e)}
+                    onKeyDown={(e) => this.onKeyDown(e)}
+                    onKeyUp={(e) => this.handleCursorChange(e)}
+                />
+
+                {/*Converted Text*/}
+                <TextArea
+                    readOnly={true}
+                    className="fr-text converted-text"
+                    id = "converted-text"
+                    rows={1}
+                    style={textAreaStyle}
+                    value={this.createIngameText()}
+                    onClick={this.copyConvertedText.bind(this)}
+                />
+
+                {/*Space Details & Prettifier*/}
+                <Button onClick={this.prettifyText.bind(this)} variant="danger" className="prettify-button">Prettify</Button>
+                <div className="space-info"><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth} ~ <span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</div>
+
+                {/*Translation*/}
+                {this.printTranslationBar()}
+
+                {/*Lock Final Line Button*/}
+                <div className="lock-buttons">
+                    <OverlayTrigger placement="left" overlay={whichLockTooltip}>
+                        <span> 
+                        { //Span is necessary for the tooltip to work here
+                            !this.state.lockFinalLine ?
+                                <FaUnlock onClick={this.lockFinalLine.bind(this, true)} size={30} //Lock final line on click
+                                    className="lock-button text-locked"/>
+                            :
+                                <FaLock onClick={this.lockFinalLine.bind(this, false)} size={30} //Unlock final line on click
+                                    className="lock-button text-unlocked"/>
+                        }
+                        </span>
+                    </OverlayTrigger>
+                </div>
+
+                {/*Undo & Redo Buttons*/}
+                <div className="undo-redo-buttons">
+                    <OverlayTrigger placement="right" overlay={undoTooltip}>
+                        <span><FaUndo onClick={this.undoButton.bind(this)} size={30} //Span is necessary for the tooltip to work here
+                                className={"undo-redo-button " + (this.state.undoTextStack.length === 0 ? "disabled-undo-redo-button" : "active-undo-redo-button")}/></span>
+                    </OverlayTrigger>
+                    <OverlayTrigger placement="right" overlay={redoTooltip}>
+                        <span><FaRedo onClick={this.redoButton.bind(this)} size={30}
+                                className={"undo-redo-button " + (this.state.redoTextStack.length === 0 ? "disabled-undo-redo-button" : "active-undo-redo-button")}/></span>
+                    </OverlayTrigger>
+                </div>
+
+                {/*Hidden div for matching the width of the textarea to*/}
+                <div className="fr-text hidden-div" ref={this.myInput}>{this.createDivText()}</div>
             </div>
         )
     }
 }
 
-function SetTextareaCursorPos(cursorPos, autoAdjustScroll)
+function GetTextAreaId(isTranslationBox)
 {
-    var textArea = document.getElementById("main-textarea");
+    if (isTranslationBox)
+        return "translated-textarea"
+    else
+        return "main-textarea";
+}
+
+function SetTextareaCursorPos(cursorPos, autoAdjustScroll, isTranslationBox)
+{
+    var textArea = document.getElementById(GetTextAreaId(isTranslationBox));
     if (textArea != null)
     {
         textArea.focus();
