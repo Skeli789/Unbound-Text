@@ -1,0 +1,22 @@
+{
+  "name": "unbound-text-server",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "proxy": "https://cfru-text.herokuapp.com/",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.18.1"
+  },
+  "devDependencies": {
+    "babel-cli": "^6.26.0",
+    "babel-preset-env": "^1.7.0",
+    "rewire": "^6.0.0",
+    "superagent": "^6.1.0",
+    "supertest": "^6.1.1"
+  }
+}
