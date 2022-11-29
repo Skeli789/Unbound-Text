@@ -40,13 +40,12 @@ const COLOURS =
 
 const OTHER_REPLACEMENT_MACROS =
 {
-    ".": "…",
     "ARROW_UP": "↑",
     "ARROW_DOWN": "↓",
     "ARROW_LEFT": "←",
     "ARROW_RIGHT": "→",
-    "A_BUTTON": "🅰",
-    "B_BUTTON": "🅱",
+    "KEY_A": "🅰",
+    "KEY_B": "🅱",
 };
 
 const SUPPORTED_LANGUAGES =
@@ -79,6 +78,7 @@ export class Editor extends Component
             showTranslate: props.showTranslate,
             showTranslationBox: props.showTranslationBox,
             translateToLanguage: "Language",
+            trainerName: "",
         };
 
         this.myInput = React.createRef()
@@ -113,14 +113,14 @@ export class Editor extends Component
         text = Array.from(text);
         for (let [i, letter] of text.entries())
         {
-            if (letter === "[") //Start of macro
+            if (letter === "{") //Start of macro
             {
                 inMacro = true;
                 macroText = "";
             }
             else if (inMacro)
             {
-                if (letter === "]") //End of macro
+                if (letter === "}") //End of macro
                 {
                     inMacro = false;
                     width += this.getMacroWidth(macroText)
@@ -294,7 +294,7 @@ export class Editor extends Component
     replaceMacros(text, dict)
     {
         for (let key of Object.keys(dict))
-            text = text.replaceAll(`[${key}]`, dict[key]);
+            text = text.replaceAll(`{${key}}`, dict[key]);
 
         return text;
     }
@@ -302,7 +302,7 @@ export class Editor extends Component
     replaceWithMacros(text, dict)
     {
         for (let key of Object.keys(dict))
-            text = text.replaceAll(dict[key], `[${key}]`);
+            text = text.replaceAll(dict[key], `{${key}}`);
 
         return text;
     }
@@ -315,10 +315,11 @@ export class Editor extends Component
 
         //Replace certain text strings
         text = text.replaceAll("\\pn", "\n\n").replaceAll("\\n", "\n").replaceAll("\\p", "\n\n").replaceAll("\\l", "\n"); //Enable copy-paste - first is from HexManiac
-        text = text.replaceAll("[.]", "…").replaceAll("...", "…").replaceAll("…]", "…"); //Remove accidental extra square bracket
-        text = text.replaceAll("[[", "[").replaceAll("]]", "]");
+        text = text.replaceAll("{.}", "…").replaceAll("...", "…").replaceAll("…}", "…"); //Remove accidental extra square bracket
+        text = text.replaceAll("{{", "{").replaceAll("}}", "}");
         text = text.replaceAll("\\e", "é");
-        text = text.replaceAll("_FR]", "]").replaceAll("_EM]", "]"); //XSE Colour Endings
+        text = text.replaceAll("_FR}", "}").replaceAll("_EM}", "}"); //XSE Colour Endings
+        text = text.replaceAll("@", "").replaceAll("/end", ""); //Remove FBI crown line start and end
 
         if (this.state.lockFinalLine)
             text = text.replace(/\n*$/, "") //Remove blank line at the end
@@ -368,7 +369,7 @@ export class Editor extends Component
             {
                 if (letter === " " && j - 2 >= 0 && line[j - 1] === " " && line[j - 2] === " ") //Three whitespaces in a row
                     continue; //Don't allow
-                else if (letter === "[") //Start of macro
+                else if (letter === "{") //Start of macro
                 {
                     inMacro = true;
                     macroText = "";
@@ -379,19 +380,19 @@ export class Editor extends Component
                     currWord = []; //Reset
 
                     //Add a closing brace if there' isn't one on the line yet
-                    if (!this.lineHasCharAfterIndex(line, j, "]"))
-                        letter += "]"; //Automatically add closing brace
+                    if (!this.lineHasCharAfterIndex(line, j, "}"))
+                        letter += "}"; //Automatically add closing brace
                 }
                 else if (inMacro)
                 {
-                    if (letter === "]") //End of macro
+                    if (letter === "}") //End of macro
                     {
                         inMacro = false;
                         width += this.getMacroWidth(macroText)
                     }
                     else //Build up the macro
                     {
-                        if (this.lineHasCharAfterIndexBeforeOtherChar(line, j, "]", "["))
+                        if (this.lineHasCharAfterIndexBeforeOtherChar(line, j, "}", "{"))
                             letter = letter.toUpperCase();
 
                         macroText += letter;
@@ -519,7 +520,7 @@ export class Editor extends Component
             j = newText.length - j; //Adjust to new position in new text
 
             if (Math.abs(j - i) < 3  //Very close
-            && newText.substring(i, i + 2) === "[]")
+            && newText.substring(i, i + 2) === "{}")
                 cursorPos = i + 1; //Stay inside the square brackets
             else if (i >= oldText.length) //Added new character onto the end
                 cursorPos = newText.length;
@@ -674,7 +675,13 @@ export class Editor extends Component
                 finalText += letter;
         }
 
-        return finalText;
+        if (finalText === "")
+            return "";
+
+        if (this.state.trainerName !== "")
+            finalText = `{PLATE=${this.state.trainerName}=}` + finalText;
+
+        return "@" + finalText + "/end";
     }
 
     prettifyText()
@@ -713,9 +720,9 @@ export class Editor extends Component
                     if (!IsColour(letter)) //Not a real character, so continue trying to skip
                         skipNextCharIfWhitespace = false;
 
-                    if (letter === "[")
+                    if (letter === "{")
                         inMacro = true;
-                    else if (letter === "]")
+                    else if (letter === "}")
                         inMacro = false;
                     else if (!inMacro)
                     {
@@ -815,15 +822,15 @@ export class Editor extends Component
             let translatedTextList = [];
             let actualTextList = [];
             text = this.createIngameText()
-            text = text.replaceAll("\\e", "é").replaceAll('\\"', '"').replaceAll("[.]", "…");
+            text = text.replaceAll("\\e", "é").replaceAll('\\"', '"').replaceAll("{.}", "…");
             text = text.replaceAll(/(\.)\\n/g, ".\n"); //\n's with a . before them
             text = text.replaceAll(/(!)\\n/g, "!\n"); //\n's with a ! before them
             text = text.replaceAll(/(\?)\\n/g, "?\n"); //\n's with a ? before them
             text = text.replaceAll(/(…)\\n/g, "…\n"); //\n's with a … before them
             text = text.replaceAll("\\n", " ").replaceAll("\\l", " ").replaceAll("\\p", "\n"); //
-            text = text.replaceAll("[PLAYER]", "Billybobbydoe").replaceAll("[RIVAL]", "Billybobbyfoe"); //So they provide the correct context in the sentence
-            text = text.replaceAll("[PAUSE][", "[PAUSE").replaceAll("[BUFFER][0", "[BUFFER0");
-            text = text.replaceAll("[", "<").replaceAll("]", ">"); //Prevent buffers from being removed by turning them into HTML tags
+            text = text.replaceAll("{PLAYER}", "Billybobbydoe").replaceAll("{RIVAL}", "Billybobbyfoe"); //So they provide the correct context in the sentence
+            text = text.replaceAll("{PAUSE}{", "{PAUSE").replaceAll("{BUFFER}{0", "{BUFFER0");
+            text = text.replaceAll("{", "<").replaceAll("}", ">"); //Prevent buffers from being removed by turning them into HTML tags
             textList = text.split("\n");
 
             Swal.fire
@@ -874,10 +881,10 @@ export class Editor extends Component
     
                     let response = await axios.post(`https://libretranslate.de/translate`, data);
                     text = response.data.translatedText;
-                    text = text.replaceAll("Billybobbydoe", "[PLAYER]").replaceAll("Billybobbyfoe", "[RIVAL]"); //Give Player and Rival their buffers back
+                    text = text.replaceAll("Billybobbydoe", "{PLAYER}").replaceAll("Billybobbyfoe", "{RIVAL}"); //Give Player and Rival their buffers back
                     text = text.replaceAll(/<\/.*>/g, ""); //Remove closing tags added in
                     text = text.replaceAll("<pause", "<pause><").replaceAll("<buffer0", "<buffer><0"); //Restore newer buffers
-                    text = text.replaceAll("<", "[").replaceAll(">", "]"); //Convert all buffers back
+                    text = text.replaceAll("<", "{").replaceAll(">", "}"); //Convert all buffers back
                     translatedTextList.push(text);
                 }
 
@@ -913,7 +920,7 @@ export class Editor extends Component
             let textP2 = Array.from(oldText.substring(elem.selectionStart, oldText.length));
             let newCursorPos = elem.selectionStart + textToAdd.length; //String length so unicode characters are treated properly
     
-            if (textToAdd.endsWith("[]"))
+            if (textToAdd.endsWith("{}"))
                 newCursorPos -= 1; //Start inside square brackets
 
             let newText = textP1.concat(Array.from(textToAdd)).concat(textP2).join("");
@@ -1039,10 +1046,19 @@ export class Editor extends Component
                     <QuickButton text="🔵" tooltip={blueTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
                     <QuickButton text="🔴" tooltip={redTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
                     <QuickButton text="🟢" tooltip={greenTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                    <QuickButton text="[PLAYER]" tooltip={playerTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                    <QuickButton text="[RIVAL]" tooltip={rivalTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                    <QuickButton text="[PAUSE][]" tooltip={pauseTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
+                    <QuickButton text="{PLAYER}" tooltip={playerTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
+                    <QuickButton text="{RIVAL}" tooltip={rivalTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
+                    <QuickButton text="{PAUSE}{}" tooltip={pauseTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
                 </div>
+
+                {/*Trainer Name*/}
+                <input
+                    className="fr-text trainer-name-input"
+                    id="trainer-name-input"
+                    style={textAreaStyle}
+                    value={this.state.trainerName}
+                    onChange={(e) => this.setState({trainerName: e.target.value})}
+                />
 
                 {/*Text Input*/}
                 <TextArea
@@ -1160,7 +1176,7 @@ function IsPunctuation(char)
 
 function IsPause(text, nextLetterIndex)
 {
-    return text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[PAUSE]";
+    return text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "{PAUSE}";
 }
 
 function GetNextLetterIndex(text, nextLetterIndex)
@@ -1172,15 +1188,15 @@ function GetNextLetterIndex(text, nextLetterIndex)
         return GetNextLetterIndex(text, nextLetterIndex + 1); //Skip past colour
     else if (IsPause(text, nextLetterIndex))
         return GetNextLetterIndex(text, nextLetterIndex + 7); //Skip past pause start
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[RIVAL]")
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "{RIVAL}")
         return "R";
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 8).join("") === "[PLAYER]")
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 8).join("") === "{PLAYER}")
         return "P";
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[BUFFER")
-        return "B";
-    else if (text[nextLetterIndex] === "[")
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 8).join("") === "{STR_VAR")
+        return "S";
+    else if (text[nextLetterIndex] === "{")
     {
-        while (nextLetterIndex < text.length && text[nextLetterIndex] !== "]")
+        while (nextLetterIndex < text.length && text[nextLetterIndex] !== "}")
             ++nextLetterIndex;
 
         ++nextLetterIndex;

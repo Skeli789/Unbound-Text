@@ -23,6 +23,7 @@
     grid-template-rows: auto auto auto auto auto;
     grid-template-areas: 
         "topLeft quickButtons quickButtons quickButtons quickButtons topRight"
+        "topLeft trainerName trainerName trainerName trainerName trainerName"
         "lockButton textAreaMain textAreaMain textAreaMain textAreaMain undoButtons"
         "bottomLeft textAreaSub textAreaSub textAreaSub textAreaSub bottomRight"
         "bottomLeft prettifier lockMobile undoMobile spaceCount bottomRight"
@@ -55,6 +56,11 @@
     line-height: 1.75rem !important;
     word-spacing: 0.5rem !important;
     letter-spacing: -0.5px !important;
+}
+
+.trainer-name-input
+{
+    grid-area: trainerName;
 }
 
 .main-textarea
