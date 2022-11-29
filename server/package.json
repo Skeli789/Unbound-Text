@@ -1,9 +1,9 @@
 {
-  "name": "unbound-text-server",
+  "name": "crown-text-server",
   "version": "1.0.0",
   "description": "",
   "main": "server.js",
-  "proxy": "https://cfru-text.herokuapp.com/",
+  "proxy": "https://crown-text.herokuapp.com/",
   "scripts": {
     "start": "node server.js"
   },
