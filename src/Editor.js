@@ -469,6 +469,7 @@ export class Editor extends Component
         let finalText = finalLines.map((line) => line.join("")).join("\n");
         finalText = this.replaceMacros(finalText, COLOURS); //Do last to allow either capitalization
         finalText = this.replaceMacros(finalText, OTHER_REPLACEMENT_MACROS); //Do last to allow either capitalization
+        finalText = finalText.replaceAll("…", "...");
         return finalText;
     }
 
