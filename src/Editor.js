@@ -5,8 +5,8 @@ import {TextArea} from 'semantic-ui-react';
 import {FaUndo, FaRedo, FaLock, FaUnlock} from "react-icons/fa";
 
 import ConvertedText from './ConvertedText';
-import {COLOURS, OTHER_REPLACEMENT_MACROS, ReplaceMacros, IsColour} from "./EditorUtils";
-import FontSizes from "./FontSizes.json";
+import {SEMI_LINE_WIDTH, FULL_LINE_WIDTH, COLOURS, OTHER_REPLACEMENT_MACROS, ReplaceMacros,
+        GetStringWidth, GetMacroWidth, GetCharacterWidth, GetLineTotalWidth, FindIndexOfLineEnd, FindIndexOfLineStart, DoesLineHaveScrollAfterIt, LineHasCharAfterIndex, LineHasCharAfterIndexBeforeOtherChar} from "./TextUtils";
 import PrettifyButton from "./subcomponents/PrettifyButton";
 import QuickButtons from "./subcomponents/QuickButtons";
 import TranslationButton from "./subcomponents/TranslationButton";
@@ -19,9 +19,6 @@ const undoTooltip = props => (<Tooltip className="show" {...props}>Undo</Tooltip
 const redoTooltip = props => (<Tooltip className="show" {...props}>Redo</Tooltip>);
 const lockTooltip = props => (<Tooltip className="show" {...props}>Final Line Locked</Tooltip>);
 const unlockTooltip = props => (<Tooltip className="show" {...props}>Final Line Unlocked</Tooltip>);
-
-const FULL_LINE_WIDTH = 206;
-const SEMI_LINE_WIDTH = 196;
 
 
 export class Editor extends Component
@@ -52,211 +49,133 @@ export class Editor extends Component
         }
     }
 
-    getCharacterWidth(char, nextChar)
+    onKeyDown(event)
     {
-        if (IsColour(char))
-            return 0;
-        else if (nextChar === "\n" && char in FontSizes.actulCharSizes)
-            return FontSizes.actulCharSizes[char]; //Get the reduced width for being at the end of the line
-        else if (char in FontSizes.charSizes)
-            return FontSizes.charSizes[char];
+        if (event.keyCode === 90 && event.ctrlKey) //Ctrl + Z
+        {
+            event.preventDefault();
+            this.undoLastChange();
+        }
+        else if (event.keyCode === 89 && event.ctrlKey) //Ctrl + Y
+        {
+            event.preventDefault();
+            this.redoLastChange();
+        }
         else
-            return 6; //Assume default size is 6  
-    }
-
-    getMacroWidth(macroText)
-    {
-        if (macroText in FontSizes.macroSizes) //Macro has a pre-defined length like PLAYER
-            return FontSizes.macroSizes[macroText];
-
-        return 0; //Default take up no space
-    }
-
-    getStringWidth(text)
-    {
-        let width = 0;
-        let inMacro = false;
-        let macroText = "";
-
-        text = Array.from(text);
-        for (let [i, letter] of text.entries())
-        {
-            if (letter === "[") //Start of macro
-            {
-                inMacro = true;
-                macroText = "";
-            }
-            else if (inMacro)
-            {
-                if (letter === "]") //End of macro
-                {
-                    inMacro = false;
-                    width += this.getMacroWidth(macroText)
-                }
-                else //Build up the macro
-                    macroText += letter;
-            }
-            else
-            {
-                let nextChar = (i + 1 >= text.length) ? "\n" : text[i + 1];
-
-                if (letter === " " && nextChar === "\n")
-                    break; //Ignore trailing whitespace
-
-                width += this.getCharacterWidth(letter, nextChar);
-            }
-
-            if (letter === "\n")
-                break;
-        }
-
-        return width;
-    }
-
-    getLineTotalWidth(lines, lineIndex)
-    {
-        let totalWidth = SEMI_LINE_WIDTH;
-
-        if (lineIndex + 1 >= lines.length && this.state.lockFinalLine)
-            totalWidth = FULL_LINE_WIDTH; //No scroll arrow after the last line
-        else if (lineIndex === 0 //First line in the msgbox
-        || lines[lineIndex - 1].length === 0) //\n Before this line
-        {
-            if (!this.doesLineHaveScrollAfterItByLines(lines, lineIndex))
-                totalWidth = FULL_LINE_WIDTH; //Slightly longer line
-        }
-
-        return totalWidth;
-    }
-
-    findIndexOfLineStart(text, lineEndIndex)
-    {
-        let lineStartIndex;
-
-        if (lineEndIndex === 0)
-            return 0; //Empty line
-        
-        if (text[lineEndIndex] === "\n")
-            --lineEndIndex;
-
-        for (lineStartIndex = lineEndIndex; lineStartIndex > 0 && text[lineStartIndex] !== "\n"; --lineStartIndex);
-
-        if (text[lineStartIndex] === "\n")
-            ++lineStartIndex; //Go to char after new line
-
-        return lineStartIndex;
-    }
-
-    findIndexOfLineEnd(cursorIndex)
-    {
-        let lineEndIndex;
-        let text = this.state.text;
-
-        if (cursorIndex >= text.length) //At the end of the text
-            lineEndIndex = cursorIndex;
-        else
-        {
-            let i;
-            for (i = cursorIndex; i < text.length && text[i] !== "\n"; ++i);
-            lineEndIndex = i;
-        }
-
-        return lineEndIndex;
-    }
-
-    doesLineEndParagraph(text, lineStartIndex)
-    {
-        for (let i = lineStartIndex; i < text.length; ++i)
-        {
-            if (text[i] === "\n")
-            {
-                if (i + 1 < text.length && text[i + 1] === "\n") //Two "\n"s in a row
-                    return true;
-                
-                return false;
-            }
-        }
-
-        return false;
-    }
-
-    doesLineHaveScrollAfterIt(text, lineStartIndex, lineEndIndex)
-    {
-        if (this.state.lockFinalLine && lineEndIndex >= text.length)
-            return false; //Last line never has a scroll arrow
-
-        if (lineStartIndex === 0)
-        {
-            if (this.doesLineEndParagraph(text, lineStartIndex))
-                return true; //Scroll arrow is on the first line
-
-            return false; //First line doesn't has a scroll arrow after it
-        }
-
-        if (text[lineStartIndex - 1] === "\n")
-        {
-            if (this.doesLineEndParagraph(text, lineStartIndex))
-                return true; //Scroll arrow is on the first line
-
-            if (lineStartIndex === 1)
-                return false; //First line in textbox doesn't has a scroll arrow after it
-
-            if (text[lineStartIndex - 2] === "\n")
-                return false; //First line of paragraph doesn't have scroll
-        }
-
-        return true;
-    }
-
-    doesLineHaveScrollAfterItByLines(lines, lineIndex)
-    {
-        return lineIndex + 2 < lines.length
-            && lines[lineIndex + 1].length === 0; //Followed by blank line
-    }
-
-    lineHasCharAfterIndex(line, index, char)
-    {
-        for (let i = index; i < line.length; ++i)
-        {
-            if (line[i] === char)
-                return true;
-        }
-
-        return false;
-    }
-
-    lineHasCharAfterIndexBeforeOtherChar(line, index, char, otherChar)
-    {
-        for (let i = index; i < line.length; ++i)
-        {
-            if (line[i] === otherChar)
-                return false;
-            else if (line[i] === char)
-                return true;
-        }
-
-        return false;
+            this.handleCursorChange(event);
     }
 
     getCursorLine()
     {
         let text = this.state.text;
-        let lineEndIndex = this.findIndexOfLineEnd(this.state.cursorPosition);
-        let lineStartIndex = this.findIndexOfLineStart(this.state.text, lineEndIndex);
+        let lineEndIndex = FindIndexOfLineEnd(this.state.text, this.state.cursorPosition);
+        let lineStartIndex = FindIndexOfLineStart(this.state.text, lineEndIndex);
         return text.substring(lineStartIndex, lineEndIndex);
     }
 
     getCursorLineWidth()
     {
-        return this.getStringWidth(this.getCursorLine());
+        return GetStringWidth(this.getCursorLine());
     }
 
     doesCursorLineHaveScrollAfterIt()
     {
-        let lineEndIndex = this.findIndexOfLineEnd(this.state.cursorPosition);
-        let lineStartIndex = this.findIndexOfLineStart(this.state.text, lineEndIndex);
+        let lineEndIndex = FindIndexOfLineEnd(this.state.text, this.state.cursorPosition);
+        let lineStartIndex = FindIndexOfLineStart(this.state.text, lineEndIndex);
 
-        return this.doesLineHaveScrollAfterIt(this.state.text, lineStartIndex, lineEndIndex);
+        return DoesLineHaveScrollAfterIt(this.state.text, lineStartIndex, lineEndIndex, this.state.lockFinalLine);
+    }
+
+    setTextState(newText, cursorPos, autoAdjustScroll)
+    {
+        this.setState
+        ({
+            text: newText,
+        }, () =>
+        {
+            this.setState
+            ({
+                textareaWidth: this.myInput.current.offsetWidth,
+            });
+
+            if (cursorPos >= 0)
+                SetTextareaCursorPos(cursorPos, autoAdjustScroll, !this.state.showTranslate);
+        });
+    }
+
+    setNewText(newText, autoAdjustScroll)
+    {
+        newText = this.formatString(this.formatString(newText)); //Format twice to fix copy-paste errors
+        let cursorPos = this.getNewCursorPosition(newText);
+        this.addTextToUndo(this.state.text, this.state.prevCursorPosition);
+        this.setTextState(newText, cursorPos, autoAdjustScroll);
+        this.setState({redoTextStack: [], redoCursorStack: []}); //Nothing to redo anymore
+        return newText;
+    }
+
+    handleTextChange(event)
+    {
+        let newText = event.target.value;
+
+        this.setState
+        ({
+            cursorPosition: event.target.selectionStart,
+            prevCursorPosition: this.state.cursorPosition,
+        }, () =>
+        {
+            this.setNewText(newText, false);
+        });
+        
+    }
+
+    handleCursorChange(event)
+    {
+        this.setState({cursorPosition: event.target.selectionStart, prevCursorPosition: this.state.cursorPosition});
+    }
+
+    addTextAtSelectionStart(textToAdd)
+    {
+        var elem = document.getElementById(GetTextAreaId(!this.state.showTranslate));
+        if (elem == null)
+            return; //Textarea doesn't exist
+
+        let oldText = this.state.text;
+        let textP1 = Array.from(oldText.substring(0, elem.selectionStart));
+        let textP2 = Array.from(oldText.substring(elem.selectionStart, oldText.length));
+        let newCursorPos = elem.selectionStart + textToAdd.length; //String length so unicode characters are treated properly
+
+        if (textToAdd.endsWith("[]"))
+            newCursorPos -= 1; //Start inside square brackets
+
+        let newText = textP1.concat(Array.from(textToAdd)).concat(textP2).join("");
+
+        let newFormattedText = this.setNewText(newText, true);
+        newCursorPos += (newFormattedText.length - newText.length); //Adjust if text was shoved onto new line
+
+        this.setState
+        ({
+            cursorPosition: newCursorPos,
+            prevCursorPosition: this.state.cursorPosition,
+        }, () =>
+        {
+            SetTextareaCursorPos(newCursorPos, true, !this.state.showTranslate);
+        });
+    }
+
+    setPrettifiedText(finalText)
+    {
+        this.setState({lockFinalLine: false}, () => //So it doesn't interfere with the prettifer
+        {
+            let newText = this.formatString(finalText).trim();
+            newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses
+            newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses - intentional duplicate
+            this.setNewText(newText, false);
+        });
+    }
+
+    lockFinalLine(lockLine)
+    {
+        this.setState({lockFinalLine: lockLine});
     }
 
     formatString(text)
@@ -298,7 +217,7 @@ export class Editor extends Component
                     if (finalLine.at(-1) !== " ") //Doesn't already have an extra whitespace at the end
                         finalLine = finalLine.concat(" ");
 
-                    width = this.getStringWidth(prevAddedLine);
+                    width = GetStringWidth(prevAddedLine);
                     lastWordStartIndex = 1; //Because the word won't really start at the 0 index
                 }
 
@@ -313,7 +232,7 @@ export class Editor extends Component
                 continue; //Skip this line
 
             //Get the allowed width for this line
-            let totalWidth = this.getLineTotalWidth(lines, i);
+            let totalWidth = GetLineTotalWidth(lines, i, this.state.lockFinalLine);
 
             //Go through each character in the line
             for (let [j, letter] of line.entries())
@@ -331,7 +250,7 @@ export class Editor extends Component
                     currWord = []; //Reset
 
                     //Add a closing brace if there' isn't one on the line yet
-                    if (!this.lineHasCharAfterIndex(line, j, "]"))
+                    if (!LineHasCharAfterIndex(line, j, "]"))
                         letter += "]"; //Automatically add closing brace
                 }
                 else if (inMacro)
@@ -339,11 +258,11 @@ export class Editor extends Component
                     if (letter === "]") //End of macro
                     {
                         inMacro = false;
-                        width += this.getMacroWidth(macroText)
+                        width += GetMacroWidth(macroText)
                     }
                     else //Build up the macro
                     {
-                        if (this.lineHasCharAfterIndexBeforeOtherChar(line, j, "]", "["))
+                        if (LineHasCharAfterIndexBeforeOtherChar(line, j, "]", "["))
                             letter = letter.toUpperCase();
 
                         macroText += letter;
@@ -356,7 +275,7 @@ export class Editor extends Component
                     if (letter === " " && nextChar === "\n")
                         {} //Ignore trailing whitespace
                     else
-                        width += this.getCharacterWidth(letter, nextChar);
+                        width += GetCharacterWidth(letter, nextChar);
                 }
 
                 if (letter === " ") //Whitespace
@@ -405,7 +324,7 @@ export class Editor extends Component
                         else
                             finalLine = []; //Don't push over a trailing whitespace
 
-                        width = this.getStringWidth(finalLine);
+                        width = GetStringWidth(finalLine);
                         currWord = []; //Reset
                         lastWordStartIndex = 0;
                         addedLine = true;
@@ -421,27 +340,6 @@ export class Editor extends Component
         finalText = ReplaceMacros(finalText, COLOURS); //Do last to allow either capitalization
         finalText = ReplaceMacros(finalText, OTHER_REPLACEMENT_MACROS); //Do last to allow either capitalization
         return finalText;
-    }
-
-    handleCursorChange(event)
-    {
-        this.setState({cursorPosition: event.target.selectionStart, prevCursorPosition: this.state.cursorPosition});
-    }
-
-    onKeyDown(event)
-    {
-        if (event.keyCode === 90 && event.ctrlKey) //Ctrl + Z
-        {
-            event.preventDefault();
-            this.undoButton();
-        }
-        else if (event.keyCode === 89 && event.ctrlKey) //Ctrl + Y
-        {
-            event.preventDefault();
-            this.redoButton();
-        }
-        else
-            this.handleCursorChange(event);
     }
 
     getNewCursorPosition(newText)
@@ -491,101 +389,16 @@ export class Editor extends Component
         return cursorPos;
     }
 
-    setTextState(newText, cursorPos, autoAdjustScroll)
+    addTextToUndo(text, cursorPos)
     {
-        this.setState
-        ({
-            text: newText,
-        }, () =>
-        {
-            this.setState
-            ({
-                textareaWidth: this.myInput.current.offsetWidth,
-            });
-
-            if (cursorPos >= 0)
-                SetTextareaCursorPos(cursorPos, autoAdjustScroll, !this.state.showTranslate);
-        });
+        let undoTextStack = this.state.undoTextStack;
+        let undoCursorStack = this.state.undoCursorStack;
+        undoTextStack.push(text);
+        undoCursorStack.push(cursorPos);
+        this.setState({undoTextStack: undoTextStack, undoCursorStack: undoCursorStack});
     }
 
-    setNewText(newText, autoAdjustScroll)
-    {
-        newText = this.formatString(this.formatString(newText)); //Format twice to fix copy-paste errors
-        let cursorPos = this.getNewCursorPosition(newText);
-        this.addTextToUndo(this.state.text, this.state.prevCursorPosition);
-        this.setTextState(newText, cursorPos, autoAdjustScroll);
-        this.setState({redoTextStack: [], redoCursorStack: []}); //Nothing to redo anymore
-        return newText;
-    }
-
-    handleTextChange(event)
-    {
-        let newText = event.target.value;
-
-        this.setState
-        ({
-            cursorPosition: event.target.selectionStart,
-            prevCursorPosition: this.state.cursorPosition,
-        }, () =>
-        {
-            this.setNewText(newText, false);
-        });
-        
-    }
-
-    createDivText()
-    {
-        let result = [];
-        let lines = this.state.text.split("\n");
-        let key = 0;
-
-        for (let line of lines)
-            result.push(<span key={key++}><p>{line}</p><br/></span>);
-
-        return result;
-    }
-
-    setPrettifiedText(finalText)
-    {
-        this.setState({lockFinalLine: false}, () => //So it doesn't interfere with the prettifer
-        {
-            let newText = this.formatString(finalText).trim();
-            newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses
-            newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses - intentional duplicate
-            this.setNewText(newText, false);
-        });
-    }
-
-    addTextAtSelectionStart(textToAdd)
-    {
-        var elem = document.getElementById(GetTextAreaId(!this.state.showTranslate));
-        if (elem != null)
-        {
-            let oldText = this.state.text;
-            let textP1 = Array.from(oldText.substring(0, elem.selectionStart));
-            let textP2 = Array.from(oldText.substring(elem.selectionStart, oldText.length));
-            let newCursorPos = elem.selectionStart + textToAdd.length; //String length so unicode characters are treated properly
-    
-            if (textToAdd.endsWith("[]"))
-                newCursorPos -= 1; //Start inside square brackets
-
-            let newText = textP1.concat(Array.from(textToAdd)).concat(textP2).join("");
-
-            let newFormattedText = this.setNewText(newText, true);
-            newCursorPos += (newFormattedText.length - newText.length); //Adjust if text was shoved onto new line
-
-            this.setState
-            ({
-                cursorPosition: newCursorPos,
-                prevCursorPosition: this.state.cursorPosition,
-            }, () =>
-            {
-                SetTextareaCursorPos(newCursorPos, true, !this.state.showTranslate);
-            });
-        }
-    }
-
-    undoButton()
+    undoLastChange()
     {
         if (this.state.undoTextStack.length > 0)
         {
@@ -604,16 +417,7 @@ export class Editor extends Component
         }
     }
 
-    addTextToUndo(text, cursorPos)
-    {
-        let undoTextStack = this.state.undoTextStack;
-        let undoCursorStack = this.state.undoCursorStack;
-        undoTextStack.push(text);
-        undoCursorStack.push(cursorPos);
-        this.setState({undoTextStack: undoTextStack, undoCursorStack: undoCursorStack});
-    }
-
-    redoButton()
+    redoLastChange()
     {
         if (this.state.redoTextStack.length > 0)
         {
@@ -628,9 +432,16 @@ export class Editor extends Component
         }
     }
 
-    lockFinalLine(lockLine)
+    createDivText()
     {
-        this.setState({lockFinalLine: lockLine});
+        let result = [];
+        let lines = this.state.text.split("\n");
+        let key = 0;
+
+        for (let line of lines)
+            result.push(<span key={key++}><p>{line}</p><br/></span>);
+
+        return result;
     }
 
     render()
@@ -697,11 +508,11 @@ export class Editor extends Component
                 {/*Undo & Redo Buttons*/}
                 <div className="undo-redo-buttons">
                     <OverlayTrigger placement="right" overlay={undoTooltip}>
-                        <span><FaUndo onClick={this.undoButton.bind(this)} size={30} //Span is necessary for the tooltip to work here
+                        <span><FaUndo onClick={this.undoLastChange.bind(this)} size={30} //Span is necessary for the tooltip to work here
                                 className={"undo-redo-button " + (this.state.undoTextStack.length === 0 ? "disabled-undo-redo-button" : "active-undo-redo-button")}/></span>
                     </OverlayTrigger>
                     <OverlayTrigger placement="right" overlay={redoTooltip}>
-                        <span><FaRedo onClick={this.redoButton.bind(this)} size={30}
+                        <span><FaRedo onClick={this.redoLastChange.bind(this)} size={30}
                                 className={"undo-redo-button " + (this.state.redoTextStack.length === 0 ? "disabled-undo-redo-button" : "active-undo-redo-button")}/></span>
                     </OverlayTrigger>
                 </div>
@@ -724,19 +535,19 @@ function GetTextAreaId(isTranslationBox)
 function SetTextareaCursorPos(cursorPos, autoAdjustScroll, isTranslationBox)
 {
     var textArea = document.getElementById(GetTextAreaId(isTranslationBox));
-    if (textArea != null)
+    if (textArea == null)
+        return; //Textarea doesn't exist
+
+    textArea.focus();
+    textArea.setSelectionRange(cursorPos, cursorPos);
+
+    if (autoAdjustScroll)
     {
-        textArea.focus();
-        textArea.setSelectionRange(cursorPos, cursorPos);
-    
-        if (autoAdjustScroll)
-        {
-            let charsPerRow = textArea.cols; //Number of chars in a row
-            let selectionRow = (cursorPos - (cursorPos % charsPerRow)) / charsPerRow; //Which row selection starts
-            let lineHeight = textArea.clientHeight / textArea.rows; //Row's height, in pixels
-            let newScrollTop = lineHeight * selectionRow;
-            textArea.scrollTop = newScrollTop; //Set scroll
-        }
+        let charsPerRow = textArea.cols; //Number of chars in a row
+        let selectionRow = (cursorPos - (cursorPos % charsPerRow)) / charsPerRow; //Which row selection starts
+        let lineHeight = textArea.clientHeight / textArea.rows; //Row's height, in pixels
+        let newScrollTop = lineHeight * selectionRow;
+        textArea.scrollTop = newScrollTop; //Set scroll
     }
 }
 

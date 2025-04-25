@@ -2,7 +2,7 @@ import React, {Component} from 'react';
 import {Button} from "react-bootstrap";
 import Swal from 'sweetalert2';
 
-import {IsColour, IsPause, IsPunctuation, GetNextLetterIndex} from "../EditorUtils";
+import {IsColour, IsPause, IsPunctuation, GetNextLetterIndex} from "../TextUtils";
 
 
 export class PrettifyButton extends Component

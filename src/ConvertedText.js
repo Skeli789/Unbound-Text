@@ -1,7 +1,7 @@
 import React, {Component} from 'react';
 import {TextArea} from 'semantic-ui-react';
 
-import {COLOURS, OTHER_REPLACEMENT_MACROS, ReplaceWithMacros} from "./EditorUtils"; 
+import {COLOURS, OTHER_REPLACEMENT_MACROS, ReplaceWithMacros} from "./TextUtils"; 
 
 import "./styles/Editor.css";
 
