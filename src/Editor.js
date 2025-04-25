@@ -5,8 +5,8 @@ import {TextArea} from 'semantic-ui-react';
 import {FaUndo, FaRedo, FaLock, FaUnlock} from "react-icons/fa";
 
 import ConvertedText from './ConvertedText';
-import {SEMI_LINE_WIDTH, FULL_LINE_WIDTH, COLOURS, OTHER_REPLACEMENT_MACROS, ReplaceMacros,
-        GetStringWidth, GetMacroWidth, GetCharacterWidth, GetLineTotalWidth, FindIndexOfLineEnd, FindIndexOfLineStart, DoesLineHaveScrollAfterIt, LineHasCharAfterIndex, LineHasCharAfterIndexBeforeOtherChar} from "./TextUtils";
+import {SEMI_LINE_WIDTH, FULL_LINE_WIDTH, GetStringWidth, FindIndexOfLineEnd,
+        FindIndexOfLineStart, DoesLineHaveScrollAfterIt, FormatStringForDisplay} from "./TextUtils";
 import PrettifyButton from "./subcomponents/PrettifyButton";
 import QuickButtons from "./subcomponents/QuickButtons";
 import TranslationButton from "./subcomponents/TranslationButton";
@@ -45,7 +45,7 @@ export class Editor extends Component
         this.myInput = React.createRef()
         this.showTranslationBox = (translatedText) =>
         {
-            this.props.showTranslationBox(this.formatString(this.formatString(translatedText)));
+            this.props.showTranslationBox(FormatStringForDisplay(FormatStringForDisplay(translatedText, this.state.lockFinalLine), this.state.lockFinalLine));
         }
     }
 
@@ -105,7 +105,8 @@ export class Editor extends Component
 
     setNewText(newText, autoAdjustScroll)
     {
-        newText = this.formatString(this.formatString(newText)); //Format twice to fix copy-paste errors
+        let lockFinalLine = this.state.lockFinalLine;
+        newText = FormatStringForDisplay(FormatStringForDisplay(newText, lockFinalLine), lockFinalLine); //Format twice to fix copy-paste errors
         let cursorPos = this.getNewCursorPosition(newText);
         this.addTextToUndo(this.state.text, this.state.prevCursorPosition);
         this.setTextState(newText, cursorPos, autoAdjustScroll);
@@ -166,7 +167,7 @@ export class Editor extends Component
     {
         this.setState({lockFinalLine: false}, () => //So it doesn't interfere with the prettifer
         {
-            let newText = this.formatString(finalText).trim();
+            let newText = FormatStringForDisplay(finalText, this.state.lockFinalLine).trim();
             newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses
             newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses - intentional duplicate
             this.setNewText(newText, false);
@@ -178,169 +179,7 @@ export class Editor extends Component
         this.setState({lockFinalLine: lockLine});
     }
 
-    formatString(text)
-    {
-        let width = 0;
-        let finalLines = [];
-        let addedLine = false;
-
-        //Replace certain text strings
-        text = text.replaceAll("\\pn", "\n\n").replaceAll("\\n", "\n").replaceAll("\\p", "\n\n").replaceAll("\\l", "\n"); //Enable copy-paste - first is from HexManiac
-        text = text.replaceAll("[.]", "…").replaceAll("...", "…").replaceAll("…]", "…"); //Remove accidental extra square bracket
-        text = text.replaceAll("[[", "[").replaceAll("]]", "]");
-        text = text.replaceAll("\\e", "é");
-        text = text.replaceAll("_FR]", "]").replaceAll("_EM]", "]"); //XSE Colour Endings
-
-        if (this.state.lockFinalLine)
-            text = text.replace(/\n*$/, "") //Remove blank line at the end
-
-        //Go through each line
-        let lines = text.split("\n");
-        for (let [i, line] of lines.entries())
-        {
-            let inMacro = false; //Macros can't exist over multiple lines
-            let macroText = "";
-            let finalLine = [];
-            let currWord = [];
-            let lastWordStartIndex = 0;
-            line = line.trimStart(); //Remove leading whitespace
-            line = Array.from(line);
-
-            if (addedLine) //A new line was addded before that didn't exist in the original text
-            {
-                if (line.length > 0) //Not a blank line
-                {
-                    //Merge the two lines together
-                    let prevAddedLine = finalLines.pop();
-                    finalLine = finalLine.concat(prevAddedLine)
-
-                    if (finalLine.at(-1) !== " ") //Doesn't already have an extra whitespace at the end
-                        finalLine = finalLine.concat(" ");
-
-                    width = GetStringWidth(prevAddedLine);
-                    lastWordStartIndex = 1; //Because the word won't really start at the 0 index
-                }
-
-                addedLine = false;
-            }
-            else
-                width = 0; //On a blank new line now
-
-            //Try skip extra blank line
-            if (line.length === 0 //Blank line separating textboxes
-            && (i > 2 && lines[i - 1].length === 0 && lines[i - 2].length === 0)) //Two blank lines in a row
-                continue; //Skip this line
-
-            //Get the allowed width for this line
-            let totalWidth = GetLineTotalWidth(lines, i, this.state.lockFinalLine);
-
-            //Go through each character in the line
-            for (let [j, letter] of line.entries())
-            {
-                if (letter === " " && j - 2 >= 0 && line[j - 1] === " " && line[j - 2] === " ") //Three whitespaces in a row
-                    continue; //Don't allow
-                else if (letter === "[") //Start of macro
-                {
-                    inMacro = true;
-                    macroText = "";
     
-                    //The beginning of a buffer always marks a new word
-                    finalLine = finalLine.concat(currWord);
-                    lastWordStartIndex = j;
-                    currWord = []; //Reset
-
-                    //Add a closing brace if there' isn't one on the line yet
-                    if (!LineHasCharAfterIndex(line, j, "]"))
-                        letter += "]"; //Automatically add closing brace
-                }
-                else if (inMacro)
-                {
-                    if (letter === "]") //End of macro
-                    {
-                        inMacro = false;
-                        width += GetMacroWidth(macroText)
-                    }
-                    else //Build up the macro
-                    {
-                        if (LineHasCharAfterIndexBeforeOtherChar(line, j, "]", "["))
-                            letter = letter.toUpperCase();
-
-                        macroText += letter;
-                    }
-                }
-                else
-                {
-                    let nextChar = (j + 1 >= line.length) ? "\n" : line[j + 1];
-
-                    if (letter === " " && nextChar === "\n")
-                        {} //Ignore trailing whitespace
-                    else
-                        width += GetCharacterWidth(letter, nextChar);
-                }
-
-                if (letter === " ") //Whitespace
-                {
-                    finalLine = finalLine.concat(currWord).concat(" ");
-                    lastWordStartIndex = j + 1;
-                    currWord = []; //Reset
-                }
-                else if (letter === "-") //Dash
-                {
-                    //Allow splitting dashes onto multiple lines
-                    finalLine = finalLine.concat(currWord).concat("-");
-                    lastWordStartIndex = j + 1;
-                    currWord = []; //Reset
-                }
-                else
-                    currWord.push(letter);
-
-                if (width > totalWidth) //Exceeded the space on this line
-                {
-                    if (i + 1 >= lines.length && this.state.lockFinalLine) //No more lines can go after this one
-                    {
-                        if (currWord.length > 0)
-                            currWord.length -= 1; //Remove character just added
-                        break; //No more lines
-                    }
-                    if (lastWordStartIndex === 0) //This word has taken up the entire line
-                    {
-                        //Split word onto multiple lines
-                        currWord.length -= 1; //Remove character just added
-                        finalLines.push(currWord);
-                        finalLine = [letter]; //Reset the current line with letter just shoved down
-                        width = 0; //Reset width entirely
-                        currWord = [];
-                        addedLine = true;
-                    }
-                    else /*if (line[lastWordStartIndex - 1] === " ")*/ //Whitespace before last word start
-                    {
-                        while (finalLine.at(-1) === " ")
-                            finalLine.length -= 1; //Remove the trailing whitespace
-
-                        finalLines.push(finalLine);
-
-                        if (currWord.join("") !== " ")
-                            finalLine = currWord; //Push over the word currently being worked on
-                        else
-                            finalLine = []; //Don't push over a trailing whitespace
-
-                        width = GetStringWidth(finalLine);
-                        currWord = []; //Reset
-                        lastWordStartIndex = 0;
-                        addedLine = true;
-                    }
-                }
-            }
-
-            finalLine = finalLine.concat(currWord);
-            finalLines.push(finalLine);
-        }
-
-        let finalText = finalLines.map((line) => line.join("")).join("\n");
-        finalText = ReplaceMacros(finalText, COLOURS); //Do last to allow either capitalization
-        finalText = ReplaceMacros(finalText, OTHER_REPLACEMENT_MACROS); //Do last to allow either capitalization
-        return finalText;
-    }
 
     getNewCursorPosition(newText)
     {
