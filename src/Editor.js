@@ -1,25 +1,20 @@
-import axios from 'axios';
 import React, {Component} from 'react';
-import {Button, OverlayTrigger, Tooltip, Navbar, Container, Nav, NavDropdown} from "react-bootstrap";
+import {OverlayTrigger, Tooltip} from "react-bootstrap";
 import {TextArea} from 'semantic-ui-react';
-import Swal from 'sweetalert2';
 
 import {FaUndo, FaRedo, FaLock, FaUnlock} from "react-icons/fa";
 
-import QuickButton from "./QuickButton";
+import ConvertedText from './ConvertedText';
+import {COLOURS, OTHER_REPLACEMENT_MACROS, ReplaceMacros, IsColour} from "./EditorUtils";
 import FontSizes from "./FontSizes.json";
+import PrettifyButton from "./subcomponents/PrettifyButton";
+import QuickButtons from "./subcomponents/QuickButtons";
+import TranslationButton from "./subcomponents/TranslationButton";
 
 import "./styles/Editor.css";
 
 //TODO: Better cursor adjustment
 
-const blackTextTooltip = props => (<Tooltip {...props}>Black</Tooltip>);
-const blueTextTooltip = props => (<Tooltip {...props}>Blue</Tooltip>);
-const greenTextTooltip = props => (<Tooltip {...props}>Green</Tooltip>);
-const redTextTooltip = props => (<Tooltip {...props}>Red</Tooltip>);
-const playerTooltip = props => (<Tooltip {...props}>Player's Name</Tooltip>);
-const rivalTooltip = props => (<Tooltip {...props}>Rival's Name</Tooltip>);
-const pauseTooltip = props => (<Tooltip {...props}>Pause XX Frames (Hex)</Tooltip>);
 const undoTooltip = props => (<Tooltip className="show" {...props}>Undo</Tooltip>);
 const redoTooltip = props => (<Tooltip className="show" {...props}>Redo</Tooltip>);
 const lockTooltip = props => (<Tooltip className="show" {...props}>Final Line Locked</Tooltip>);
@@ -27,35 +22,6 @@ const unlockTooltip = props => (<Tooltip className="show" {...props}>Final Line 
 
 const FULL_LINE_WIDTH = 206;
 const SEMI_LINE_WIDTH = 196;
-const TRANSLATION_CHAR_LIMIT = 250; //Imposed by the API
-
-const COLOURS =
-{
-    "BLACK": "⚫",
-    "GREEN": "🟢",
-    "BLUE": "🔵",
-    "RED": "🔴",
-    "ORANGE:": "🟠",
-};
-
-const OTHER_REPLACEMENT_MACROS =
-{
-    ".": "…",
-    "ARROW_UP": "↑",
-    "ARROW_DOWN": "↓",
-    "ARROW_LEFT": "←",
-    "ARROW_RIGHT": "→",
-    "A_BUTTON": "🅰",
-    "B_BUTTON": "🅱",
-};
-
-const SUPPORTED_LANGUAGES =
-{
-    "Spanish": "es",
-    "French": "fr",
-    "German": "de",
-    "Italian": "it",
-};
 
 
 export class Editor extends Component
@@ -77,11 +43,13 @@ export class Editor extends Component
             redoCursorStack: [],
             lockFinalLine: false,
             showTranslate: props.showTranslate,
-            showTranslationBox: props.showTranslationBox,
-            translateToLanguage: "Language",
         };
 
         this.myInput = React.createRef()
+        this.showTranslationBox = (translatedText) =>
+        {
+            this.props.showTranslationBox(this.formatString(this.formatString(translatedText)));
+        }
     }
 
     getCharacterWidth(char, nextChar)
@@ -291,22 +259,6 @@ export class Editor extends Component
         return this.doesLineHaveScrollAfterIt(this.state.text, lineStartIndex, lineEndIndex);
     }
 
-    replaceMacros(text, dict)
-    {
-        for (let key of Object.keys(dict))
-            text = text.replaceAll(`[${key}]`, dict[key]);
-
-        return text;
-    }
-
-    replaceWithMacros(text, dict)
-    {
-        for (let key of Object.keys(dict))
-            text = text.replaceAll(dict[key], `[${key}]`);
-
-        return text;
-    }
-
     formatString(text)
     {
         let width = 0;
@@ -466,8 +418,8 @@ export class Editor extends Component
         }
 
         let finalText = finalLines.map((line) => line.join("")).join("\n");
-        finalText = this.replaceMacros(finalText, COLOURS); //Do last to allow either capitalization
-        finalText = this.replaceMacros(finalText, OTHER_REPLACEMENT_MACROS); //Do last to allow either capitalization
+        finalText = ReplaceMacros(finalText, COLOURS); //Do last to allow either capitalization
+        finalText = ReplaceMacros(finalText, OTHER_REPLACEMENT_MACROS); //Do last to allow either capitalization
         return finalText;
     }
 
@@ -593,314 +545,15 @@ export class Editor extends Component
         return result;
     }
 
-    createIngameText()
+    setPrettifiedText(finalText)
     {
-        let finalText = "";
-        let newTextbox = true;
-        let inQuote = false;
-        let text = this.state.text;
-
-        text = text.trim();
-        text = text.replaceAll("Pokemon", "Pok\\emon");
-        text = text.replaceAll("é", "\\e");
-        text = text.replaceAll("–", "-");
-        text = text.replaceAll("“", '"');
-        text = text.replaceAll("”", '"');
-        text = this.replaceWithMacros(text, COLOURS);
-        text = this.replaceWithMacros(text, OTHER_REPLACEMENT_MACROS);
-
-        for (let i = 0; i < text.length; ++i)
+        this.setState({lockFinalLine: false}, () => //So it doesn't interfere with the prettifer
         {
-            let letter = text[i];
-
-            if (letter === " ")
-            {
-                if (i + 1 < text.length)
-                {
-                    if (text[i + 1] === " " || text[i + 1] === "\n") //Disallow trailing whitespace
-                        continue;
-                }
-            }
-
-            if (letter === "\n") //Intentionally not else if
-            {
-                if (i + 1 < text.length)
-                {
-                    if (text[i + 1] === "\n")
-                    {
-                        finalText += "\\p";
-                        newTextbox = true;
-
-                        while (i < text.length && text[i + 1] === "\n")
-                            ++i; //Skip to the next textbox
-                    }
-                    else
-                    {
-                        if (newTextbox) //First \n in textbox
-                        {
-                            finalText += "\\n";
-                            newTextbox = false;
-                        }
-                        else
-                            finalText += "\\l";
-                    }
-                }
-            }
-            else if (letter === '"')
-            {
-                if (inQuote)
-                {
-                    if (i - 1 >= 0 && text[i - 1] === "\\")
-                        finalText += '"'; //Don't add an extra backslash
-                    else
-                        finalText += '\\"';
-
-                    inQuote = false;
-                }
-                else
-                {
-                    finalText += '"';
-                    inQuote = true;
-                }
-            }
-            else if (letter === "$")
-            {
-                if (i - 1 >= 0 && text[i - 1] === "\\")
-                    finalText += '$'; //Don't add an extra backslash
-                else
-                    finalText += '\\$';
-            }
-            else
-                finalText += letter;
-        }
-
-        return finalText;
-    }
-
-    prettifyText()
-    {
-        Swal.fire({
-            title: "Make your text pretty?\nThis will reformat your text!",
-            icon: "warning",
-            showCancelButton: true,
-            confirmButtonText: 'Do It',
-        }).then((result) =>
-        {
-            if (result.isConfirmed)
-            {
-                let finalText = "";
-                let inMacro = false;
-                let skipNextChar = false;
-                let skipNextCharIfWhitespace = false;
-                let text = this.state.text;
-
-                text = text.replaceAll("\n", " "); //First, remove all of the new lines
-                text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
-                text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
-                text = Array.from(text)
-
-                for (let [i, letter] of text.entries())
-                {
-                    if (skipNextChar)
-                    {
-                        skipNextChar = false;
-                        continue;
-                    }
-
-                    if (!skipNextCharIfWhitespace || letter !== " ")
-                        finalText += letter;
-
-                    if (!IsColour(letter)) //Not a real character, so continue trying to skip
-                        skipNextCharIfWhitespace = false;
-
-                    if (letter === "[")
-                        inMacro = true;
-                    else if (letter === "]")
-                        inMacro = false;
-                    else if (!inMacro)
-                    {
-                        if (IsPunctuation(letter)) //Sentence punctuation (not including ellipses)
-                        {
-                            if (i + 1 < text.length)
-                            {
-                                if (text[i + 1] === '"')
-                                {
-                                    finalText += '"'; //Place the quote before moving to the next textbox
-                                    skipNextChar = true;
-                                }
-                                else if (IsPunctuation(text[i + 1])) //Eg. !?
-                                    continue; //Don't add the new line yet
-                            }
-
-                            finalText += "\n\n"; //Move to new textbox
-                            skipNextCharIfWhitespace = true;
-                        }
-                        else if (letter === "…")
-                        {
-                            if (i + 1 < text.length)
-                            {
-                                let doesntLeadLine = i - 1 > 0 && i - 1 !== " " //Didn't lead the line
-                                let nextLetterIndex = GetNextLetterIndex(text, i + 1);
-                                let nextLetter = text[nextLetterIndex];
-
-                                if (!doesntLeadLine) //Leads line
-                                {
-                                    if (nextLetter === "…")
-                                        doesntLeadLine = true; //Should always be space between ... and ...
-                                }
-
-                                if (doesntLeadLine)
-                                {
-                                    if (nextLetter !== " " && !IsPunctuation(nextLetter)) //And sandwiched between two words (eg. Hi...there)
-                                        finalText += " "; //Add a whitespace after the ellipses
-                                    else //Whitespace after the ellipses
-                                    {
-                                        let secondNextLetterIndex = GetNextLetterIndex(text, nextLetterIndex + 1);
-                                        if (secondNextLetterIndex < text.length)
-                                        {
-                                            if (/^[A-Z]*$/.test(text[secondNextLetterIndex])) //And next character is an uppercase letter
-                                            {
-                                                let nextIndex = i + 1;
-                                                while (text[nextIndex] === " ") ++nextIndex; //Fixes problems like "... [PAUSE][20]I hate it!"
-
-                                                if (!IsPause(text, nextIndex)) //Pause between ... and capital letter clearly indicates it should be in the same textbox
-                                                {
-                                                    finalText += "\n\n"; //Move to new textbox
-                                                    skipNextCharIfWhitespace = true;
-                                                }
-                                            }
-                                            else if (IsPunctuation(text[secondNextLetterIndex]))
-                                                skipNextCharIfWhitespace = true; //Shouldn't be space between ellipses and punctuation
-                                        }
-                                    }
-                                }
-                                else
-                                    skipNextCharIfWhitespace = true; //Shouldn't be space between and first word of line    
-                            }
-                        }
-                    }
-                }
-
-                this.setState({lockFinalLine: false}, () => //So it doesn't interfere with the prettifer
-                {
-                    let newText = this.formatString(finalText).trim();
-                    newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses
-                    newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses - intentional duplicate
-                    this.setNewText(newText, false);
-    
-                    Swal.fire("Prettified!", "", "success");
-                });
-            }
+            let newText = this.formatString(finalText).trim();
+            newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses
+            newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses - intentional duplicate
+            this.setNewText(newText, false);
         });
-    }
-
-    setTranslationLanguage(language)
-    {
-        this.setState({translateToLanguage: language});
-    }
-
-    async translateText()
-    {
-        if (!(this.state.translateToLanguage in SUPPORTED_LANGUAGES))
-        {
-            Swal.fire("Please choose a language first.", "", "error");
-        }
-        else if (this.state.text === "")
-        {
-            Swal.fire("Please add some text to translate first.", "", "error");
-        }
-        else
-        {
-            let text, textList, currText;
-            let translatedTextList = [];
-            let actualTextList = [];
-            text = this.createIngameText()
-            text = text.replaceAll("\\e", "é").replaceAll('\\"', '"').replaceAll("[.]", "…");
-            text = text.replaceAll(/(\.)\\n/g, ".\n"); //\n's with a . before them
-            text = text.replaceAll(/(!)\\n/g, "!\n"); //\n's with a ! before them
-            text = text.replaceAll(/(\?)\\n/g, "?\n"); //\n's with a ? before them
-            text = text.replaceAll(/(…)\\n/g, "…\n"); //\n's with a … before them
-            text = text.replaceAll("\\n", " ").replaceAll("\\l", " ").replaceAll("\\p", "\n"); //
-            text = text.replaceAll("[PLAYER]", "Billybobbydoe").replaceAll("[RIVAL]", "Billybobbyfoe"); //So they provide the correct context in the sentence
-            text = text.replaceAll("[PAUSE][", "[PAUSE").replaceAll("[BUFFER][0", "[BUFFER0");
-            text = text.replaceAll("[", "<").replaceAll("]", ">"); //Prevent buffers from being removed by turning them into HTML tags
-            textList = text.split("\n");
-
-            Swal.fire
-            ({
-                title: "Translating...",
-                showConfirmButton: false,
-                scrollbarPadding: false,
-                allowOutsideClick: false,
-                didOpen: () =>
-                {
-                    Swal.showLoading();
-                },
-            });
-
-            //Seperate text into groups of TRANSLATION_CHAR_LIMIT
-            currText = "";
-            for (text of textList)
-            {
-                if (currText.length + text.length + "\n".length > TRANSLATION_CHAR_LIMIT)
-                {
-                    if (currText.length > 0)
-                        actualTextList.push(currText);
-                    currText = text;
-                }
-                else
-                {
-                    if (currText !== "")
-                        currText += "\n";
-
-                    currText += text;
-                }
-            }
-
-            if (currText.length > 0)
-                actualTextList.push(currText);
-
-            try
-            {
-                for (text of actualTextList) //Translate each paragraph at a time as to not overwhelm the server
-                {
-                    let data =
-                    {
-                        q: text,
-                        source: "en",
-                        format: "html",
-                        target: SUPPORTED_LANGUAGES[this.state.translateToLanguage],
-                    };
-    
-                    let response = await axios.post(`https://libretranslate.de/translate`, data);
-                    text = response.data.translatedText;
-                    text = text.replaceAll("Billybobbydoe", "[PLAYER]").replaceAll("Billybobbyfoe", "[RIVAL]"); //Give Player and Rival their buffers back
-                    text = text.replaceAll(/<\/.*>/g, ""); //Remove closing tags added in
-                    text = text.replaceAll("<pause", "<pause><").replaceAll("<buffer0", "<buffer><0"); //Restore newer buffers
-                    text = text.replaceAll("<", "[").replaceAll(">", "]"); //Convert all buffers back
-                    translatedTextList.push(text);
-                }
-
-                let translatedText = translatedTextList.join("\\p").replaceAll("\n", "\\p");
-                this.state.showTranslationBox(this.formatString(this.formatString(translatedText)));
-                Swal.close();
-            }
-            catch (e)
-            {
-                Swal.fire("Translation site was overwhelmed!\nPlease wait 1 minute before trying again.", "", "error");
-            }
-        }
-    }
-
-    copyConvertedText()
-    {
-        var elem = document.getElementById(GetConvertedTextId(!this.state.showTranslate));
-        if (elem != null)
-        {
-            elem.select(); //Select all text
-            elem.setSelectionRange(0, 99999); //For mobile devices
-            document.execCommand("copy"); //Copy the text inside the text field
-        }
     }
 
     addTextAtSelectionStart(textToAdd)
@@ -980,45 +633,6 @@ export class Editor extends Component
         this.setState({lockFinalLine: lockLine});
     }
 
-    printTranslationBar()
-    {
-        var languages = [];
-
-        for (let language of Object.keys(SUPPORTED_LANGUAGES))
-            languages.push(<NavDropdown.Item key={SUPPORTED_LANGUAGES[language]} onClick={this.setTranslationLanguage.bind(this, language)}>{language}</NavDropdown.Item>);
-
-        if (!this.state.showTranslate) //Is the translated text box
-        {
-            return (
-                <Navbar variant="dark" bg="dark" expand="lg" className="translate-button">
-                    <Container fluid className="translated-text-navbar-container">
-                        <Navbar.Brand>Translated Text</Navbar.Brand>
-                        <Navbar.Toggle aria-controls="navbar-dark-example" />
-                    </Container>
-                </Navbar>
-            );
-        }
-        
-        return (
-            <Navbar variant="dark" bg="dark" expand="lg" className="translate-button">
-                <Container fluid>
-                    <Navbar.Brand onClick={this.translateText.bind(this)}>Translate</Navbar.Brand>
-                    <Navbar.Toggle aria-controls="navbar-dark-example" />
-                    <Navbar.Collapse>
-                    <Nav>
-                        <NavDropdown
-                            title={this.state.translateToLanguage}
-                            menuVariant="dark"
-                        >
-                            {languages}
-                        </NavDropdown>
-                    </Nav>
-                    </Navbar.Collapse>
-                </Container>
-            </Navbar>
-        );
-    }
-
     render()
     {
         let cursorLineWidth = this.getCursorLineWidth();
@@ -1034,15 +648,8 @@ export class Editor extends Component
         return (
             <div className="editor-grid">
                 {/*Toolbar*/}
-                <div className="quick-buttons" style={buttonsContainerStyle}>
-                    <QuickButton text="⚫" tooltip={blackTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                    <QuickButton text="🔵" tooltip={blueTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                    <QuickButton text="🔴" tooltip={redTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                    <QuickButton text="🟢" tooltip={greenTextTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                    <QuickButton text="[PLAYER]" tooltip={playerTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                    <QuickButton text="[RIVAL]" tooltip={rivalTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                    <QuickButton text="[PAUSE][]" tooltip={pauseTooltip} func={this.addTextAtSelectionStart.bind(this)}/>
-                </div>
+                <QuickButtons buttonsContainerStyle={buttonsContainerStyle}
+                              addTextAtSelectionStart={this.addTextAtSelectionStart.bind(this)}/>
 
                 {/*Text Input*/}
                 <TextArea
@@ -1058,22 +665,18 @@ export class Editor extends Component
                 />
 
                 {/*Converted Text*/}
-                <TextArea
-                    readOnly={true}
-                    className="fr-text converted-text"
-                    id = {GetConvertedTextId(!this.state.showTranslate)}
-                    rows={1}
-                    style={textAreaStyle}
-                    value={this.createIngameText()}
-                    onClick={this.copyConvertedText.bind(this)}
+                <ConvertedText
+                    text={this.state.text}
+                    textAreaStyle={textAreaStyle}
+                    showTranslate={this.state.showTranslate}
                 />
 
                 {/*Space Details & Prettifier*/}
-                <Button onClick={this.prettifyText.bind(this)} variant="danger" className="prettify-button">Prettify</Button>
+                <PrettifyButton text={this.state.text} setPrettifiedText={this.setPrettifiedText.bind(this)}/>
                 <div className="space-info"><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth} ~ <span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</div>
 
                 {/*Translation*/}
-                {this.printTranslationBar()}
+                <TranslationButton text={this.state.text} showTranslate={this.state.showTranslate} showTranslationBox={this.showTranslationBox}/>
 
                 {/*Lock Final Line Button*/}
                 <div className="lock-buttons">
@@ -1118,14 +721,6 @@ function GetTextAreaId(isTranslationBox)
         return "main-textarea";
 }
 
-function GetConvertedTextId(isTranslationBox)
-{
-    if (isTranslationBox)
-        return "converted-text-translated"
-    else
-        return "converted-text"
-}
-
 function SetTextareaCursorPos(cursorPos, autoAdjustScroll, isTranslationBox)
 {
     var textArea = document.getElementById(GetTextAreaId(isTranslationBox));
@@ -1143,55 +738,6 @@ function SetTextareaCursorPos(cursorPos, autoAdjustScroll, isTranslationBox)
             textArea.scrollTop = newScrollTop; //Set scroll
         }
     }
-}
-
-function IsColour(char)
-{
-    return char === "🟢"
-        || char === "🔵"
-        || char === "🔴"
-        || char === "⚫";
-}
-
-function IsPunctuation(char)
-{
-    return char === "." || char === "!" || char === "?";
-}
-
-function IsPause(text, nextLetterIndex)
-{
-    return text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[PAUSE]";
-}
-
-function GetNextLetterIndex(text, nextLetterIndex)
-{
-    if (nextLetterIndex >= text.length)
-        return nextLetterIndex; //No more letters
-
-    if (IsColour(text[nextLetterIndex]))
-        return GetNextLetterIndex(text, nextLetterIndex + 1); //Skip past colour
-    else if (IsPause(text, nextLetterIndex))
-        return GetNextLetterIndex(text, nextLetterIndex + 7); //Skip past pause start
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[RIVAL]")
-        return "R";
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 8).join("") === "[PLAYER]")
-        return "P";
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[BUFFER")
-        return "B";
-    else if (text[nextLetterIndex] === "[")
-    {
-        while (nextLetterIndex < text.length && text[nextLetterIndex] !== "]")
-            ++nextLetterIndex;
-
-        ++nextLetterIndex;
-
-        if (nextLetterIndex < text.length)
-            return GetNextLetterIndex(text, nextLetterIndex); //Try after the macro
-
-        //No more letters
-    }
-
-    return nextLetterIndex;
 }
 
 export default Editor;

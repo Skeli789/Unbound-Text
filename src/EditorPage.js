@@ -33,10 +33,8 @@ export class EditorPage extends Component
             <div className="editor-page">
                 <Editor text="" showTranslate={true} showTranslationBox={this.showTranslationBox.bind(this)} key={0}/>
                 {
-                    this.state.showingTranslationBox ?
+                    this.state.showingTranslationBox &&
                         <Editor text={this.state.translatedText} showTranslate={false} showTranslationBox={null} key={this.state.translationBoxKey}/>
-                    :
-                        ""
                 }
             </div>
         );
