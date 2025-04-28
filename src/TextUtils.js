@@ -273,7 +273,7 @@ export function LineHasCharAfterIndexBeforeOtherChar(line, index, char, otherCha
     return false;
 }
 
-export function FormatStringForDisplay(text, finalLineLocked)
+export function FormatStringForDisplay(text, finalLineLocked, textChange={})
 {
     let width = 0;
     let finalLines = [];
@@ -290,15 +290,16 @@ export function FormatStringForDisplay(text, finalLineLocked)
         text = text.replace(/\n*$/, "") //Remove blank line at the end
 
     //Go through each line
+    let charsProcessed = 0;
     let lines = text.split("\n");
-    for (let [i, line] of lines.entries())
+    for (let [i, originalLine] of lines.entries())
     {
         let inMacro = false; //Macros can't exist over multiple lines
         let macroText = "";
         let finalLine = [];
         let currWord = [];
         let lastWordStartIndex = 0;
-        line = line.trimStart(); //Remove leading whitespace
+        let line = originalLine.trimStart(); //Remove leading whitespace
         line = Array.from(line);
 
         if (addedLine) //A new line was addded before that didn't exist in the original text
@@ -321,10 +322,13 @@ export function FormatStringForDisplay(text, finalLineLocked)
         else
             width = 0; //On a blank new line now
 
-        //Try skip extra blank line
+        //Prevent more than three blank lines in a row
         if (line.length === 0 //Blank line separating textboxes
-        && (i > 2 && lines[i - 1].length === 0 && lines[i - 2].length === 0)) //Two blank lines in a row
-            continue; //Skip this line
+        && i > 3
+        && lines[i - 1].length === 0
+        && lines[i - 2].length === 0
+        && lines[i - 3].length === 0) //Three blank lines in a row
+           continue; //Skip this line
 
         //Get the allowed width for this line
         let totalWidth = GetLineTotalWidth(lines, i, finalLineLocked);
@@ -344,8 +348,11 @@ export function FormatStringForDisplay(text, finalLineLocked)
                 lastWordStartIndex = j;
                 currWord = []; //Reset
 
-                //Add a closing brace if there' isn't one on the line yet
-                if (!LineHasCharAfterIndex(line, j, "]"))
+                //Add a closing brace if there isn't one on the line yet and only if the user just added the [
+                if (!LineHasCharAfterIndex(line, j, "]")
+                && textChange.type === TextChange.SINGLE_INSERT
+                && textChange.inserted === "[" //Only add if the user just added it
+                && j + charsProcessed >= textChange.start) //Only add if the user just added it
                     letter += "]"; //Automatically add closing brace
             }
             else if (inMacro)
@@ -397,6 +404,7 @@ export function FormatStringForDisplay(text, finalLineLocked)
                         currWord.length -= 1; //Remove character just added
                     break; //No more lines
                 }
+
                 if (lastWordStartIndex === 0) //This word has taken up the entire line
                 {
                     //Split word onto multiple lines
@@ -429,10 +437,114 @@ export function FormatStringForDisplay(text, finalLineLocked)
 
         finalLine = finalLine.concat(currWord);
         finalLines.push(finalLine);
+        charsProcessed += originalLine.length + 1; //+1 for the \n that was removed
     }
 
     let finalText = finalLines.map((line) => line.join("")).join("\n");
     finalText = ReplaceMacros(finalText, COLOURS); //Do last to allow either capitalization
     finalText = ReplaceMacros(finalText, OTHER_REPLACEMENT_MACROS); //Do last to allow either capitalization
     return finalText;
+}
+
+/**
+ * @typedef {Object} TextChange
+ * @property {string} type - The type of change made to the text.
+ * @property {string} inserted - The text that was inserted.
+ * @property {string} deleted - The text that was deleted.
+ * @property {number} start - The starting index of the change in the new text.
+ * @property {number} end - The ending index of the change in the new text.
+ */
+export const TextChange = Object.freeze(
+{
+    /** No change was made. */
+    NO_CHANGE:            "NO_CHANGE",
+    /** A single character was inserted. */
+    SINGLE_INSERT:        "SINGLE_INSERT",
+    /** A single character was deleted. */
+    SINGLE_DELETE:        "SINGLE_DELETE",
+    /** Multiple characters were inserted. */
+    MULTI_INSERT:         "MULTI_INSERT",
+    /** Multiple characters were deleted. */
+    MULTI_DELETE:         "MULTI_DELETE",
+    /** A single character was replaced by a single character. */
+    SINGLE_REPLACE:       "SINGLE_REPLACE",
+    /** Multiple characters were replaced by a single character. */
+    SINGLE_REPLACE_MULTI: "SINGLE_REPLACE_MULTI",
+    /** Multiple characters were replaced by multiple characters. */
+    MULTI_REPLACE_MULTI:  "MULTI_REPLACE_MULTI",
+    /** A single character was replaced by multiple characters. */
+    MULTI_REPLACE_SINGLE: "MULTI_REPLACE_SINGLE"
+});
+
+/**
+ * Determines the type of change made to the text.
+ * @param {string} oldText - The original text before the change.
+ * @param {string} newText - The modified text after the change.
+ * @returns {TextChange} The type of change made to the text. One of the above.
+ */
+export function DetermineTextChangeType(oldText, newText)
+{
+    //Check if any text was actually changed
+    if (oldText === newText)
+        return {type: TextChange.NO_CHANGE, inserted: "", deleted: ""};
+
+    //Find the start of the change
+    const oldLen = oldText.length, newLen = newText.length;
+    let start = 0;
+    while (start < oldLen && start < newLen && oldText[start] === newText[start]) 
+        ++start;
+
+    //Find the end of the change
+    let endOld = oldLen - 1, endNew = newLen - 1;
+    while (endOld >= start && endNew >= start && oldText[endOld] === newText[endNew])
+    {
+        --endOld;
+        --endNew;
+    }
+
+    //Determine the number of characters inserted and deleted
+    const oldCount = endOld - start + 1;
+    const newCount = endNew - start + 1;
+    const inserted = newCount > 0 ? newText.substring(start, start + newCount) : "";
+    const deleted = oldCount > 0 ? oldText.substring(start, start + oldCount) : "";
+
+    if (oldCount > 0 && newCount > 0)
+    {
+        //Both inserted and deleted
+        if (oldCount === 1 && newCount === 1) //Replace a single character with another single character
+            return {type: TextChange.SINGLE_REPLACE, inserted, deleted, start, end: start + newCount};
+        else if (oldCount > 1 && newCount === 1) //Replace multiple characters with a single character
+            return {type: TextChange.SINGLE_REPLACE_MULTI, inserted, deleted, start, end: start + newCount};
+        else if (oldCount === 1 && newCount > 1) //Replace a single character with multiple characters
+            return {type: TextChange.MULTI_REPLACE_SINGLE, inserted, deleted, start, end: start + newCount};
+        else //Replace multiple characters with multiple characters
+            return {type: TextChange.MULTI_REPLACE_MULTI, inserted, deleted, start, end: start + newCount};
+    }
+    else if (oldCount > 0)
+    {
+        //Only deleted
+        const kind = oldCount === 1
+            ? TextChange.SINGLE_DELETE
+            : TextChange.MULTI_DELETE;
+        return {type: kind, inserted: "", deleted, start, end: start};
+    }
+    else
+    {
+        //Only inserted
+        const kind = newCount === 1
+            ? TextChange.SINGLE_INSERT
+            : TextChange.MULTI_INSERT;
+        return {type: kind, inserted, deleted: "", start, end: start + newCount};
+    }
+}
+
+/**
+ * Determines if the text change is an insertion.
+ * @param {string} type - The type of change made to the text.
+ * @returns {boolean} True if the change is an insertion, false otherwise.
+ */
+export function IsInsertTextChange(type)
+{
+    return type === TextChange.SINGLE_INSERT
+        || type === TextChange.MULTI_INSERT;
 }

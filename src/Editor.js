@@ -6,14 +6,16 @@ import {FaUndo, FaRedo, FaLock, FaUnlock} from "react-icons/fa";
 
 import ConvertedText from './ConvertedText';
 import {SEMI_LINE_WIDTH, FULL_LINE_WIDTH, GetStringWidth, FindIndexOfLineEnd,
-        FindIndexOfLineStart, DoesLineHaveScrollAfterIt, FormatStringForDisplay} from "./TextUtils";
+        FindIndexOfLineStart, DoesLineHaveScrollAfterIt, FormatStringForDisplay,
+        TextChange, DetermineTextChangeType, IsInsertTextChange} from "./TextUtils";
 import PrettifyButton from "./subcomponents/PrettifyButton";
 import QuickButtons from "./subcomponents/QuickButtons";
 import TranslationButton from "./subcomponents/TranslationButton";
 
 import "./styles/Editor.css";
 
-//TODO: Better cursor adjustment
+//TODO: Don't scroll after undo if the cursor is still in view
+//TODO: Fix cursor position after undo
 
 const undoTooltip = props => (<Tooltip className="show" {...props}>Undo</Tooltip>);
 const redoTooltip = props => (<Tooltip className="show" {...props}>Redo</Tooltip>);
@@ -105,18 +107,57 @@ export class Editor extends Component
 
     setNewText(newText, autoAdjustScroll)
     {
-        let lockFinalLine = this.state.lockFinalLine;
-        newText = FormatStringForDisplay(FormatStringForDisplay(newText, lockFinalLine), lockFinalLine); //Format twice to fix copy-paste errors
-        let cursorPos = this.getNewCursorPosition(newText);
-        this.addTextToUndo(this.state.text, this.state.prevCursorPosition);
-        this.setTextState(newText, cursorPos, autoAdjustScroll);
+        //Format the new text
+        const oldText = this.state.text;
+        const lockFinalLine = this.state.lockFinalLine;
+        const typeOfTextChange = DetermineTextChangeType(oldText, newText);
+        let cursorPos = this.getNewCursorPosition(newText, typeOfTextChange);
+        const formattedText = FormatStringForDisplay(FormatStringForDisplay(newText, lockFinalLine, typeOfTextChange), lockFinalLine); //Format twice to fix copy-paste errors
+
+        //If nothing changed, prevent the cursor from moving
+        const typeOfTextChangeAfterFormat = DetermineTextChangeType(oldText, formattedText);
+        if (typeOfTextChangeAfterFormat.type === TextChange.NO_CHANGE)
+        {
+            SetTextareaCursorPos(this.state.prevCursorPosition, false, !this.state.showTranslate);
+            return formattedText; //No change
+        }
+    
+        //Add the old text to the undo stack
+        if ((typeOfTextChange.type === TextChange.SINGLE_INSERT && typeOfTextChange.inserted.match(/^\s*$/)) //Only between words
+        || (typeOfTextChange.type !== TextChange.SINGLE_INSERT))
+            this.addTextToUndo(oldText, this.state.cursorPosition); //Add the old text to the undo stack
+
+        //If the formatted text is different from the new text, update the cursor position twice
+        if (formattedText !== newText)
+        {
+            this.setState
+            ({
+                text: newText, //Set the new text first so the cursor position is correct
+                cursorPosition: cursorPos, //Set the cursor position after just making the text change
+                prevCursorPosition: this.state.cursorPosition,
+            }, () =>
+            {
+                //Change the cursor position after formatting the text
+                cursorPos = this.getNewCursorPosition(formattedText, DetermineTextChangeType(newText, formattedText), typeOfTextChange); //Diff of formatting new text
+                this.setTextState(formattedText, cursorPos, autoAdjustScroll);
+            });
+        }
+        else
+        {
+            //Change the cursor position
+            cursorPos = this.getNewCursorPosition(formattedText, typeOfTextChangeAfterFormat);
+            this.setTextState(formattedText, cursorPos, autoAdjustScroll);
+        }
+
         this.setState({redoTextStack: [], redoCursorStack: []}); //Nothing to redo anymore
-        return newText;
+        return formattedText;
     }
 
     handleTextChange(event)
     {
-        let newText = event.target.value;
+        const newText = event.target.value;
+        if (newText === this.state.text)
+            return; //No change
 
         this.setState
         ({
@@ -136,30 +177,29 @@ export class Editor extends Component
 
     addTextAtSelectionStart(textToAdd)
     {
-        var elem = document.getElementById(GetTextAreaId(!this.state.showTranslate));
-        if (elem == null)
+        const textarea = document.getElementById(GetTextAreaId(!this.state.showTranslate));
+        if (textarea == null)
             return; //Textarea doesn't exist
 
-        let oldText = this.state.text;
-        let textP1 = Array.from(oldText.substring(0, elem.selectionStart));
-        let textP2 = Array.from(oldText.substring(elem.selectionStart, oldText.length));
-        let newCursorPos = elem.selectionStart + textToAdd.length; //String length so unicode characters are treated properly
+        //Create the new text
+        const oldText = this.state.text;
+        const textBefore = oldText.substring(0, textarea.selectionStart);
+        const textAfter = oldText.substring(textarea.selectionStart, oldText.length);
+        let newText = textBefore + textToAdd + textAfter;
 
+        //Determine the new cursor position
+        let newCursorPos = textarea.selectionStart + textToAdd.length; //String length so unicode characters are treated properly
         if (textToAdd.endsWith("[]"))
-            newCursorPos -= 1; //Start inside square brackets
-
-        let newText = textP1.concat(Array.from(textToAdd)).concat(textP2).join("");
-
-        let newFormattedText = this.setNewText(newText, true);
-        newCursorPos += (newFormattedText.length - newText.length); //Adjust if text was shoved onto new line
-
+            newCursorPos -= 1; //Start inside square brackets    
+        
+        //Set the new cursor position and then format the text
         this.setState
         ({
             cursorPosition: newCursorPos,
             prevCursorPosition: this.state.cursorPosition,
         }, () =>
         {
-            SetTextareaCursorPos(newCursorPos, true, !this.state.showTranslate);
+            this.setNewText(newText, true); //Set the new text and move the cursor to the end of the new text
         });
     }
 
@@ -179,50 +219,67 @@ export class Editor extends Component
         this.setState({lockFinalLine: lockLine});
     }
 
-    
-
-    getNewCursorPosition(newText)
+    getNewCursorPosition(newText, typeOfTextChange, prevTypeOfTextChange=null)
     {
-        let i, j, cursorPos;
+        let cursorPos;
         let oldText = this.state.text;
         oldText = oldText.replaceAll("\n", " ");
         newText = newText.replaceAll("\n", " ");
 
-        if (Math.abs(newText.length - oldText.length) <= 1)
-            cursorPos = this.state.cursorPosition;
-        else
+        //console.log("Type of text change: ", typeOfTextChange.type);
+        cursorPos = this.state.cursorPosition; //Where cursor moved to natureally
+        switch (typeOfTextChange.type)
         {
-            //Get index of change start from front
-            for (i = 0; i < Math.max(oldText.length, newText.length) && oldText[i] === newText[i]; ++i)
-            {
-                if (i + 1 >= oldText.length || i + 1 >= newText.length)
+            case TextChange.NO_CHANGE:
+                cursorPos = this.state.prevCursorPosition; //No change, keep cursor in place
+                break;
+            case TextChange.SINGLE_INSERT:
+                cursorPos = this.state.prevCursorPosition + 1; //Move cursor to the right of the new character
+                break;
+            case TextChange.SINGLE_DELETE:
+            case TextChange.MULTI_INSERT:
+            case TextChange.SINGLE_REPLACE:
+                //Move cursor to where it naturally would have moved to
+                break;
+            case TextChange.MULTI_DELETE:
+                //Move cursor back the number of characters deleted
+                cursorPos = typeOfTextChange.start;
+                break;
+            case TextChange.MULTI_REPLACE_SINGLE:
+            case TextChange.SINGLE_REPLACE_MULTI:
+            case TextChange.MULTI_REPLACE_MULTI:
+                //Replacement text
+                let newTypeOfTextChange = DetermineTextChangeType(oldText, newText); //Single the \n's are ignored, this will determine which actual changes were made if text was shoved to a new line
+                let {start, end} = newTypeOfTextChange;
+
+                //console.log("New type of text change: ", newTypeOfTextChange.type);
+                //Check if the only replacements were changing whitespace/newlines
+                if (newTypeOfTextChange.type !== TextChange.MULTI_REPLACE_SINGLE
+                && newTypeOfTextChange.type !== TextChange.SINGLE_REPLACE_MULTI
+                && newTypeOfTextChange.type !== TextChange.MULTI_REPLACE_MULTI)
                 {
-                    ++i;
-                    break;
+                    if (prevTypeOfTextChange != null //E.g. inserting a new character at the end of the line caused text to move over so the single insert is the previous one
+                    && IsInsertTextChange(prevTypeOfTextChange.type))
+                    {
+                        //Basically check if a whitespace got deleted and adjust the cursor position accordingly
+                        if (newTypeOfTextChange.type === TextChange.SINGLE_DELETE && start < this.state.cursorPosition)
+                            cursorPos = this.state.prevCursorPosition - 1; //Move cursor to the left of the deleted character
+                        else //Otherwise, just move the cursor manually if need be
+                            cursorPos = this.getNewCursorPosition(newText, newTypeOfTextChange, typeOfTextChange);
+                    }
+
+                    return cursorPos;
                 }
-            }
 
-            //Get index of change end from back
-            for (j = 1; j < Math.min(oldText.length, newText.length) && oldText.at(-j) === newText.at(-j); ++j);
-            --j;
-            j = newText.length - j; //Adjust to new position in new text
-
-            if (Math.abs(j - i) < 3  //Very close
-            && newText.substring(i, i + 2) === "[]")
-                cursorPos = i + 1; //Stay inside the square brackets
-            else if (i >= oldText.length) //Added new character onto the end
-                cursorPos = newText.length;
-            else if (Math.abs(j - i) < 10) //Pretty close
-            {
-                cursorPos = j; //Wherever the end of the differences was found
-
-                if (oldText.at(i) !== " " && newText.at(i) === " " && newText.at(i - 1) === " ") //Forced \n
-                    cursorPos = this.state.cursorPosition + 1; //Shoved over 1
-            }
-            else if (i + 1 >= this.state.cursorPosition)
-                cursorPos = this.state.cursorPosition; //Text that moved was after where the cursor was anyway
-            else
-                cursorPos = j; //Wherever the end of the differences was found
+                //Check if the cursor is inside the replacement text
+                if (start >= this.state.cursorPosition || end <= this.state.cursorPosition) //Cursor is outside the replacement zone
+                    return this.state.cursorPosition; //Text that was replaced was after where the cursor was
+                
+                //Move cursor to the end of the replacement text
+                cursorPos = end;
+                break;
+            default:
+                console.warn("Unknown type of text change: ", typeOfTextChange.type);
         }
 
         return cursorPos;
@@ -285,15 +342,17 @@ export class Editor extends Component
 
     render()
     {
-        let cursorLineWidth = this.getCursorLineWidth();
-        let totalWidth = (this.doesCursorLineHaveScrollAfterIt()) ? SEMI_LINE_WIDTH: FULL_LINE_WIDTH;
-        let cursorLineCount = Math.floor(cursorLineWidth / 5.6);
-        let maxCharCount = (totalWidth === SEMI_LINE_WIDTH) ? Math.floor(totalWidth / 5.6) : Math.floor(totalWidth / (206 / 36));
+        const text = this.state.text;
 
-        let textAreaStyle = {width: `calc(${this.state.textareaWidth}px + 2em)`, minWidth: "calc(340px + 2em)", maxWidth: "99vw", whiteSpace: "pre"};
-        let buttonsContainerStyle = {width: `calc(${this.state.textareaWidth}px + 3em)`, minWidth: "calc(340px + 3em)", maxWidth: "99vw",};
-        let overflowErrorStyle = (cursorLineWidth > totalWidth) ? {color: "red"} : {color: "green"};
-        let whichLockTooltip = !this.state.lockFinalLine ? unlockTooltip : lockTooltip;
+        const cursorLineWidth = this.getCursorLineWidth();
+        const totalWidth = (this.doesCursorLineHaveScrollAfterIt()) ? SEMI_LINE_WIDTH: FULL_LINE_WIDTH;
+        const cursorLineCount = Math.floor(cursorLineWidth / 5.6);
+        const maxCharCount = (totalWidth === SEMI_LINE_WIDTH) ? Math.floor(totalWidth / 5.6) : Math.floor(totalWidth / (206 / 36));
+
+        const textAreaStyle = {width: `calc(${this.state.textareaWidth}px + 2em)`, minWidth: "calc(340px + 2em)", maxWidth: "99vw", whiteSpace: "pre"};
+        const buttonsContainerStyle = {width: `calc(${this.state.textareaWidth}px + 3em)`, minWidth: "calc(340px + 3em)", maxWidth: "99vw",};
+        const overflowErrorStyle = (cursorLineWidth > totalWidth) ? {color: "red"} : {color: "green"};
+        const whichLockTooltip = !this.state.lockFinalLine ? unlockTooltip : lockTooltip;
 
         return (
             <div className="editor-grid">
@@ -307,7 +366,7 @@ export class Editor extends Component
                     id = {GetTextAreaId(!this.state.showTranslate)}
                     rows={5}
                     style={textAreaStyle}
-                    value={this.state.text}
+                    value={text}
                     onChange={(e) => this.handleTextChange(e)}
                     onClick={(e) => this.handleCursorChange(e)}
                     onKeyDown={(e) => this.onKeyDown(e)}
@@ -316,17 +375,17 @@ export class Editor extends Component
 
                 {/*Converted Text*/}
                 <ConvertedText
-                    text={this.state.text}
+                    text={text}
                     textAreaStyle={textAreaStyle}
                     showTranslate={this.state.showTranslate}
                 />
 
                 {/*Space Details & Prettifier*/}
-                <PrettifyButton text={this.state.text} setPrettifiedText={this.setPrettifiedText.bind(this)}/>
+                <PrettifyButton text={text} setPrettifiedText={this.setPrettifiedText.bind(this)}/>
                 <div className="space-info"><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth} ~ <span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</div>
 
                 {/*Translation*/}
-                <TranslationButton text={this.state.text} showTranslate={this.state.showTranslate} showTranslationBox={this.showTranslationBox}/>
+                <TranslationButton text={text} showTranslate={this.state.showTranslate} showTranslationBox={this.showTranslationBox}/>
 
                 {/*Lock Final Line Button*/}
                 <div className="lock-buttons">
