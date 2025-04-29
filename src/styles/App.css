@@ -2,3 +2,8 @@
 {
     padding-left: calc(100vw - 100%);
 }
+
+.app, #root
+{
+    height: 100%;
+}

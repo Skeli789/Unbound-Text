@@ -370,7 +370,7 @@ export class Editor extends Component
         const whichLockTooltip = !this.state.lockFinalLine ? unlockTooltip : lockTooltip;
 
         return (
-            <div className="editor-grid">
+            <div className="editor-grid" id={this.state.showTranslate ? "editor-grid" : "editor-grid-translate"}>
                 {/*Toolbar*/}
                 <QuickButtons buttonsContainerStyle={buttonsContainerStyle}
                               addTextAtSelectionStart={this.addTextAtSelectionStart.bind(this)}/>
@@ -398,7 +398,7 @@ export class Editor extends Component
 
                 {/*Space Details & Prettifier*/}
                 <PrettifyButton text={text} setPrettifiedText={this.setPrettifiedText.bind(this)}/>
-                <div className="space-info"><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth} ~ <span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</div>
+                <div className="space-info"><span><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth}</span> <span>~</span> <span><span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</span></div>
 
                 {/*Translation*/}
                 <TranslationButton text={text} showTranslate={this.state.showTranslate} showTranslationBox={this.showTranslationBox}/>
