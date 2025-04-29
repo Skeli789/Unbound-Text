@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 import {
     DoesLineEndParagraph, DoesLineHaveScrollAfterIt, DoesLineHaveScrollAfterItByLines,
     FindIndexOfLineEnd, FindIndexOfLineStart, GetCharacterWidth, GetLineTotalWidth,

@@ -176,6 +176,12 @@ describe('Typing in editor moves the cursor where expected', () =>
             expected: "AAAAAAAAAAAAAAAAAAAAAA B| Skeliet-\nJo.",
         },
         {
+            name: "Adding a character to a whole line word",
+            default: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA|",
+            insert: "A",
+            expected:"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA\nA|",
+        },
+        {
             name: "Pasting a colour and other text",
             default: "",
             paste: "[RED_FR] is best!",

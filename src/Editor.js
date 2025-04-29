@@ -255,6 +255,14 @@ export class Editor extends Component
                 cursorPos = this.state.prevCursorPosition; //No change, keep cursor in place
                 break;
             case TextChange.SINGLE_INSERT:
+                if (this.state.cursorPosition > typeOfTextChange.start //The new character was inserted behind the cursor
+                && this.state.prevCursorPosition === this.state.cursorPosition) //Cursor wasn't moved yet because of this change
+                {
+                    //So move the cursor one right to account for the new character
+                    cursorPos = this.state.cursorPosition + 1;
+                    break;
+                }
+                //Fallthrough
             case TextChange.SINGLE_DELETE:
             case TextChange.MULTI_INSERT:
             case TextChange.SINGLE_REPLACE:
