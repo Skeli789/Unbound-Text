@@ -2,7 +2,7 @@ import React, {Component} from 'react';
 import {Button} from "react-bootstrap";
 import Swal from 'sweetalert2';
 
-import {IsColour, IsPause, IsPunctuation, GetNextLetterIndex} from "../TextUtils";
+import {IsColour, IsPause, IsPunctuation, GetNextLetterIndex, FormatStringForDisplay} from "../TextUtils";
 
 
 export class PrettifyButton extends Component
@@ -109,7 +109,16 @@ export class PrettifyButton extends Component
             }
         }
 
-        this.setParentPrettifiedText(finalText);
+        //Format each text box individually so the first line of each can be max length
+        let lines = finalText.split("\n\n"); //Split the text by textboxes
+        for (let i = 0; i < lines.length; ++i)
+        {
+            let line = FormatStringForDisplay(lines[i], false); //Format the line for display
+            lines[i] = line; //Replace the line with the formatted line
+        }
+
+        finalText = lines.join("\n\n"); //Join the lines back together
+        this.setParentPrettifiedText(finalText.trim()); //Remove the last new lines
     }
 
     tryPrettifyText()

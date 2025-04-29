@@ -67,11 +67,11 @@ export function GetNextLetterIndex(text, nextLetterIndex)
     else if (IsPause(text, nextLetterIndex))
         return GetNextLetterIndex(text, nextLetterIndex + 7); //Skip past pause start
     else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[RIVAL]")
-        return "R"; //WTF???
+        return nextLetterIndex + 1; //Return the index of the R
     else if (text.slice(nextLetterIndex, nextLetterIndex + 8).join("") === "[PLAYER]")
-        return "P"; //WTF???
+        return nextLetterIndex + 1; //Return the index of the P
     else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[BUFFER")
-        return "B"; //WTF???
+        return nextLetterIndex + 1; //Return the index of the B
     else if (text[nextLetterIndex] === "[")
     {
         while (nextLetterIndex < text.length && text[nextLetterIndex] !== "]")
@@ -151,16 +151,15 @@ export function GetStringWidth(text)
 
 export function GetLineTotalWidth(lines, lineIndex, finalLineLocked)
 {
-    let totalWidth = SEMI_LINE_WIDTH;
+    let totalWidth = FULL_LINE_WIDTH; //Default width for a line
 
-    if (lineIndex + 1 >= lines.length && finalLineLocked)
-        totalWidth = FULL_LINE_WIDTH; //No scroll arrow after the last line
-    else if (lineIndex === 0 //First line in the msgbox
-    || lines[lineIndex - 1].length === 0) //\n Before this line
-    {
-        if (!DoesLineHaveScrollAfterItByLines(lines, lineIndex))
-            totalWidth = FULL_LINE_WIDTH; //Slightly longer line
-    }
+    if (DoesLineHaveScrollAfterItByLines(lines, lineIndex)) //Line has a scroll arrow after it
+        totalWidth = SEMI_LINE_WIDTH; //Slightly shorter line
+
+    if (lineIndex + 1 >= lines.length && !finalLineLocked //Last line in the textbox
+    && lineIndex > 0 //Not the first line in the textbox
+    && lines[lineIndex - 1].length > 0) //Previous line is not blank
+        totalWidth = SEMI_LINE_WIDTH; //Make last line slightly shorter so the formatting doesn't get messed up
 
     return totalWidth;
 }
@@ -218,8 +217,9 @@ export function DoesLineEndParagraph(text, lineStartIndex)
 export function DoesLineHaveScrollAfterIt(text, lineStartIndex, lineEndIndex, finalLineLocked)
 {
     if (finalLineLocked && lineEndIndex >= text.length)
-        return false; //Last line never has a scroll arrow
+        return false; //Locked last line never has a scroll arrow
 
+    //First line
     if (lineStartIndex === 0)
     {
         if (DoesLineEndParagraph(text, lineStartIndex))
@@ -228,15 +228,16 @@ export function DoesLineHaveScrollAfterIt(text, lineStartIndex, lineEndIndex, fi
         return false; //First line doesn't has a scroll arrow after it
     }
 
+    //Any other line
     if (text[lineStartIndex - 1] === "\n")
     {
         if (DoesLineEndParagraph(text, lineStartIndex))
             return true; //Scroll arrow is on the first line
 
         if (lineStartIndex === 1)
-            return false; //First line in textbox doesn't has a scroll arrow after it
+            return false; //First line in textbox doesn't have a scroll arrow after it
 
-        if (text[lineStartIndex - 2] === "\n")
+        if (text[lineStartIndex - 2] === "\n") //Because we already checked for 0 and 1, lineStartIndex is minimum 2
             return false; //First line of paragraph doesn't have scroll
     }
 
@@ -245,8 +246,19 @@ export function DoesLineHaveScrollAfterIt(text, lineStartIndex, lineEndIndex, fi
 
 export function DoesLineHaveScrollAfterItByLines(lines, lineIndex)
 {
-    return lineIndex + 2 < lines.length
-        && lines[lineIndex + 1].length === 0; //Followed by blank line
+    let previousLineBlank = lineIndex === 0 || lines[lineIndex - 1].length === 0; //For the first line the previous line is always blank
+    let nextLineBlank = lineIndex + 1 < lines.length && lines[lineIndex + 1].length === 0; //Next line is blank
+    let twoLinesFromNowExist = lineIndex + 2 < lines.length;
+
+    if (lineIndex >= lines.length - 1) //Last line in the textbox
+        return false; //No scroll arrow after the last line
+
+    //Scroll when previous line is blank, the next line is blank, and there at least two lines after this one
+    if (previousLineBlank && nextLineBlank && twoLinesFromNowExist)
+        return true;
+
+    //Scroll when previous line is not blank
+    return !previousLineBlank;
 }
 
 export function LineHasCharAfterIndex(line, index, char)
@@ -507,18 +519,23 @@ export function DetermineTextChangeType(oldText, newText)
     const newCount = endNew - start + 1;
     const inserted = newCount > 0 ? newText.substring(start, start + newCount) : "";
     const deleted = oldCount > 0 ? oldText.substring(start, start + oldCount) : "";
+    const end = start + newCount;
+
+    //Determine where in the old text the difference starts and ends
+    const oldStart = oldText.substring(0, start).length;
+    const oldEnd = oldText.substring(0, endOld + 1).length;
 
     if (oldCount > 0 && newCount > 0)
     {
         //Both inserted and deleted
         if (oldCount === 1 && newCount === 1) //Replace a single character with another single character
-            return {type: TextChange.SINGLE_REPLACE, inserted, deleted, start, end: start + newCount};
+            return {type: TextChange.SINGLE_REPLACE, inserted, deleted, start, end, oldStart, oldEnd};
         else if (oldCount > 1 && newCount === 1) //Replace multiple characters with a single character
-            return {type: TextChange.SINGLE_REPLACE_MULTI, inserted, deleted, start, end: start + newCount};
+            return {type: TextChange.SINGLE_REPLACE_MULTI, inserted, deleted, start, end, oldStart, oldEnd};
         else if (oldCount === 1 && newCount > 1) //Replace a single character with multiple characters
-            return {type: TextChange.MULTI_REPLACE_SINGLE, inserted, deleted, start, end: start + newCount};
+            return {type: TextChange.MULTI_REPLACE_SINGLE, inserted, deleted, start, end, oldStart, oldEnd};
         else //Replace multiple characters with multiple characters
-            return {type: TextChange.MULTI_REPLACE_MULTI, inserted, deleted, start, end: start + newCount};
+            return {type: TextChange.MULTI_REPLACE_MULTI, inserted, deleted, start, end, oldStart, oldEnd};
     }
     else if (oldCount > 0)
     {
@@ -526,7 +543,7 @@ export function DetermineTextChangeType(oldText, newText)
         const kind = oldCount === 1
             ? TextChange.SINGLE_DELETE
             : TextChange.MULTI_DELETE;
-        return {type: kind, inserted: "", deleted, start, end: start};
+        return {type: kind, inserted: "", deleted, start, end: start, oldStart, oldEnd};
     }
     else
     {
@@ -534,7 +551,7 @@ export function DetermineTextChangeType(oldText, newText)
         const kind = newCount === 1
             ? TextChange.SINGLE_INSERT
             : TextChange.MULTI_INSERT;
-        return {type: kind, inserted, deleted: "", start, end: start + newCount};
+        return {type: kind, inserted, deleted: "", start, end, oldStart, oldEnd};
     }
 }
 

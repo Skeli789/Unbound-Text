@@ -30,7 +30,7 @@ export class EditorPage extends Component
     render()
     {
         return (
-            <div className="editor-page">
+            <div className="editor-page" data-testid="editor-page">
                 <Editor text="" showTranslate={true} showTranslationBox={this.showTranslationBox.bind(this)} key={0}/>
                 {
                     this.state.showingTranslationBox &&

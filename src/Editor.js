@@ -34,7 +34,9 @@ export class Editor extends Component
             text: props.text,
             firstLineWidth: 0,
             cursorPosition: 0,
+            selectionEnd: 0,
             prevCursorPosition: 0,
+            prevSelectionEnd: 0,
             textareaWidth: 100,
             undoTextStack: [],
             undoCursorStack: [],
@@ -112,7 +114,9 @@ export class Editor extends Component
         const lockFinalLine = this.state.lockFinalLine;
         const typeOfTextChange = DetermineTextChangeType(oldText, newText);
         let cursorPos = this.getNewCursorPosition(newText, typeOfTextChange);
-        const formattedText = FormatStringForDisplay(FormatStringForDisplay(newText, lockFinalLine, typeOfTextChange), lockFinalLine); //Format twice to fix copy-paste errors
+        let formattedText = FormatStringForDisplay(newText, lockFinalLine, typeOfTextChange);
+        if (formattedText !== newText) //Format again if the first format changed the text
+            formattedText = FormatStringForDisplay(formattedText, lockFinalLine); //Format twice to fix copy-paste errors
 
         //If nothing changed, prevent the cursor from moving
         const typeOfTextChangeAfterFormat = DetermineTextChangeType(oldText, formattedText);
@@ -128,19 +132,23 @@ export class Editor extends Component
             this.addTextToUndo(oldText, this.state.cursorPosition); //Add the old text to the undo stack
 
         //If the formatted text is different from the new text, update the cursor position twice
-        if (formattedText !== newText)
+        if (formattedText !== newText
+        && !(typeOfTextChange.type === TextChange.SINGLE_INSERT
+            && typeOfTextChange.inserted === "["
+            && typeOfTextChangeAfterFormat.type === TextChange.MULTI_INSERT
+            && typeOfTextChangeAfterFormat.inserted === "[]"
+        )) //Unless the user opened a bracket, don't update the cursor position so they stay inside the brackets
         {
-            this.setState
-            ({
-                text: newText, //Set the new text first so the cursor position is correct
-                cursorPosition: cursorPos, //Set the cursor position after just making the text change
-                prevCursorPosition: this.state.cursorPosition,
-            }, () =>
-            {
-                //Change the cursor position after formatting the text
-                cursorPos = this.getNewCursorPosition(formattedText, DetermineTextChangeType(newText, formattedText), typeOfTextChange); //Diff of formatting new text
-                this.setTextState(formattedText, cursorPos, autoAdjustScroll);
-            });
+            this.setNewCursorPosThenCallFunc(
+                cursorPos, cursorPos, //Set the cursor position after just making the text change
+                () =>
+                {
+                    //Change the cursor position after formatting the text
+                    cursorPos = this.getNewCursorPosition(formattedText, DetermineTextChangeType(newText, formattedText), typeOfTextChange); //Diff of formatting new text
+                    this.setTextState(formattedText, cursorPos, autoAdjustScroll);
+                },
+                newText, //Set the new text first so the cursor position is correct
+            );
         }
         else
         {
@@ -159,20 +167,35 @@ export class Editor extends Component
         if (newText === this.state.text)
             return; //No change
 
-        this.setState
-        ({
-            cursorPosition: event.target.selectionStart,
-            prevCursorPosition: this.state.cursorPosition,
-        }, () =>
+        this.setNewCursorPosThenCallFunc(
+            event.target.selectionStart,
+            event.target.selectionEnd,
+            () => {this.setNewText(newText, false)}
+        );
+    }
+
+    setNewCursorPosThenCallFunc(selectionStart, selectionEnd, func=null, text=null)
+    {
+        if (func == null)
+            func = () => {}; //Do nothing after if no function is passed
+
+        let stateUpdate =
         {
-            this.setNewText(newText, false);
-        });
-        
+            cursorPosition: selectionStart,
+            selectionEnd: selectionEnd,
+            prevCursorPosition: this.state.cursorPosition,
+            prevSelectionEnd: this.state.selectionEnd,
+        };
+
+        if (text != null)
+            stateUpdate.text = text;
+
+        this.setState(stateUpdate, func);
     }
 
     handleCursorChange(event)
     {
-        this.setState({cursorPosition: event.target.selectionStart, prevCursorPosition: this.state.cursorPosition});
+        this.setNewCursorPosThenCallFunc(event.target.selectionStart, event.target.selectionEnd);
     }
 
     addTextAtSelectionStart(textToAdd)
@@ -191,16 +214,15 @@ export class Editor extends Component
         let newCursorPos = textarea.selectionStart + textToAdd.length; //String length so unicode characters are treated properly
         if (textToAdd.endsWith("[]"))
             newCursorPos -= 1; //Start inside square brackets    
-        
+
         //Set the new cursor position and then format the text
-        this.setState
-        ({
-            cursorPosition: newCursorPos,
-            prevCursorPosition: this.state.cursorPosition,
-        }, () =>
-        {
-            this.setNewText(newText, true); //Set the new text and move the cursor to the end of the new text
-        });
+        this.setNewCursorPosThenCallFunc(
+            newCursorPos, newCursorPos,
+            () =>
+            {
+                this.setNewText(newText, true); //Set the new text and move the cursor to the end of the new text
+            }
+        );
     }
 
     setPrettifiedText(finalText)
@@ -234,8 +256,6 @@ export class Editor extends Component
                 cursorPos = this.state.prevCursorPosition; //No change, keep cursor in place
                 break;
             case TextChange.SINGLE_INSERT:
-                cursorPos = this.state.prevCursorPosition + 1; //Move cursor to the right of the new character
-                break;
             case TextChange.SINGLE_DELETE:
             case TextChange.MULTI_INSERT:
             case TextChange.SINGLE_REPLACE:
@@ -243,14 +263,14 @@ export class Editor extends Component
                 break;
             case TextChange.MULTI_DELETE:
                 //Move cursor back the number of characters deleted
-                cursorPos = typeOfTextChange.start;
+                cursorPos = this.state.prevSelectionEnd - typeOfTextChange.deleted.length; //Move cursor to the left of the deleted character
                 break;
             case TextChange.MULTI_REPLACE_SINGLE:
             case TextChange.SINGLE_REPLACE_MULTI:
             case TextChange.MULTI_REPLACE_MULTI:
                 //Replacement text
                 let newTypeOfTextChange = DetermineTextChangeType(oldText, newText); //Single the \n's are ignored, this will determine which actual changes were made if text was shoved to a new line
-                let {start, end} = newTypeOfTextChange;
+                let {start, end, oldEnd} = newTypeOfTextChange;
 
                 //console.log("New type of text change: ", newTypeOfTextChange.type);
                 //Check if the only replacements were changing whitespace/newlines
@@ -272,11 +292,11 @@ export class Editor extends Component
                 }
 
                 //Check if the cursor is inside the replacement text
-                if (start >= this.state.cursorPosition || end <= this.state.cursorPosition) //Cursor is outside the replacement zone
+                //console.log("Cursor position: ", this.state.cursorPosition, "Start: ", start, "End: ", end);
+                if (this.state.cursorPosition < start || this.state.cursorPosition > oldEnd) //Cursor outside the replacement zone
                     return this.state.cursorPosition; //Text that was replaced was after where the cursor was
-                
-                //Move cursor to the end of the replacement text
-                cursorPos = end;
+                else //Cursor is inside or after the replacement zone
+                    cursorPos = end; //Move cursor to the end of the replacement text
                 break;
             default:
                 console.warn("Unknown type of text change: ", typeOfTextChange.type);
@@ -363,7 +383,8 @@ export class Editor extends Component
                 {/*Text Input*/}
                 <TextArea
                     className="fr-text main-textarea"
-                    id = {GetTextAreaId(!this.state.showTranslate)}
+                    id={GetTextAreaId(!this.state.showTranslate)}
+                    data-testid={GetTextAreaId(!this.state.showTranslate)}
                     rows={5}
                     style={textAreaStyle}
                     value={text}
