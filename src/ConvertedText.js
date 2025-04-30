@@ -1,4 +1,5 @@
 import React, {Component} from 'react';
+import {toast} from "react-toastify";
 import {TextArea} from 'semantic-ui-react';
 
 import {COLOURS, OTHER_REPLACEMENT_MACROS, ReplaceWithMacros} from "./TextUtils"; 
@@ -19,11 +20,26 @@ export class ConvertedText extends Component
      */
     copyConvertedText()
     {
+        if (this.props.text === "") //Don't copy empty text
+            return;
+
         if (navigator.clipboard && navigator.clipboard.writeText)
         {
             navigator.clipboard.writeText(this.props.text).then((text) => //Copy to clipboard
             {
                 console.log("Copied text");
+                toast("Copied text to clipboard!",
+                {
+                    position: "bottom-right",
+                    autoClose: 3000,
+                    hideProgressBar: true, //Don't show the user how much time is left
+                    closeOnClick: true,
+                    pauseOnHover: false, //Always decrease the timer
+                    pauseOnFocusLoss: false, //Always decrease the timer
+                    draggable: false,
+                    // transition: "slide", //Broken
+                    theme: this.props.darkMode ? "dark" : "colored",
+                });
             }).catch((err) => //In case the copy fails on mobile browsers
             {
                 console.error(`Couldn't copy text to clipboard: ${err}`);
