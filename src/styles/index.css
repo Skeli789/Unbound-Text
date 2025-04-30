@@ -10,7 +10,7 @@ body
     overflow: hidden;
 }
 
-body.swal2-height-auto /* Fixes the pop-up destroying the layout */
+html body.swal2-height-auto /* Fixes the pop-up destroying the layout */
 {
     height: 100% !important;
 }
