@@ -9,6 +9,7 @@ import {SEMI_LINE_WIDTH, FULL_LINE_WIDTH, GetDisplayColour, GetStringWidth, Find
         DoesLineHaveScrollAfterIt, FormatStringForDisplay, TextChange, DetermineTextChangeType,
         IsInsertTextChange, ParseColouredTextToHtml} from "./TextUtils";
 
+import {AutoSaveText} from './subcomponents/AutoSaveButton';
 import {CurrentTextColourButton, GetPreviouslyUsedTextColour} from './subcomponents/CurrentTextColourButton';
 import PrettifyButton from "./subcomponents/PrettifyButton";
 import QuickButtons from "./subcomponents/QuickButtons";
@@ -145,6 +146,10 @@ export class Editor extends Component
             text: newText,
         }, () =>
         {
+            if (this.state.showTranslate //Don't save the translated text
+            && !this.props.test) //Don't auto save in the test environment
+                AutoSaveText(newText); //Auto save the text for future visits
+
             this.setState
             ({
                 textareaWidth: this.hiddenDivRef.current.offsetWidth,

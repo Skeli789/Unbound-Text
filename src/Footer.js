@@ -5,6 +5,7 @@
 
 import React, {Component} from "react";
 
+import AutoSaveButton from "./subcomponents/AutoSaveButton";
 import DarkModeButton from "./subcomponents/DarkModeButton";
 
 import "./styles/HeaderFooter.css";
@@ -38,8 +39,11 @@ export class Footer extends Component
                 <div className="skeli-games-logo">
                     2021-{currentYear} Skeli Games
                 </div>
-                <DarkModeButton darkMode={this.props.darkMode}
-                                toggleParentDarkMode={this.props.toggleParentDarkMode} />
+                <div className="d-flex">
+                    <AutoSaveButton />
+                    <DarkModeButton darkMode={this.props.darkMode}
+                                    toggleParentDarkMode={this.props.toggleParentDarkMode} />
+                </div>
             </div>
         );
     }
