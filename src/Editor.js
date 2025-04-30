@@ -63,31 +63,39 @@ export class Editor extends Component
 
         //Add event listeners to update the mirror ref's position on scroll and resize
         window.addEventListener("resize", this.updateMirrorRefPosition);
-        while (document.getElementById("editor-page") == null)
-            await new Promise(resolve => setTimeout(resolve, 100)); //Wait for the editor page to be created
-        document.getElementById("editor-page").addEventListener("scroll", this.updateMirrorRefPosition); //Update the mirror ref's position on scroll
+        
+        if (!this.props.test || document.getElementById("editor-page") != null) //The editor page doesn't exist in the test environment
+        {
+            while (document.getElementById("editor-page") == null)
+                await new Promise(resolve => setTimeout(resolve, 100)); //Wait for the editor page to be created
+            document.getElementById("editor-page").addEventListener("scroll", this.updateMirrorRefPosition); //Update the mirror ref's position on scroll
+        }
     }
 
     componentWillUnmount()
     {
         //Remove the event listener from the textarea to update the mirror ref's position on scroll and resize
         window.removeEventListener("resize", this.updateMirrorRefPosition);
-        document.getElementById("editor-page").removeEventListener("scroll", this.updateMirrorRefPosition);
+        if (!this.props.test || document.getElementById("editor-page") != null) //The editor page doesn't exist in the test environment
+            document.getElementById("editor-page").removeEventListener("scroll", this.updateMirrorRefPosition);
     }
 
     async updateMirrorRefPosition()
     {
         //Wait for the editor page to be created
-        const editorPage = document.getElementById("editor-page");
-        while (editorPage == null)
+        let editorPage = document.getElementById("editor-page");
+        if (!this.props.test || document.getElementById("editor-page") != null) //The editor page doesn't exist in the test environment
         {
-            await new Promise(resolve => setTimeout(resolve, 100));
-            editorPage = document.getElementById("editor-page"); //Wait for the editor page to be created
+            while (editorPage == null)
+            {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                editorPage = document.getElementById("editor-page"); //Wait for the editor page to be created
+            }
         }
 
         //Update the mirror ref's position to match the textarea's position
-        let scrollTop = editorPage.scrollTop;
-        let scrollLeft = editorPage.scrollLeft;
+        let scrollTop = (editorPage) ? editorPage.scrollTop : 0;
+        let scrollLeft = (editorPage) ? editorPage.scrollLeft : 0;
         this.mirrorRef.current.style.height = `${this.textAreaRef.current.ref.current.clientHeight}px`; //Set the mirror ref's height to start at the same height as the textarea
         this.mirrorRef.current.style.top = `${this.textAreaRef.current.ref.current.offsetTop - scrollTop}px`;
         this.mirrorRef.current.style.left = `${this.textAreaRef.current.ref.current.offsetLeft - scrollLeft}px`;
