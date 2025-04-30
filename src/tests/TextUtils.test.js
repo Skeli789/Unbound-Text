@@ -1,10 +1,11 @@
 import '@testing-library/jest-dom';
+
 import {
     DoesLineEndParagraph, DoesLineHaveScrollAfterIt, DoesLineHaveScrollAfterItByLines,
-    FindIndexOfLineEnd, FindIndexOfLineStart, GetCharacterWidth, GetLineTotalWidth,
+    FindIndexOfLineEnd, FindIndexOfLineStart, GetCharacterWidth, GetDisplayColour, GetLineTotalWidth,
     GetMacroWidth, GetNextLetterIndex, GetStringWidth, IsColour, IsPause, IsPunctuation,
     LineHasCharAfterIndex, LineHasCharAfterIndexBeforeOtherChar, ReplaceMacros, ReplaceWithMacros,
-    TextChange, DetermineTextChangeType,
+    TextChange, DetermineTextChangeType, ParseColouredTextToHtml,
     SEMI_LINE_WIDTH, FULL_LINE_WIDTH,
 } from '../TextUtils';
 
@@ -46,6 +47,32 @@ describe('IsColour', () =>
         expect(IsColour('')).toBe(false);
     });
 });
+
+describe('GetDisplayColour', () =>
+{
+    test('returns correct colour in light mode', () => 
+    {
+        expect(GetDisplayColour('green', false)).toBe('green');
+        expect(GetDisplayColour('blue', false)).toBe('blue');
+    });
+
+    test('returns correct colour in dark mode', () =>
+    {
+        expect(GetDisplayColour('green', true)).toBe('forestgreen');
+        expect(GetDisplayColour('blue', true)).toBe('mediumblue');
+    });
+
+    test('handles unknown colours gracefully', () =>
+    {
+        expect(GetDisplayColour('UNKNOWN', true)).toBe('UNKNOWN');
+    });
+
+    test('handles case insensitivity', () =>
+    {
+        expect(GetDisplayColour('GREEN', true)).toBe('forestgreen');
+    });
+});
+
 
 //Tests for IsPunctuation
 describe('IsPunctuation', () =>
@@ -848,5 +875,51 @@ describe('Test DetermineTextChangeType', () =>
         expect(end).toBe(newText.length);
         expect(oldStart).toBe(6);
         expect(oldEnd).toBe(oldText.length);
+    });
+});
+
+// Tests for ParseColouredTextToHtml
+describe('Test ParseColouredTextToHtml', () =>
+{
+    test('handles text without colour symbols', () =>
+    {
+        const text = "Hello World";
+        const result = ParseColouredTextToHtml(text, false);
+        expect(result).toBe('<span style="color: inherit">H</span><span style="color: inherit">e</span><span style="color: inherit">l</span><span style="color: inherit">l</span><span style="color: inherit">o</span><span style="color: inherit"> </span><span style="color: inherit">W</span><span style="color: inherit">o</span><span style="color: inherit">r</span><span style="color: inherit">l</span><span style="color: inherit">d</span>');
+    });
+
+    test('handles text with colour symbols in light mode', () =>
+    {
+        const text = "🟢Hello🔵World";
+        const result = ParseColouredTextToHtml(text, false);
+        expect(result).toBe('<span style="color: green">🟢</span><span style="color: green">H</span><span style="color: green">e</span><span style="color: green">l</span><span style="color: green">l</span><span style="color: green">o</span><span style="color: blue">🔵</span><span style="color: blue">W</span><span style="color: blue">o</span><span style="color: blue">r</span><span style="color: blue">l</span><span style="color: blue">d</span>');
+    });
+
+    test('handles text with colour symbols in dark mode', () =>
+    {
+        const text = "H🟢ello🔵World";
+        const result = ParseColouredTextToHtml(text, true);
+        expect(result).toBe('<span style="color: inherit">H</span><span style="color: forestgreen">🟢</span><span style="color: forestgreen">e</span><span style="color: forestgreen">l</span><span style="color: forestgreen">l</span><span style="color: forestgreen">o</span><span style="color: mediumblue">🔵</span><span style="color: mediumblue">W</span><span style="color: mediumblue">o</span><span style="color: mediumblue">r</span><span style="color: mediumblue">l</span><span style="color: mediumblue">d</span>');
+    });
+
+    test('handles text with newlines', () =>
+    {
+        const text = "Hello\nWorld";
+        const result = ParseColouredTextToHtml(text, false);
+        expect(result).toBe('<span style="color: inherit">H</span><span style="color: inherit">e</span><span style="color: inherit">l</span><span style="color: inherit">l</span><span style="color: inherit">o</span><br/><span style="color: inherit">W</span><span style="color: inherit">o</span><span style="color: inherit">r</span><span style="color: inherit">l</span><span style="color: inherit">d</span>');
+    });
+
+    test('handles text ending with a newline', () =>
+    {
+        const text = "Hello\n";
+        const result = ParseColouredTextToHtml(text, false);
+        expect(result).toBe('<span style="color: inherit">H</span><span style="color: inherit">e</span><span style="color: inherit">l</span><span style="color: inherit">l</span><span style="color: inherit">o</span><br/><span style="color: inherit">&nbsp;</span>');
+    });
+
+    test('escapes HTML special characters', () =>
+    {
+        const text = "<Hello & World>";
+        const result = ParseColouredTextToHtml(text, false);
+        expect(result).toBe('<span style="color: inherit">&lt;</span><span style="color: inherit">H</span><span style="color: inherit">e</span><span style="color: inherit">l</span><span style="color: inherit">l</span><span style="color: inherit">o</span><span style="color: inherit"> </span><span style="color: inherit">&amp;</span><span style="color: inherit"> </span><span style="color: inherit">W</span><span style="color: inherit">o</span><span style="color: inherit">r</span><span style="color: inherit">l</span><span style="color: inherit">d</span><span style="color: inherit">&gt;</span>');
     });
 });

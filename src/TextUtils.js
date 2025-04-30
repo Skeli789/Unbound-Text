@@ -9,7 +9,25 @@ export const COLOURS =
     "GREEN": "🟢",
     "BLUE": "🔵",
     "RED": "🔴",
-    "ORANGE:": "🟠",
+    "ORANGE": "🟠",
+};
+
+export const SYMBOLS_TO_TEXT_COLOUR = //Light mode
+{
+    "⚫": "black",
+    "🟢": "green",
+    "🔵": "blue",
+    "🔴": "red",
+    "🟠": "orange",
+};
+
+export const SYMBOLS_TO_TEXT_COLOUR_DARK_MODE =
+{
+    "⚫": "black",
+    "🟢": "forestgreen",
+    "🔵": "mediumblue",
+    "🔴": "indianred",
+    "🟠": "orange",
 };
 
 export const OTHER_REPLACEMENT_MACROS =
@@ -45,6 +63,17 @@ export function IsColour(char)
         || char === "🔵"
         || char === "🔴"
         || char === "⚫";
+}
+
+export function GetDisplayColour(colour, darkModeEnabled)
+{
+    //Change colour for dark mode
+    let upperCaseColour = colour.toUpperCase();
+
+    if (darkModeEnabled && upperCaseColour in COLOURS)
+        colour = SYMBOLS_TO_TEXT_COLOUR_DARK_MODE[COLOURS[upperCaseColour]];
+
+    return colour;
 }
 
 export function IsPunctuation(char)
@@ -564,4 +593,52 @@ export function IsInsertTextChange(type)
 {
     return type === TextChange.SINGLE_INSERT
         || type === TextChange.MULTI_INSERT;
+}
+
+/**
+ * Escape HTML special characters in a string.
+ * @param {string} str - The string to escape.
+ * @returns {string} - The escaped string.
+ */
+function EscapeHtml(str)
+{
+    return str.replace(/&/g, "&amp;")
+              .replace(/</g, "&lt;")
+              .replace(/>/g, "&gt;");
+}
+
+/**
+ * Actually colours text with colour symbols in it.
+ * @param {string} text - The text to colour.
+ * @param {boolean} darkModeEnabled - Whether dark mode is enabled or not.
+ * @returns {string} - The HTML string with the colours applied.
+ */
+export function ParseColouredTextToHtml(text, darkModeEnabled)
+{
+    //Convert the text to an array of characters
+    const chars = Array.from(text);
+    const colourMap = (darkModeEnabled) ? SYMBOLS_TO_TEXT_COLOUR_DARK_MODE : SYMBOLS_TO_TEXT_COLOUR; //Use the dark mode colours if dark reader is enabled
+
+    //Convert the text to HTML
+    let currColour = "inherit"; //By default, use whatever colour came before
+    let html = chars.map((char) =>
+    {
+        //Handle colour symbols
+        if (colourMap[char])
+            currColour = colourMap[char]; //Set the current colour to the new one until another one is found
+
+        //Handle new lines
+        if (char === "\n")
+            return '<br/>'; // Handle line breaks separately
+
+        //Handle other characters
+        const escaped = EscapeHtml(char);
+        return `<span style="color: ${currColour}">${escaped}</span>`;
+    }).join("");
+
+    //If the html ends with a <br/> we need to modify it so it actually adds a new line
+    if (html.endsWith("<br/>"))
+        html += "<span style=\"color: inherit\">&nbsp;</span>"; //Add a space to keep the line
+
+    return html;
 }

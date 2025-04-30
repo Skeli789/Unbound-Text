@@ -17,10 +17,11 @@
 {
     display: grid;
     grid-template-columns: auto auto auto auto 12rem auto;
-    grid-template-rows: auto auto auto auto auto;
+    grid-template-rows: auto auto auto auto auto auto;
     grid-template-areas: 
         "topLeft quickButtons quickButtons quickButtons quickButtons topRight"
-        "lockButton textAreaMain textAreaMain textAreaMain textAreaMain undoButtons"
+        "colourButton textAreaMain textAreaMain textAreaMain textAreaMain undoButtons"
+        "lockButton textAreaMain textAreaMain textAreaMain textAreaMain bottomRight"
         "bottomLeft textAreaSub textAreaSub textAreaSub textAreaSub bottomRight"
         "bottomLeft prettifier lockMobile undoMobile spaceCount bottomRight"
         "bottomLeft translator translator translator translator bottomRight";
@@ -67,10 +68,49 @@
     letter-spacing: -0.5px !important;
 }
 
-.main-textarea
+.main-textarea-container
 {
     grid-area: textAreaMain;
     margin-bottom: 1px;
+}
+
+.main-textarea
+{
+    /* Transparent text but not transparent cursor */
+    position: relative;
+    color: transparent !important;
+    caret-color: black !important;
+}
+
+.top-textarea
+{
+    z-index: 1 !important;
+    background: transparent !important;
+}
+
+.mirror-textarea
+{
+    position: absolute; /* Attach to the textarea */
+    text-align: left;
+    border-color: transparent !important;
+    pointer-events: none; /* So clicks go through */
+}
+
+.main-textarea-container .main-textarea::selection
+{
+    color: transparent !important; /* Prevent the non-coloured text from appearing when selected */
+}
+
+[data-darkreader-scheme="dark"] .main-textarea::selection
+{
+    /* Fix dark mode text selection colour */
+    --darkreader-text-ffffff: transparent;
+}
+
+[data-darkreader-scheme="dark"] ::selection
+{
+    /* Fix dark mode text selection background */
+    --darkreader-background-0060d4: rgba(240, 240, 240, 0.1);
 }
 
 .converted-text
@@ -82,7 +122,7 @@
     grid-area: textAreaSub;
 }
 
-textarea
+textarea, .mirror-textarea
 {
     resize: none !important;
     margin: 0;
@@ -225,6 +265,14 @@ button, svg, .navbar-brand
         justify-content: center !important;
     }
 
+    .text-colour-dropdown
+    {
+        position: relative !important;
+        right: 20px; /* Shift to the left */
+        z-index: 2; /* Ensure it's on top of the text area */
+        grid-area: textAreaMain !important;
+    }
+
     .editor-page
     {
         justify-content: normal !important;
@@ -286,4 +334,28 @@ button, svg, .navbar-brand
 {
     color: black;
     background-color: #ffc107;
+}
+
+
+/* Current Text Colour Button */
+
+.text-colour-dropdown /* Applies to the container */
+{
+    display: flex;
+    margin-top: 20px;
+    height: fit-content;
+    grid-area: colourButton;
+}
+
+#text-colour-dropdown /* Applies to the button inside the container */
+{
+    width: fit-content;
+    font-size: 1.05rem;
+    background-color: #ffc107;
+    padding: 5px;
+}
+
+#text-colour-dropdown::after /* Remove the dropdown arrow */
+{
+    display: none;
 }

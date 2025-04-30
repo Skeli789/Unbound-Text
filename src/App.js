@@ -8,8 +8,8 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import EditorPage from "./EditorPage";
 
 //This CSS must go below the module imports!
+import 'semantic-ui-css/semantic.min.css';
 import './styles/App.css';
-//import 'semantic-ui-css/semantic.min.css';
 
 function App()
 {
@@ -26,7 +26,7 @@ function App()
             disableDarkMode();
         else //Otherwise, follow the system color scheme
             followSystemColorScheme();
-        
+
         //Ready to load the app
         setLoaded(true);
     }, []);

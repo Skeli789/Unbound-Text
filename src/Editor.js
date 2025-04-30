@@ -1,3 +1,4 @@
+import {isEnabled as isDarkReaderEnabled} from "darkreader";
 import React, {Component} from 'react';
 import {OverlayTrigger, Tooltip} from "react-bootstrap";
 import {TextArea} from 'semantic-ui-react';
@@ -5,9 +6,11 @@ import {TextArea} from 'semantic-ui-react';
 import {FaUndo, FaRedo, FaLock, FaUnlock} from "react-icons/fa";
 
 import ConvertedText from './ConvertedText';
-import {SEMI_LINE_WIDTH, FULL_LINE_WIDTH, GetStringWidth, FindIndexOfLineEnd,
-        FindIndexOfLineStart, DoesLineHaveScrollAfterIt, FormatStringForDisplay,
-        TextChange, DetermineTextChangeType, IsInsertTextChange} from "./TextUtils";
+import {SEMI_LINE_WIDTH, FULL_LINE_WIDTH, GetDisplayColour, GetStringWidth, FindIndexOfLineEnd, FindIndexOfLineStart,
+        DoesLineHaveScrollAfterIt, FormatStringForDisplay, TextChange, DetermineTextChangeType,
+        IsInsertTextChange, ParseColouredTextToHtml} from "./TextUtils";
+
+import {CurrentTextColourButton, GetPreviouslyUsedTextColour} from './subcomponents/CurrentTextColourButton';
 import PrettifyButton from "./subcomponents/PrettifyButton";
 import QuickButtons from "./subcomponents/QuickButtons";
 import TranslationButton from "./subcomponents/TranslationButton";
@@ -15,7 +18,6 @@ import TranslationButton from "./subcomponents/TranslationButton";
 import "./styles/Editor.css";
 
 //TODO: Don't scroll after undo if the cursor is still in view
-//TODO: Fix cursor position after undo
 
 const undoTooltip = props => (<Tooltip className="show" {...props}>Undo</Tooltip>);
 const redoTooltip = props => (<Tooltip className="show" {...props}>Redo</Tooltip>);
@@ -31,7 +33,8 @@ export class Editor extends Component
 
         this.state =
         {
-            text: props.text,
+            text: props.text || "",
+            textColour: GetPreviouslyUsedTextColour() || "black",
             firstLineWidth: 0,
             cursorPosition: 0,
             selectionEnd: 0,
@@ -44,11 +47,20 @@ export class Editor extends Component
             showTranslate: props.showTranslate,
         };
 
-        this.myInput = React.createRef()
+        this.hiddenDivRef = React.createRef(); //Ref for hidden div to match the textarea width
+        this.textAreaRef = React.createRef(); //Ref for textarea
+        this.mirrorRef  = React.createRef(); //Ref for textarea overlay
+
         this.showTranslationBox = (translatedText) =>
         {
             this.props.showTranslationBox(FormatStringForDisplay(FormatStringForDisplay(translatedText, this.state.lockFinalLine), this.state.lockFinalLine));
         }
+    }
+
+    componentDidMount()
+    {
+        //Set the mirror ref's height to start at the same height as the textarea
+        this.mirrorRef.current.style.height = `${this.textAreaRef.current.ref.current.clientHeight}px`;
     }
 
     onKeyDown(event)
@@ -97,7 +109,7 @@ export class Editor extends Component
         {
             this.setState
             ({
-                textareaWidth: this.myInput.current.offsetWidth,
+                textareaWidth: this.hiddenDivRef.current.offsetWidth,
             });
 
             if (selectionStart >= 0)
@@ -195,6 +207,13 @@ export class Editor extends Component
     handleCursorChange(event)
     {
         this.setNewCursorPosThenCallFunc(event.target.selectionStart, event.target.selectionEnd);
+    }
+
+    handleScroll(e)
+    {
+        //Keep mirror in sync
+        this.mirrorRef.current.scrollTop = e.target.scrollTop;
+        this.mirrorRef.current.scrollLeft = e.target.scrollLeft;
     }
 
     addTextAtSelectionStart(textToAdd)
@@ -365,37 +384,52 @@ export class Editor extends Component
 
     render()
     {
-        const text = this.state.text;
+        const {text, textareaWidth, showTranslate} = this.state;
 
         const cursorLineWidth = this.getCursorLineWidth();
         const totalWidth = (this.doesCursorLineHaveScrollAfterIt()) ? SEMI_LINE_WIDTH: FULL_LINE_WIDTH;
         const cursorLineCount = Math.floor(cursorLineWidth / 5.6);
         const maxCharCount = (totalWidth === SEMI_LINE_WIDTH) ? Math.floor(totalWidth / 5.6) : Math.floor(totalWidth / (206 / 36));
 
-        const textAreaStyle = {width: `calc(${this.state.textareaWidth}px + 2em)`, minWidth: "calc(340px + 2em)", maxWidth: "99vw", whiteSpace: "pre"};
-        const buttonsContainerStyle = {width: `calc(${this.state.textareaWidth}px + 3em)`, minWidth: "calc(340px + 3em)", maxWidth: "99vw",};
+        const textAreaStyle = {width: `calc(${textareaWidth}px + 2em)`, minWidth: "calc(340px + 2em)", maxWidth: "99vw", whiteSpace: "pre"};
+        const buttonsContainerStyle = {width: `calc(${textareaWidth}px + 3em)`, minWidth: "calc(340px + 3em)", maxWidth: "99vw",};
         const overflowErrorStyle = (cursorLineWidth > totalWidth) ? {color: "red"} : {color: "green"};
         const whichLockTooltip = !this.state.lockFinalLine ? unlockTooltip : lockTooltip;
 
+        const textareaHeight = (this.textAreaRef.current) ? this.textAreaRef.current.ref.current.clientHeight : 0; //Get the height of the textarea to set the height of the mirror div
+
         return (
-            <div className="editor-grid" id={this.state.showTranslate ? "editor-grid" : "editor-grid-translate"}>
+            <div className="editor-grid" id={showTranslate ? "editor-grid" : "editor-grid-translate"}>
                 {/*Toolbar*/}
                 <QuickButtons buttonsContainerStyle={buttonsContainerStyle}
                               addTextAtSelectionStart={this.addTextAtSelectionStart.bind(this)}/>
 
                 {/*Text Input*/}
-                <TextArea
-                    className="fr-text main-textarea"
-                    id={GetTextAreaId(!this.state.showTranslate)}
-                    data-testid={GetTextAreaId(!this.state.showTranslate)}
-                    rows={5}
-                    style={textAreaStyle}
-                    value={text}
-                    onChange={(e) => this.handleTextChange(e)}
-                    onClick={(e) => this.handleCursorChange(e)}
-                    onKeyDown={(e) => this.onKeyDown(e)}
-                    onKeyUp={(e) => this.handleCursorChange(e)}
-                />
+                <div className="main-textarea-container">
+                    {/*Mirror div where the coloured text is displayed*/}
+                    <div
+                        className="fr-text mirror-textarea"
+                        ref={this.mirrorRef}
+                        style={{...textAreaStyle, height: textareaHeight, color: GetDisplayColour(this.state.textColour, isDarkReaderEnabled())}} //Force the height to be the same as the textarea
+                        dangerouslySetInnerHTML={{ __html: ParseColouredTextToHtml(text, isDarkReaderEnabled())}}
+                    />
+
+                    {/*Actual textarea where the user types*/}
+                    <TextArea
+                        className="fr-text main-textarea top-textarea"
+                        id={GetTextAreaId(!showTranslate)}
+                        data-testid={GetTextAreaId(!showTranslate)}
+                        ref={this.textAreaRef}
+                        rows={5}
+                        style={textAreaStyle}
+                        value={text}
+                        onChange={(e) => this.handleTextChange(e)}
+                        onClick={(e) => this.handleCursorChange(e)}
+                        onKeyDown={(e) => this.onKeyDown(e)}
+                        onKeyUp={(e) => this.handleCursorChange(e)}
+                        onScroll={(e) => this.handleScroll(e)}
+                    />
+                </div>
 
                 {/*Converted Text*/}
                 <ConvertedText
@@ -410,6 +444,10 @@ export class Editor extends Component
 
                 {/*Translation*/}
                 <TranslationButton text={text} showTranslate={this.state.showTranslate} showTranslationBox={this.showTranslationBox}/>
+
+                {/* Current Text Colour Button */}
+                <CurrentTextColourButton currentColour={this.state.textColour}
+                                             setParentCurrentColour={(textColour) => this.setState({textColour})} />
 
                 {/*Lock Final Line Button*/}
                 <div className="lock-buttons">
@@ -440,7 +478,7 @@ export class Editor extends Component
                 </div>
 
                 {/*Hidden div for matching the width of the textarea to*/}
-                <div className="fr-text hidden-div" ref={this.myInput}>{this.createDivText()}</div>
+                <div className="fr-text hidden-div" ref={this.hiddenDivRef}>{this.createDivText()}</div>
             </div>
         )
     }

@@ -3,6 +3,9 @@ import '@testing-library/jest-dom';
 import {render, fireEvent} from '@testing-library/react';
 import {userEvent} from '@testing-library/user-event';
 
+//Mock darkreader before imports because the browser's crypto object is not defined in the test environment
+jest.mock("darkreader", () => ({enable: jest.fn(), disable: jest.fn(), auto: jest.fn(), setFetchMethod: jest.fn(), isEnabled: jest.fn()}));
+
 import Editor from '../Editor';
 
 
