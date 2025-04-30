@@ -17,8 +17,6 @@ import TranslationButton from "./subcomponents/TranslationButton";
 
 import "./styles/Editor.css";
 
-//TODO: Don't scroll after undo if the cursor is still in view
-
 const undoTooltip = props => (<Tooltip className="show" {...props}>Undo</Tooltip>);
 const redoTooltip = props => (<Tooltip className="show" {...props}>Redo</Tooltip>);
 const lockTooltip = props => (<Tooltip className="show" {...props}>Final Line Locked</Tooltip>);
@@ -42,6 +40,7 @@ export class Editor extends Component
             prevSelectionEnd: 0,
             textareaWidth: 100,
             undoStack: [],
+            poppedUndoStack: [],
             redoStack: [],
             lockFinalLine: false,
             showTranslate: props.showTranslate,
@@ -338,19 +337,28 @@ export class Editor extends Component
         this.setState({undoStack: undoStack});
     }
 
+    addTextToRedo(text, selectionStart, selectionEnd)
+    {
+        let redoStack = this.state.redoStack.slice(); //Copy to avoid mutating state directly
+        redoStack.push({text, selectionStart, selectionEnd});
+        this.setState({redoStack: redoStack});
+    }
+
     undoLastChange()
     {
         if (this.state.undoStack.length > 0)
         {
+            let undoStack = this.state.undoStack.slice(); //Copy to avoid mutating state directly
+            let poppedUndoStack = this.state.poppedUndoStack.slice(); //Copy to avoid mutating state directly
+            let lastState = undoStack.pop(); //Remove the last change from the undo stack
+            poppedUndoStack.push(lastState); //Save the undone change in case a redo there is an undo after a redo
+
             //Update Redo State
-            let redoStack = this.state.redoStack.slice(); //Copy to avoid mutating state directly
-            redoStack.push({text: this.state.text, selectionStart: this.state.cursorPosition, selectionEnd: this.state.selectionEnd});
-            this.setState({redoStack: redoStack});
+            let typeOfTextChange = DetermineTextChangeType(lastState.text, this.state.text); //Figure out where the text changed and always place the cursor after that on redo. Not perfect but the best that can be done
+            this.addTextToRedo(this.state.text, typeOfTextChange.end, typeOfTextChange.end);
 
             //Actually perform undo
-            let undoStack = this.state.undoStack.slice(); //Copy to avoid mutating state directly
-            let lastState = undoStack.pop(); //Remove the last change from the undo stack
-            this.setState({undoStack: undoStack});
+            this.setState({undoStack: undoStack, poppedUndoStack: poppedUndoStack});
             this.setTextState(lastState.text, lastState.selectionStart, lastState.selectionEnd, true);
         }
     }
@@ -359,13 +367,16 @@ export class Editor extends Component
     {
         if (this.state.redoStack.length > 0)
         {
-            //Update Undo State
-            this.addTextToUndo(this.state.text, this.state.cursorPosition, this.state.selectionEnd);
-
-            //Actually perform redo
             let redoStack = this.state.redoStack.slice(); //Copy to avoid mutating state directly
             let lastState = redoStack.pop(); //Remove the last change from the redo stack
-            this.setState({redoStack: redoStack});
+
+            //Update Undo State
+            let poppedUndoStack = this.state.poppedUndoStack.slice(); //Copy to avoid mutating state directly
+            let topPoppedUndoState = poppedUndoStack.pop(); //Remove the last change from the previous undo stack
+            this.addTextToUndo(topPoppedUndoState.text, topPoppedUndoState.selectionStart, topPoppedUndoState.selectionEnd); //Add the previous undo back to the undo stack
+
+            //Actually perform redo
+            this.setState({redoStack: redoStack, poppedUndoStack: poppedUndoStack});
             this.setTextState(lastState.text, lastState.selectionStart, lastState.selectionEnd, true);
         }
     }
@@ -494,21 +505,40 @@ function GetTextAreaId(isTranslationBox)
 
 function SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, isTranslationBox)
 {
-    var textArea = document.getElementById(GetTextAreaId(isTranslationBox));
-    if (textArea == null)
-        return; //Textarea doesn't exist
+    //Find the textarea element
+    const textArea = document.getElementById(GetTextAreaId(isTranslationBox));
+    const viewTop = textArea.scrollTop;
+    if (!textArea)
+        return;
 
-    textArea.focus();
+    //Set the cursor position
     textArea.setSelectionRange(selectionStart, selectionEnd);
+    textArea.focus(); //Focus only after setting the selection range to avoid scroll jump
 
-    if (autoAdjustScroll)
-    {
-        let charsPerRow = textArea.cols; //Number of chars in a row
-        let selectionRow = (selectionStart - (selectionStart % charsPerRow)) / charsPerRow; //Which row selection starts
-        let lineHeight = textArea.clientHeight / textArea.rows; //Row's height, in pixels
-        let newScrollTop = lineHeight * selectionRow;
-        textArea.scrollTop = newScrollTop; //Set scroll
-    }
+    //Adjust scroll if needed
+    if (!autoAdjustScroll)
+        return;
+
+    //Count how many actual lines (\n) precede the cursor
+    const lineHeight = parseInt(window.getComputedStyle(textArea).lineHeight, 10);
+    const beforeCursor = textArea.value.slice(0, selectionStart);
+    const cursorLine = beforeCursor.split('\n').length;
+
+    //Compute pixel offset of that line
+    const cursorOffsetPx = cursorLine * lineHeight;
+
+    //Current visible window in px
+    const viewBottom = viewTop + textArea.clientHeight;
+
+    //If already fully in view, do nothing
+    if (cursorOffsetPx >= viewTop && (cursorOffsetPx + lineHeight) <= viewBottom)
+        return;
+
+    //Otherwise, center the cursor line and clamp it to the scrollable area
+    let newScrollTop = cursorOffsetPx - (textArea.clientHeight / 2) + (lineHeight / 2);
+    const maxScroll = textArea.scrollHeight - textArea.clientHeight;
+    newScrollTop = Math.max(0, Math.min(newScrollTop, maxScroll));
+    textArea.scrollTop = newScrollTop;
 }
-
+  
 export default Editor;
