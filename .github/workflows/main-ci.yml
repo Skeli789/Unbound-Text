@@ -1,9 +1,9 @@
-name: Main Release Pipeline
+name: Release Pipeline
 
-# Run when pushing to main or manually triggered
+# Run when pushing to master or manually triggered
 on:
   push:
-    branches: ["main"]
+    branches: ["master"]
   workflow_dispatch:
 
 # Only allow one job to run at a time per branch
@@ -42,11 +42,11 @@ jobs:
       - name: Configure Git
         uses: ./.github/actions/configure_bot_git
 
-      - name: Merge main into ${{ env.DEPLOY_BRANCH }}
+      - name: Merge master into ${{ env.DEPLOY_BRANCH }}
         run: |
           git fetch origin
           git checkout ${{ env.DEPLOY_BRANCH }}
-          git merge origin/main --no-edit
+          git merge origin/master --no-edit
 
       - name: Push updated branch
         run: git push origin ${{ env.DEPLOY_BRANCH }} --force
