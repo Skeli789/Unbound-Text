@@ -1,4 +1,5 @@
 import React, {useEffect, useState} from "react";
+import {ToastContainer} from "react-toastify";
 import {enable as enableDarkMode, disable as disableDarkMode, isEnabled as isDarkReaderEnabled,
         auto as followSystemColorScheme, setFetchMethod as darkModeSetFetchMethod} from "darkreader";
 
@@ -55,6 +56,9 @@ function App()
             <Header />
             <EditorPage darkMode={darkMode} />
             <Footer darkMode={darkMode} toggleParentDarkMode={setDarkMode} />
+
+            {/* Allow toast notifications */}
+            <ToastContainer />
         </div>
     );
 }

@@ -494,6 +494,7 @@ export class Editor extends Component
                     text={text}
                     textAreaStyle={textAreaStyle}
                     showTranslate={this.state.showTranslate}
+                    darkMode={this.props.darkMode}
                 />
 
                 {/*Space Details & Prettifier*/}
