@@ -6,11 +6,13 @@
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: space-evenly; /* Centres horizontally when there's no second editor */
     align-items: center;
     text-align: center;
-    height: 100%;
     width: 100%;
+    flex-grow: 1; /* Basically height: 100% but doesn't mess up the header and footer */
+    scrollbar-gutter: stable both-edges; /*Prevents scrollbar from shifting everything when it appears*/
+    overflow-y: auto; /* Scrollbar only appears when needed */
 }
 
 .editor-grid
@@ -27,6 +29,8 @@
         "bottomLeft translator translator translator translator bottomRight";
 
     /*Background around editor*/
+    margin-top: 1rem;
+    margin-bottom: 1rem;
     width:  fit-content;
     height: fit-content;
     padding: 1.5rem;
@@ -240,6 +244,11 @@ button, svg, .navbar-brand
 @media (max-width: 500px)
 {
     /* Displayed if width is <= than 500px goes here */
+    .editor-page
+    {
+        align-items: unset !important;
+    }
+
     textarea
     {
         overflow-x: auto !important;
@@ -271,11 +280,6 @@ button, svg, .navbar-brand
         right: 20px; /* Shift to the left */
         z-index: 2; /* Ensure it's on top of the text area */
         grid-area: textAreaMain !important;
-    }
-
-    .editor-page
-    {
-        justify-content: normal !important;
     }
 }
 

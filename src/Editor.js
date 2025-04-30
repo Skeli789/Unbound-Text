@@ -1,4 +1,3 @@
-import {isEnabled as isDarkReaderEnabled} from "darkreader";
 import React, {Component} from 'react';
 import {OverlayTrigger, Tooltip} from "react-bootstrap";
 import {TextArea} from 'semantic-ui-react';
@@ -54,12 +53,44 @@ export class Editor extends Component
         {
             this.props.showTranslationBox(FormatStringForDisplay(FormatStringForDisplay(translatedText, this.state.lockFinalLine), this.state.lockFinalLine));
         }
+        this.updateMirrorRefPosition = this.updateMirrorRefPosition.bind(this);
     }
 
-    componentDidMount()
+    async componentDidMount()
     {
-        //Set the mirror ref's height to start at the same height as the textarea
-        this.mirrorRef.current.style.height = `${this.textAreaRef.current.ref.current.clientHeight}px`;
+        //Update the mirror ref's position to match the textarea's position
+        await this.updateMirrorRefPosition();
+
+        //Add event listeners to update the mirror ref's position on scroll and resize
+        window.addEventListener("resize", this.updateMirrorRefPosition);
+        while (document.getElementById("editor-page") == null)
+            await new Promise(resolve => setTimeout(resolve, 100)); //Wait for the editor page to be created
+        document.getElementById("editor-page").addEventListener("scroll", this.updateMirrorRefPosition); //Update the mirror ref's position on scroll
+    }
+
+    componentWillUnmount()
+    {
+        //Remove the event listener from the textarea to update the mirror ref's position on scroll and resize
+        window.removeEventListener("resize", this.updateMirrorRefPosition);
+        document.getElementById("editor-page").removeEventListener("scroll", this.updateMirrorRefPosition);
+    }
+
+    async updateMirrorRefPosition()
+    {
+        //Wait for the editor page to be created
+        const editorPage = document.getElementById("editor-page");
+        while (editorPage == null)
+        {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            editorPage = document.getElementById("editor-page"); //Wait for the editor page to be created
+        }
+
+        //Update the mirror ref's position to match the textarea's position
+        let scrollTop = editorPage.scrollTop;
+        let scrollLeft = editorPage.scrollLeft;
+        this.mirrorRef.current.style.height = `${this.textAreaRef.current.ref.current.clientHeight}px`; //Set the mirror ref's height to start at the same height as the textarea
+        this.mirrorRef.current.style.top = `${this.textAreaRef.current.ref.current.offsetTop - scrollTop}px`;
+        this.mirrorRef.current.style.left = `${this.textAreaRef.current.ref.current.offsetLeft - scrollLeft}px`;
     }
 
     onKeyDown(event)
@@ -109,6 +140,9 @@ export class Editor extends Component
             this.setState
             ({
                 textareaWidth: this.hiddenDivRef.current.offsetWidth,
+            }, () =>
+            {   
+                this.updateMirrorRefPosition();
             });
 
             if (selectionStart >= 0)
@@ -410,7 +444,7 @@ export class Editor extends Component
         const textareaHeight = (this.textAreaRef.current) ? this.textAreaRef.current.ref.current.clientHeight : 0; //Get the height of the textarea to set the height of the mirror div
 
         return (
-            <div className="editor-grid" id={showTranslate ? "editor-grid" : "editor-grid-translate"}>
+            <div className="editor-grid" id={(showTranslate) ? "editor-grid" : "editor-grid-translate"}>
                 {/*Toolbar*/}
                 <QuickButtons buttonsContainerStyle={buttonsContainerStyle}
                               addTextAtSelectionStart={this.addTextAtSelectionStart.bind(this)}/>
@@ -421,8 +455,8 @@ export class Editor extends Component
                     <div
                         className="fr-text mirror-textarea"
                         ref={this.mirrorRef}
-                        style={{...textAreaStyle, height: textareaHeight, color: GetDisplayColour(this.state.textColour, isDarkReaderEnabled())}} //Force the height to be the same as the textarea
-                        dangerouslySetInnerHTML={{ __html: ParseColouredTextToHtml(text, isDarkReaderEnabled())}}
+                        style={{...textAreaStyle, height: textareaHeight, color: GetDisplayColour(this.state.textColour, this.props.darkMode)}} //Force the height to be the same as the textarea
+                        dangerouslySetInnerHTML={{ __html: ParseColouredTextToHtml(text, this.props.darkMode)}}
                     />
 
                     {/*Actual textarea where the user types*/}

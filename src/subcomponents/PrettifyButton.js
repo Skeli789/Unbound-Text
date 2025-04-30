@@ -129,6 +129,7 @@ export class PrettifyButton extends Component
             icon: "warning",
             showCancelButton: true,
             confirmButtonText: 'Do It',
+            scrollbarPadding: false,
         }).then((result) =>
         {
             if (result.isConfirmed)
