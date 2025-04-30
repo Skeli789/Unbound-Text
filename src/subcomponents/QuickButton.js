@@ -7,6 +7,7 @@ export class QuickButton extends Component
     constructor(props)
     {
         super(props);
+        this.state = {};
     }
 
     render()

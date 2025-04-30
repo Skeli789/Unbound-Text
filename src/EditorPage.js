@@ -1,5 +1,7 @@
-import React, {Component} from 'react';
+import React, {Component} from 'react'
+
 import Editor from "./Editor";
+import {GetAutoSavedText} from './subcomponents/AutoSaveButton';
 
 import "./styles/Editor.css";
 
@@ -32,7 +34,7 @@ export class EditorPage extends Component
     {
         return (
             <div className="editor-page" id="editor-page" data-testid="editor-page">
-                <Editor text="" showTranslate={true} showTranslationBox={this.showTranslationBox.bind(this)}
+                <Editor text={GetAutoSavedText()} showTranslate={true} showTranslationBox={this.showTranslationBox.bind(this)}
                         darkMode={this.props.darkMode} key={0}/>
                 {
                     this.state.showingTranslationBox &&
