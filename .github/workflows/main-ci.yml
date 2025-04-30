@@ -1,0 +1,52 @@
+name: Release Pipeline
+
+# Run when pushing to master or manually triggered
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
+
+# Only allow one job to run at a time per branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Allow this workflow to trigger actions on other branches
+permissions:
+  contents: write
+  actions: write
+
+env:
+  DEPLOY_BRANCH: heroku
+
+jobs:
+  # Run front-end tests
+  run_frontend_tests:
+    name: Run Front-End Tests
+    uses: ./.github/workflows/frontend_tests.yml
+
+  # Update the deploy branch
+  update_deploy_branch:
+    name: Update Deployment Branch
+    needs: run_frontend_tests
+    runs-on: ubuntu-latest
+    env:
+      # Use personal access token so the workflows run on the deployment branch after the push
+      GITHUB_PAT: ${{ secrets.ACTIONS_PAT }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with :
+          fetch-depth: 0
+
+      - name: Configure Git
+        uses: ./.github/actions/configure_bot_git
+
+      - name: Merge master into ${{ env.DEPLOY_BRANCH }}
+        run: |
+          git fetch origin
+          git checkout ${{ env.DEPLOY_BRANCH }}
+          git merge origin/master --no-edit
+
+      - name: Push updated branch
+        run: git push origin ${{ env.DEPLOY_BRANCH }} --force

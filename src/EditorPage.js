@@ -3,6 +3,7 @@ import Editor from "./Editor";
 
 import "./styles/Editor.css";
 
+
 export class EditorPage extends Component
 {
     constructor(props)
@@ -30,13 +31,13 @@ export class EditorPage extends Component
     render()
     {
         return (
-            <div className="editor-page">
-                <Editor text="" showTranslate={true} showTranslationBox={this.showTranslationBox.bind(this)} key={0}/>
+            <div className="editor-page" id="editor-page" data-testid="editor-page">
+                <Editor text="" showTranslate={true} showTranslationBox={this.showTranslationBox.bind(this)}
+                        darkMode={this.props.darkMode} key={0}/>
                 {
-                    this.state.showingTranslationBox ?
-                        <Editor text={this.state.translatedText} showTranslate={false} showTranslationBox={null} key={this.state.translationBoxKey}/>
-                    :
-                        ""
+                    this.state.showingTranslationBox &&
+                        <Editor text={this.state.translatedText} showTranslate={false} showTranslationBox={null}
+                                darkMode={this.props.darkMode} key={this.state.translationBoxKey}/>
                 }
             </div>
         );
