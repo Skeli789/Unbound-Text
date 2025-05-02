@@ -63,13 +63,8 @@ jobs:
     # Checkout the code
     - name: Checkout Repository
       uses: actions/checkout@v4
-
-    - name: Prepare GH-Pages Worktree
-      run: |
-        # Ensure gh-pages branch exists locally
-        git fetch origin ${{ env.GH_PAGES_BRANCH }}:${{ env.GH_PAGES_BRANCH }}
-        # Create (or reuse) a worktree at build/
-        git worktree add --checkout build origin/${{ env.GH_PAGES_BRANCH }}
+      with:
+        fetch-depth: 0
 
     ## Setup dependencies ##
     - name: Setup Node.js with Yarn caching
@@ -79,6 +74,7 @@ jobs:
         cache: yarn
         cache-dependency-path: yarn.lock
 
+    # Install dependencies
     - name: Install dependencies
       run: yarn install
 
@@ -87,13 +83,9 @@ jobs:
       run: yarn build
 
     # Push to GitHub Pages ##
-    - name: Configure Git
-      uses: ./.github/actions/configure_bot_git
-
-    - name: Commit & Push to GH-Pages
-      working-directory: build
-      run: |
-        git add --all
-        git commit -m "Automated deployment to GitHub Pages"
-        git push origin ${{ env.GH_PAGES_BRANCH }} --force
-  
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./build
+        publish_branch: ${{ env.GH_PAGES_BRANCH }}
