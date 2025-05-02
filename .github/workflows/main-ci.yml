@@ -60,8 +60,16 @@ jobs:
     env:
       REACT_APP_EMAIL: ${{ vars.REACT_APP_EMAIL }}
     steps:
+    # Checkout the code
     - name: Checkout Repository
       uses: actions/checkout@v4
+
+    - name: Prepare GH-Pages Worktree
+      run: |
+        # Ensure gh-pages branch exists locally
+        git fetch origin ${{ env.GH_PAGES_BRANCH }}:${{ env.GH_PAGES_BRANCH }}
+        # Create (or reuse) a worktree at build/
+        git worktree add --checkout build origin/${{ env.GH_PAGES_BRANCH }}
 
     ## Setup dependencies ##
     - name: Setup Node.js with Yarn caching
@@ -74,13 +82,18 @@ jobs:
     - name: Install dependencies
       run: yarn install
 
-    # Build and deploy to GitHub Pages ##
+    # Build the app ##
+    - name: Build app
+      run: yarn build
+
+    # Push to GitHub Pages ##
     - name: Configure Git
       uses: ./.github/actions/configure_bot_git
 
-    - name: Deploy
+    - name: Commit & Push to GH-Pages
+      working-directory: build
       run: |
-        git --work-tree build add --all
+        git add --all
         git commit -m "Automated deployment to GitHub Pages"
         git push origin ${{ env.GH_PAGES_BRANCH }} --force
   
