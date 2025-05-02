@@ -82,7 +82,6 @@ jobs:
 
     - name: Deploy
       run: |
-        git --work-tree build add --all
-        git commit -m "Automated deployment to GitHub Pages"
+        git --git-dir=.git --work-tree=build add --all
+        git --git-dir=.git --work-tree=build commit -m "Automated deployment to GitHub Pages"
         git push origin ${{ env.GH_PAGES_BRANCH }} --force
-  
