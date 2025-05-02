@@ -170,26 +170,6 @@ textarea:focus
 
 /* Buttons & Details Below */
 
-.space-info
-{
-    display: flex;
-    justify-content: space-around; /* Horizontally */
-    align-items: center; /* Aligns vertically */
-    font-family: monospace;
-    padding: 1px 0.75rem;
-    border: solid 1px black;
-    margin-top: 3px;
-    width: 12rem;
-    margin-left: auto; /*Aligns right*/
-    grid-area: spaceCount;
-}
-
-[data-darkreader-scheme="dark"] .space-info
-{
-    color: white;
-    background-color: #111;
-}
-
 .hidden-div
 {
     visibility: hidden;

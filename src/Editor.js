@@ -5,6 +5,7 @@ import {TextArea} from 'semantic-ui-react';
 import {FaUndo, FaRedo, FaLock, FaUnlock} from "react-icons/fa";
 
 import ConvertedText from './ConvertedText';
+import SpaceInfo from './SpaceInfo';
 import {SEMI_LINE_WIDTH, FULL_LINE_WIDTH, GetDisplayColour, GetStringWidth, FindIndexOfLineEnd, FindIndexOfLineStart,
         DoesLineHaveScrollAfterIt, FormatStringForDisplay, TextChange, DetermineTextChangeType,
         IsInsertTextChange, ParseColouredTextToHtml} from "./TextUtils";
@@ -448,14 +449,8 @@ export class Editor extends Component
     {
         const {text, textareaWidth, showTranslate} = this.state;
 
-        const cursorLineWidth = this.getCursorLineWidth();
-        const totalWidth = (this.doesCursorLineHaveScrollAfterIt()) ? SEMI_LINE_WIDTH: FULL_LINE_WIDTH;
-        const cursorLineCount = Math.floor(cursorLineWidth / 5.6);
-        const maxCharCount = (totalWidth === SEMI_LINE_WIDTH) ? Math.floor(totalWidth / 5.6) : Math.floor(totalWidth / (206 / 36));
-
         const textAreaStyle = {width: `calc(${textareaWidth}px + 2em)`, minWidth: "calc(340px + 2em)", maxWidth: "99vw", whiteSpace: "pre"};
         const buttonsContainerStyle = {width: `calc(${textareaWidth}px + 3em)`, minWidth: "calc(340px + 3em)", maxWidth: "99vw",};
-        const overflowErrorStyle = (cursorLineWidth > totalWidth) ? {color: "red"} : {color: "green"};
         const whichLockTooltip = !this.state.lockFinalLine ? unlockTooltip : lockTooltip;
 
         const textareaHeight = (this.textAreaRef.current) ? this.textAreaRef.current.ref.current.clientHeight : 0; //Get the height of the textarea to set the height of the mirror div
@@ -501,9 +496,12 @@ export class Editor extends Component
                     darkMode={this.props.darkMode}
                 />
 
-                {/*Space Details & Prettifier*/}
+                {/*Prettifier*/}
                 <PrettifyButton text={text} setPrettifiedText={this.setPrettifiedText.bind(this)}/>
-                <div className="space-info"><span><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth}</span> <span>~</span> <span><span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</span></div>
+
+                {/*Space Details*/}
+                <SpaceInfo lineWidth={this.getCursorLineWidth()}
+                           totalWidth={(this.doesCursorLineHaveScrollAfterIt()) ? SEMI_LINE_WIDTH: FULL_LINE_WIDTH} />
 
                 {/*Translation*/}
                 <TranslationButton text={text} showTranslate={this.state.showTranslate} showTranslationBox={this.showTranslationBox}/>
