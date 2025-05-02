@@ -39,7 +39,7 @@
     background-color: white;
 }
 
-[data-darkreader-scheme="dark"] #editor-grid, #editor-grid-translate
+[data-darkreader-scheme="dark"] #editor-grid, [data-darkreader-scheme="dark"] #editor-grid-translate
 {
     background-color: #2c2c2c !important;
 }
@@ -65,8 +65,9 @@
 
 .fr-text
 {
-    font-family: "Pokemon Fire Red", "Arial Narrow" !important;
+    font-family: "Pokemon Fire Red", monospace !important;
     font-size: 2rem !important;
+    font-size-adjust: 0.312; /* So the fallback text is the same size as the original font */
     line-height: 2rem !important;
     word-spacing: 0.5rem !important;
     letter-spacing: -0.5px !important;
@@ -174,7 +175,7 @@ textarea:focus
     display: flex;
     justify-content: space-around; /* Horizontally */
     align-items: center; /* Aligns vertically */
-    font-size: 1.25rem;
+    font-family: monospace;
     padding: 1px 0.75rem;
     border: solid 1px black;
     margin-top: 3px;
@@ -214,21 +215,39 @@ button, svg, .navbar-brand
     font-size: 1.25rem;
     padding-top: 1px !important;
     padding-bottom: 1px !important;
-    margin-top: 3px !important;
+    margin-top: 0.5rem !important;
     grid-area: prettifier;
 }
 
-.translate-button
+.translate-navbar
 {
-    padding-top: 1px !important;
-    padding-bottom: 1px !important;
+    color: white;
+    border: solid 1px white;
+    border-radius: .28571429rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
     margin-top: 0.5rem !important;
     grid-area: translator;
 }
 
-.translated-text-navbar-container
+.translate-navbar
+{
+    justify-content: flex-start !important;
+}
+
+.translated-text-navbar
 {
     justify-content: center !important;
+}
+
+.translate-button-active, .translate-button-active:hover
+{
+    color: chartreuse;
+}
+
+[data-darkreader-scheme="dark"] .translate-navbar
+{
+    border-color: black !important;
 }
 
 
@@ -272,6 +291,11 @@ button, svg, .navbar-brand
     {
         grid-area: lockMobile !important;
         justify-content: center !important;
+    }
+
+    .lock-button
+    {
+        margin-right: 0px !important;
     }
 
     .text-colour-dropdown

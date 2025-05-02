@@ -55,12 +55,13 @@ export class Editor extends Component
             this.props.showTranslationBox(FormatStringForDisplay(FormatStringForDisplay(translatedText, this.state.lockFinalLine), this.state.lockFinalLine));
         }
         this.updateMirrorRefPosition = this.updateMirrorRefPosition.bind(this);
+        this.updateMirrorRefPositionInterval = null; //Interval to update the mirror ref's position
     }
 
     async componentDidMount()
     {
         //Update the mirror ref's position to match the textarea's position
-        await this.updateMirrorRefPosition();
+        this.updateMirrorRefPositionInterval = setInterval(() => this.updateMirrorRefPosition(), 1); //Wait for the textarea to be created
 
         //Add event listeners to update the mirror ref's position on scroll and resize
         window.addEventListener("resize", this.updateMirrorRefPosition);
@@ -75,6 +76,9 @@ export class Editor extends Component
 
     componentWillUnmount()
     {
+        //Clear the interval to update the mirror ref's position
+        clearInterval(this.updateMirrorRefPositionInterval);
+
         //Remove the event listener from the textarea to update the mirror ref's position on scroll and resize
         window.removeEventListener("resize", this.updateMirrorRefPosition);
         if (!this.props.test || document.getElementById("editor-page") != null) //The editor page doesn't exist in the test environment

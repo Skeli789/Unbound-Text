@@ -125,8 +125,8 @@ export class PrettifyButton extends Component
     {
         Swal.fire(
         {
-            title: "Make your text pretty?\nThis will reformat your text!",
             icon: "warning",
+            title: "Make your text pretty?\nThis will reformat your text!",
             showCancelButton: true,
             confirmButtonText: 'Do It',
             scrollbarPadding: false,
@@ -135,7 +135,12 @@ export class PrettifyButton extends Component
             if (result.isConfirmed)
             {
                 this.prettifyText();
-                Swal.fire("Prettified!", "", "success");
+                Swal.fire(
+                {
+                    icon: "success",
+                    title: "Prettified!",
+                    scrollbarPadding: false,
+                });
             }
         });
     }
