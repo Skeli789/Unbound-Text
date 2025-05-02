@@ -55,6 +55,7 @@ jobs:
   # Deploy to GitHub Pages
   deploy_to_gh_pages:
     name: Deploy to GitHub Pages
+    needs: run_frontend_tests
     runs-on: ubuntu-latest
     env:
       REACT_APP_EMAIL: ${{ vars.REACT_APP_EMAIL }}
