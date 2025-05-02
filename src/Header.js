@@ -29,7 +29,7 @@ export class Header extends Component
     {
         return (
             <div className="header">
-                <h2>CFRU Text Editor</h2>
+                <h2>Unbound Text Editor</h2>
             </div>
         );
     }
