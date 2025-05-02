@@ -62,8 +62,6 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v4
-      with :
-        fetch-depth: 0
 
     ## Setup dependencies ##
     - name: Setup Node.js with Yarn caching
@@ -82,6 +80,7 @@ jobs:
 
     - name: Deploy
       run: |
-        git --git-dir=.git --work-tree=build add --all
-        git --git-dir=.git --work-tree=build commit -m "Automated deployment to GitHub Pages"
+        git --work-tree build add --all
+        git commit -m "Automated deployment to GitHub Pages"
         git push origin ${{ env.GH_PAGES_BRANCH }} --force
+  
