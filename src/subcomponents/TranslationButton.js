@@ -1,18 +1,20 @@
 import axios from 'axios';
 import React, {Component} from 'react';
-import {Navbar, Container, Nav, NavDropdown} from "react-bootstrap";
+import {Navbar, NavDropdown} from "react-bootstrap";
 import Swal from 'sweetalert2';
 
 import {CreateIngameText} from "../ConvertedText";
 
-const TRANSLATION_CHAR_LIMIT = 250; //Imposed by the API
+const TRANSLATION_CHAR_LIMIT = 1000000; //Current API doesn't have a max limit so this is high enough
 const SUPPORTED_LANGUAGES =
 {
     "Spanish": "es",
     "French": "fr",
     "German": "de",
     "Italian": "it",
+    "Vietnamese": "vi",
 };
+const SUPPORT_EMAIL = process.env.REACT_APP_EMAIL || ""; //Email for the translation API
 
 
 export class TranslationButton extends Component
@@ -29,6 +31,11 @@ export class TranslationButton extends Component
         this.showTranslationBox = props.showTranslationBox;
     }
 
+    isLanguageChosen()
+    {
+        return this.state.translateToLanguage in SUPPORTED_LANGUAGES;
+    }
+
     setTranslationLanguage(language)
     {
         this.setState({translateToLanguage: language});
@@ -36,14 +43,24 @@ export class TranslationButton extends Component
 
     async translateText()
     {
-        if (!(this.state.translateToLanguage in SUPPORTED_LANGUAGES))
+        if (!this.isLanguageChosen())
         {
-            Swal.fire("Please choose a language first.", "", "error");
+            Swal.fire(
+            {
+                icon: "error",
+                title: "Please choose a language first.",
+                scrollbarPadding: false,
+            });
             return;
         }
         else if (this.props.text === "")
         {
-            Swal.fire("Please add some text to translate first.", "", "error");
+            Swal.fire(
+            {
+                icon: "error",
+                title: "Please add some text to translate first.",
+                scrollbarPadding: false,
+            });
             return;
         }
 
@@ -62,8 +79,8 @@ export class TranslationButton extends Component
         text = text.replaceAll("[", "<").replaceAll("]", ">"); //Prevent buffers from being removed by turning them into HTML tags
         textList = text.split("\n");
 
-        Swal.fire
-        ({
+        Swal.fire(
+        {
             title: "Translating...",
             showConfirmButton: false,
             scrollbarPadding: false,
@@ -100,16 +117,18 @@ export class TranslationButton extends Component
         {
             for (text of actualTextList) //Translate each paragraph at a time as to not overwhelm the server
             {
-                let data =
+                const data =
                 {
-                    q: text,
-                    source: "en",
-                    format: "html",
-                    target: SUPPORTED_LANGUAGES[this.state.translateToLanguage],
+                    params:
+                    {
+                        q: text,
+                        langpair: `en|${SUPPORTED_LANGUAGES[this.state.translateToLanguage]}`,
+                        de: SUPPORT_EMAIL,
+                    }
                 };
 
-                let response = await axios.post(`https://libretranslate.com/translate`, data);
-                text = response.data.translatedText;
+                let response = await axios.get(`https://api.mymemory.translated.net/get`, data);
+                text = response.data.responseData.translatedText;
                 text = text.replaceAll("Billybobbydoe", "[PLAYER]").replaceAll("Billybobbyfoe", "[RIVAL]"); //Give Player and Rival their buffers back
                 text = text.replaceAll(/<\/.*>/g, ""); //Remove closing tags added in
                 text = text.replaceAll("<pause", "<pause><").replaceAll("<buffer0", "<buffer><0"); //Restore newer buffers
@@ -124,7 +143,12 @@ export class TranslationButton extends Component
         catch (e)
         {
             console.error(e);
-            Swal.fire("Translation site was overwhelmed!\nPlease wait 1 minute before trying again.", "", "error");
+            Swal.fire(
+            {
+                icon: "error",
+                title: "Translation site returned an error!\nPlease wait 1 minute before trying again.",
+                scrollbarPadding: false,
+            });
         }
     }
 
@@ -138,33 +162,23 @@ export class TranslationButton extends Component
         if (!this.props.showTranslate) //Is the translated text box
         {
             return (
-                <Navbar variant="dark" bg="dark" expand="lg" className="translate-button">
-                    <Container fluid className="translated-text-navbar-container">
-                        <Navbar.Brand>Translated Text</Navbar.Brand>
-                        <Navbar.Toggle aria-controls="navbar-dark-example" />
-                    </Container>
+                <Navbar variant="dark" bg="dark" expand="lg" className="translate-navbar translated-text-navbar">
+                    <Navbar.Brand>Translated Text</Navbar.Brand>
                 </Navbar>
             );
         }
 
         return (
-            <Navbar variant="dark" bg="dark" expand="lg" className="translate-button">
-                <Container fluid>
-                    <Navbar.Brand onClick={this.translateText.bind(this)}>
-                        Translate
-                    </Navbar.Brand>
-                    <Navbar.Toggle aria-controls="navbar-dark-example" />
-                    <Navbar.Collapse>
-                    <Nav>
-                        <NavDropdown
-                            title={this.state.translateToLanguage}
-                            menuVariant="dark"
-                        >
-                            {languages}
-                        </NavDropdown>
-                    </Nav>
-                    </Navbar.Collapse>
-                </Container>
+            <Navbar variant="dark" bg="dark" expand="lg" className="translate-navbar">
+                <Navbar.Brand className={(this.isLanguageChosen()) ? "translate-button-active" : ""} onClick={this.translateText.bind(this)}>
+                    Translate
+                </Navbar.Brand>
+                <NavDropdown
+                    title={this.state.translateToLanguage}
+                    menuVariant="dark"
+                >
+                    {languages}
+                </NavDropdown>
             </Navbar>
         );
     }
