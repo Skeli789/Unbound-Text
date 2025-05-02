@@ -18,6 +18,7 @@ permissions:
 
 env:
   DEPLOY_BRANCH: heroku
+  GH_PAGES_BRANCH: gh-pages
 
 jobs:
   # Run front-end tests
@@ -50,3 +51,37 @@ jobs:
 
       - name: Push updated branch
         run: git push origin ${{ env.DEPLOY_BRANCH }} --force
+
+  # Deploy to GitHub Pages
+  deploy_to_gh_pages:
+    name: Deploy to GitHub Pages
+    runs-on: ubuntu-latest
+    env:
+      REACT_APP_EMAIL: ${{ vars.REACT_APP_EMAIL }}
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with :
+        fetch-depth: 0
+
+    ## Setup dependencies ##
+    - name: Setup Node.js with Yarn caching
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22.x"
+        cache: yarn
+        cache-dependency-path: yarn.lock
+
+    - name: Install dependencies
+      run: yarn install
+
+    # Build and deploy to GitHub Pages ##
+    - name: Configure Git
+      uses: ./.github/actions/configure_bot_git
+
+    - name: Deploy
+      run: |
+        git --work-tree build add --all
+        git commit -m "Automated deployment to GitHub Pages"
+        git push origin ${{ env.GH_PAGES_BRANCH }} --force
+  
