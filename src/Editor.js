@@ -2,15 +2,17 @@ import React, {Component} from 'react';
 import {OverlayTrigger, Tooltip} from "react-bootstrap";
 import {TextArea} from 'semantic-ui-react';
 
-import {FaUndo, FaRedo, FaLock, FaUnlock} from "react-icons/fa";
+import {FaUndo, FaRedo} from "react-icons/fa";
 
 import ConvertedText from './ConvertedText';
+import SpaceInfo from './SpaceInfo';
 import {SEMI_LINE_WIDTH, FULL_LINE_WIDTH, GetDisplayColour, GetStringWidth, FindIndexOfLineEnd, FindIndexOfLineStart,
         DoesLineHaveScrollAfterIt, FormatStringForDisplay, TextChange, DetermineTextChangeType,
         IsInsertTextChange, ParseColouredTextToHtml} from "./TextUtils";
 
 import {AutoSaveText} from './subcomponents/AutoSaveButton';
 import {CurrentTextColourButton, GetPreviouslyUsedTextColour} from './subcomponents/CurrentTextColourButton';
+import LockFinalLineButton from './subcomponents/LockFinalLineButton';
 import PrettifyButton from "./subcomponents/PrettifyButton";
 import QuickButtons from "./subcomponents/QuickButtons";
 import TranslationButton from "./subcomponents/TranslationButton";
@@ -19,8 +21,6 @@ import "./styles/Editor.css";
 
 const undoTooltip = props => (<Tooltip className="show" {...props}>Undo</Tooltip>);
 const redoTooltip = props => (<Tooltip className="show" {...props}>Redo</Tooltip>);
-const lockTooltip = props => (<Tooltip className="show" {...props}>Final Line Locked</Tooltip>);
-const unlockTooltip = props => (<Tooltip className="show" {...props}>Final Line Unlocked</Tooltip>);
 
 
 export class Editor extends Component
@@ -448,15 +448,8 @@ export class Editor extends Component
     {
         const {text, textareaWidth, showTranslate} = this.state;
 
-        const cursorLineWidth = this.getCursorLineWidth();
-        const totalWidth = (this.doesCursorLineHaveScrollAfterIt()) ? SEMI_LINE_WIDTH: FULL_LINE_WIDTH;
-        const cursorLineCount = Math.floor(cursorLineWidth / 5.6);
-        const maxCharCount = (totalWidth === SEMI_LINE_WIDTH) ? Math.floor(totalWidth / 5.6) : Math.floor(totalWidth / (206 / 36));
-
         const textAreaStyle = {width: `calc(${textareaWidth}px + 2em)`, minWidth: "calc(340px + 2em)", maxWidth: "99vw", whiteSpace: "pre"};
         const buttonsContainerStyle = {width: `calc(${textareaWidth}px + 3em)`, minWidth: "calc(340px + 3em)", maxWidth: "99vw",};
-        const overflowErrorStyle = (cursorLineWidth > totalWidth) ? {color: "red"} : {color: "green"};
-        const whichLockTooltip = !this.state.lockFinalLine ? unlockTooltip : lockTooltip;
 
         const textareaHeight = (this.textAreaRef.current) ? this.textAreaRef.current.ref.current.clientHeight : 0; //Get the height of the textarea to set the height of the mirror div
 
@@ -501,9 +494,12 @@ export class Editor extends Component
                     darkMode={this.props.darkMode}
                 />
 
-                {/*Space Details & Prettifier*/}
+                {/*Prettifier*/}
                 <PrettifyButton text={text} setPrettifiedText={this.setPrettifiedText.bind(this)}/>
-                <div className="space-info"><span><span style={overflowErrorStyle}>{cursorLineWidth}</span> / {totalWidth}</span> <span>~</span> <span><span style={overflowErrorStyle}>{cursorLineCount}</span> / {maxCharCount}</span></div>
+
+                {/*Space Details*/}
+                <SpaceInfo lineWidth={this.getCursorLineWidth()}
+                           totalWidth={(this.doesCursorLineHaveScrollAfterIt()) ? SEMI_LINE_WIDTH: FULL_LINE_WIDTH} />
 
                 {/*Translation*/}
                 <TranslationButton text={text} showTranslate={this.state.showTranslate} showTranslationBox={this.showTranslationBox}/>
@@ -513,20 +509,8 @@ export class Editor extends Component
                                              setParentCurrentColour={(textColour) => this.setState({textColour})} />
 
                 {/*Lock Final Line Button*/}
-                <div className="lock-buttons">
-                    <OverlayTrigger placement="left" overlay={whichLockTooltip}>
-                        <span> 
-                        { //Span is necessary for the tooltip to work here
-                            !this.state.lockFinalLine ?
-                                <FaUnlock onClick={this.lockFinalLine.bind(this, true)} size={30} //Lock final line on click
-                                    className="lock-button text-locked"/>
-                            :
-                                <FaLock onClick={this.lockFinalLine.bind(this, false)} size={30} //Unlock final line on click
-                                    className="lock-button text-unlocked"/>
-                        }
-                        </span>
-                    </OverlayTrigger>
-                </div>
+                <LockFinalLineButton isFinalLineLocked={this.state.lockFinalLine}
+                                     lockFinalLine={this.lockFinalLine.bind(this)} />
 
                 {/*Undo & Redo Buttons*/}
                 <div className="undo-redo-buttons">

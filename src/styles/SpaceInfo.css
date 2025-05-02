@@ -1,0 +1,42 @@
+.space-info
+{
+    display: grid;
+    grid-template-columns: 3ch 1ch 3ch 3ch 2ch 1ch 2ch; /*Ch means character*/
+    justify-content: center; /* Aligns horizontally */
+    align-items: center; /* Aligns vertically */
+    font-family: monospace;
+    padding: 1px 0.75rem;
+    margin-top: 0.5rem;
+    border: solid 1px black;
+    grid-area: spaceCount; /* The editor page grid area */
+}
+
+[data-darkreader-scheme="dark"] .space-info
+{
+    color: white;
+    background-color: #111;
+}
+
+.space-info .cur-num
+{
+    /* Force exactly 3 digits of room */
+    text-align: right;
+    overflow: hidden;
+}
+
+.space-info .tot-num
+{
+    /* Force exactly 3 digits of room */
+    text-align: left;
+    overflow: hidden;
+}
+.space-info .slash
+{
+    text-align: center;
+    user-select: none;
+}
+.space-info .tilde
+{
+    /* Auto‐sized column, so this will always sit in the very middle */
+    text-align: center;
+}
