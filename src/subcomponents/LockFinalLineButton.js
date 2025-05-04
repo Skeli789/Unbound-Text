@@ -4,7 +4,7 @@
  */
 
 import React, {Component} from 'react';
-import {OverlayTrigger, Tooltip} from "react-bootstrap";
+import {Tooltip} from "@mui/material";
 
 import {FaLock, FaUnlock} from "react-icons/fa";
 
@@ -34,12 +34,11 @@ export class LockFinalLineButton extends Component
     {
         const size = 30;
         const isFinalLineLocked = this.props.isFinalLineLocked;
-        const tooltipText = (isFinalLineLocked) ? "Final Line Locked" : "Final Line Unlocked";
-        const tooltip = props => (<Tooltip {...props}>{tooltipText}</Tooltip>);
+        const tooltip = (isFinalLineLocked) ? "Final Line Locked" : "Final Line Unlocked";
 
         return (
             <div className="lock-buttons">
-                <OverlayTrigger placement="left" overlay={tooltip}>
+                <Tooltip title={tooltip} placement="left" arrow enterTouchDelay={0}>
                     <span> 
                     { //Span is necessary for the tooltip to work here
                         !isFinalLineLocked ?
@@ -50,7 +49,7 @@ export class LockFinalLineButton extends Component
                                 className="lock-button text-unlocked"/>
                     }
                     </span>
-                </OverlayTrigger>
+                </Tooltip>
             </div>
         );
     }

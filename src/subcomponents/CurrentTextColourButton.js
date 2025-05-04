@@ -4,7 +4,7 @@
  */
 
 import React, {Component} from 'react';
-import {OverlayTrigger, Tooltip, Dropdown, DropdownButton} from "react-bootstrap";
+import {MenuItem, Select, Tooltip} from "@mui/material";
 
 import {COLOURS} from '../TextUtils';
 
@@ -29,10 +29,11 @@ export class CurrentTextColourButton extends Component
 
     /**
      * Sets the current text colour and saves the choice for future visits.
-     * @param {string} colour - The chosen colour. 
+     * @param {Object} e - The dropdown selection event.
      */
-    setCurrentColour(colour)
+    setCurrentColour(e)
     {
+        let colour = e.target.value;
         this.setParentCurrentColour(colour);
 
         //Save in local storage
@@ -45,27 +46,29 @@ export class CurrentTextColourButton extends Component
      */
     render()
     {
-        const currentColour = this.props.currentColour.toUpperCase();
-        const icon = (currentColour in COLOURS) ? COLOURS[currentColour] : COLOURS["BLACK"];
-        const tooltip = props => (<Tooltip {...props}>Display Colour</Tooltip>);
-
+        const id = "text-colour-dropdown";
         return (
-            <OverlayTrigger placement="left" overlay={tooltip}>
-                <DropdownButton
-                    className="text-colour-dropdown" //For div itself
-                    id="text-colour-dropdown" //For button inside div
-                    drop="left"
-                    variant="light"
-                    title={icon}
-                    onSelect={this.setCurrentColour.bind(this)}
+            <Tooltip title="Display Colour" placement="left" arrow enterTouchDelay={0}>
+                <Select
+                    className={id} //For div itself
+                    id={id} //For button inside div
+                    value={this.props.currentColour}
+                    onChange={this.setCurrentColour.bind(this)}
+                    autoWidth
+                    renderValue={(selected) => (
+                        <span>
+                            {COLOURS[selected.toUpperCase()]} {/* Show only the colour corresponding to the selected value */}
+                        </span>
+                    )}
+                    IconComponent={() => null} //Hide the dropdown arrow icon
                 >
                     {Object.entries(COLOURS).map(([key, icon]) => (
-                        <Dropdown.Item key={key} eventKey={key.toLowerCase()}>
+                        <MenuItem  key={key} value={key.toLowerCase()}>
                             {icon} {key.substring(0, 1) + key.substring(1).toLowerCase()} {/*Capitalise first letter only*/}
-                        </Dropdown.Item>
+                        </MenuItem >
                     ))}
-                </DropdownButton>
-            </OverlayTrigger>
+                </Select>
+            </Tooltip>
         );
     }
 }

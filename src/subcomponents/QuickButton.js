@@ -4,7 +4,8 @@
  */
 
 import React, {Component} from 'react';
-import {Button, OverlayTrigger, Tooltip} from "react-bootstrap";
+import {Button} from 'react-bootstrap';
+import {Tooltip} from '@mui/material';
 
 
 export class QuickButton extends Component
@@ -29,15 +30,13 @@ export class QuickButton extends Component
      */
     render()
     {
-        const tooltip = props => (<Tooltip {...props}>{this.props.tooltip}</Tooltip>);
-
         return (
-            <OverlayTrigger placement="top" overlay={tooltip}>
-                <Button variant="secondary" className="quick-button" onClick={
-                    () => this.props.func(this.props.text)}>{this.props.text.replaceAll("[]", "")
-                }
+            <Tooltip title={this.props.tooltip} placement="top" arrow enterTouchDelay={0}>
+                <Button variant="secondary" className="quick-button"
+                        onClick={() => this.props.func(this.props.text)}>
+                    {this.props.text.replaceAll("[]", "")}
                 </Button>
-            </OverlayTrigger>
+            </Tooltip>
         )
     }
 }

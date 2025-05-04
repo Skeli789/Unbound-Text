@@ -5,19 +5,20 @@
 
 import axios from 'axios';
 import React, {Component} from 'react';
-import {Navbar, NavDropdown} from "react-bootstrap";
+import {Navbar} from "react-bootstrap";
 import Swal from 'sweetalert2';
+import {FormControl, InputLabel, MenuItem, Select} from '@mui/material';
 
 import {CreateIngameText} from "../ConvertedText";
 
 const TRANSLATION_CHAR_LIMIT = 1000000; //Current API doesn't have a max limit so this is high enough
 const SUPPORTED_LANGUAGES =
 {
-    "Spanish": "es",
-    "French": "fr",
-    "German": "de",
-    "Italian": "it",
-    "Vietnamese": "vi",
+    "es": "Spanish",
+    "fr": "French",
+    "de": "German",
+    "it": "Italian",
+    "vi": "Vietnamese",
 };
 const SUPPORT_EMAIL = process.env.REACT_APP_EMAIL || ""; //Email for the translation API
 
@@ -37,7 +38,7 @@ export class TranslationButton extends Component
 
         this.state =
         {
-            translateToLanguage: "Language",
+            translateToLanguage: "",
         };
 
         this.showTranslationBox = props.showTranslationBox;
@@ -54,10 +55,11 @@ export class TranslationButton extends Component
 
     /**
      * Sets the translation language to the selected language.
-     * @param {string} language - The language to set for translation.
+     * @param {Object} e - The event for the dropdown selection.
      */
-    setTranslationLanguage(language)
+    setTranslationLanguage(e)
     {
+        let language = e.target.value;
         this.setState({translateToLanguage: language});
     }
 
@@ -148,7 +150,7 @@ export class TranslationButton extends Component
                     params:
                     {
                         q: text,
-                        langpair: `en|${SUPPORTED_LANGUAGES[this.state.translateToLanguage]}`,
+                        langpair: `en|${this.state.translateToLanguage}`,
                         de: SUPPORT_EMAIL,
                     }
                 };
@@ -186,13 +188,12 @@ export class TranslationButton extends Component
     {
         let languages = [];
 
-        for (let language of Object.keys(SUPPORTED_LANGUAGES))
+        for (let languageId of Object.keys(SUPPORTED_LANGUAGES))
         {
             languages.push(
-                <NavDropdown.Item key={SUPPORTED_LANGUAGES[language]}
-                                  onClick={this.setTranslationLanguage.bind(this, language)}>
-                    {language}
-                </NavDropdown.Item>
+                <MenuItem key={languageId} value={languageId} >
+                    {SUPPORTED_LANGUAGES[languageId]} {/* Language name */}
+                </MenuItem>
             );
         }
 
@@ -205,6 +206,8 @@ export class TranslationButton extends Component
      */
     render()
     {
+        const languageDropdownId = "language-dropdown";
+
         if (this.props.isForTranslationBox) //Is the translated text box
         {
             return (
@@ -216,15 +219,27 @@ export class TranslationButton extends Component
 
         return (
             <Navbar variant="dark" bg="dark" expand="lg" className="translate-navbar">
-                <Navbar.Brand className={(this.isLanguageChosen()) ? "translate-button-active" : ""} onClick={this.translateText.bind(this)}>
-                    Translate
-                </Navbar.Brand>
-                <NavDropdown
-                    title={this.state.translateToLanguage}
-                    menuVariant="dark"
-                >
-                    {this.createLanguageList()}
-                </NavDropdown>
+                {/* Dropdown for the language selection */}
+                <FormControl variant="standard" sx={{ m: 0, minWidth: 160 }}>
+                    <InputLabel id={languageDropdownId}>Translate to Language</InputLabel>
+                    <Select
+                        labelId={languageDropdownId}
+                        id={languageDropdownId}
+                        label="Translate to Language"
+                        value={this.state.translateToLanguage}
+                        onChange={this.setTranslationLanguage.bind(this)}
+                    >
+                        {this.createLanguageList()}
+                </Select>
+                </FormControl>
+
+                {/* Translate button */}
+                {
+                    this.isLanguageChosen() &&
+                        <Navbar.Brand className={(this.isLanguageChosen()) ? "translate-button-active" : ""} onClick={this.translateText.bind(this)}>
+                            Translate
+                        </Navbar.Brand>
+                }
             </Navbar>
         );
     }

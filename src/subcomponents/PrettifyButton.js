@@ -4,8 +4,8 @@
  */
 
 import React, {Component} from 'react';
-import {Button} from "react-bootstrap";
 import Swal from 'sweetalert2';
+import {Button} from "@mui/material";
 
 import {IsColour, IsPause, IsPunctuation, GetNextLetterIndex, FormatStringForDisplay} from "../TextUtils";
 
@@ -173,7 +173,8 @@ export class PrettifyButton extends Component
         const id = "prettify-button";
 
         return (
-            <Button variant="danger" className={id} id={id} data-testid={id}
+            <Button variant="contained" color="error" size="large"
+                    className={id} id={id} data-testid={id}
                     onClick={this.tryPrettifyText.bind(this)}>
                 Prettify
             </Button>

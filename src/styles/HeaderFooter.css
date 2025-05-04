@@ -33,22 +33,5 @@
 
 .footer-button
 {
-    display: contents; /* So dark mode button transitions correctly */
     color: white !important;
-    background-color: var(--purple) !important;
-    border-color: var(--purple) !important;
-    box-shadow: unset !important;
-    font-size: 24px !important;
-    border: none;
-    border-radius: 0px;
-    max-height: 56px;
-}
-
-.footer-button-icon
-{
-    display: flex;
-    align-items: center;
-    width: fit-content;
-    padding-left: 10px;
-    padding-right: 10px;
 }

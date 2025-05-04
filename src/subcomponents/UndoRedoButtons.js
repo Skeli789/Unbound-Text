@@ -4,7 +4,7 @@
  */
 
 import React, {Component} from 'react';
-import {OverlayTrigger, Tooltip} from "react-bootstrap";
+import {Tooltip} from "@mui/material";
 
 import {FaUndo, FaRedo} from "react-icons/fa";
 
@@ -37,23 +37,24 @@ export class UndoRedoButtons extends Component
     {
         const iconSize = 30;
         const className = "undo-redo-button";
-        const undoTooltip = props => (<Tooltip className="show" {...props}>Undo</Tooltip>);
-        const redoTooltip = props => (<Tooltip className="show" {...props}>Redo</Tooltip>);
 
         return (
             <div className="undo-redo-buttons">
-                <OverlayTrigger placement="right" overlay={undoTooltip}>
+                {/* Undo Button */}
+                <Tooltip title="Undo" placement="right" arrow enterTouchDelay={0}>
                     <span> {/* Span is necessary for the tooltip to work here */}
                         <FaUndo onClick={this.undo} size={iconSize}
                                 className={"undo-redo-button " + (this.props.undoStack.length === 0 ? `disabled-${className}` : `active-${className}`)}/>
                     </span>
-                </OverlayTrigger>
-                <OverlayTrigger placement="right" overlay={redoTooltip}>
+                </Tooltip>
+
+                {/* Redo Button */}
+                <Tooltip title="Redo" placement="right" arrow enterTouchDelay={0}>
                     <span>
                         <FaRedo onClick={this.redo} size={iconSize}
                                 className={"undo-redo-button " + (this.props.redoStack.length === 0 ? `disabled-${className}` : `active-${className}`)}/>
                     </span>
-                </OverlayTrigger>
+                </Tooltip>
             </div>
         );
     }
