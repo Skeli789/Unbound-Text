@@ -3,10 +3,8 @@
  * It is used to display the text editor and handle text input, formatting, and other features.
  */
 import React, {Component} from 'react';
-import {OverlayTrigger, Tooltip} from "react-bootstrap";
 import {TextArea} from 'semantic-ui-react';
 
-import {FaUndo, FaRedo} from "react-icons/fa";
 
 import ConvertedText from './ConvertedText';
 import SpaceInfo from './SpaceInfo';
@@ -20,11 +18,9 @@ import LockFinalLineButton from './subcomponents/LockFinalLineButton';
 import PrettifyButton from "./subcomponents/PrettifyButton";
 import QuickButtons from "./subcomponents/QuickButtons";
 import TranslationButton from "./subcomponents/TranslationButton";
+import UndoRedoButtons from './subcomponents/UndoRedoButtons';
 
 import "./styles/Editor.css";
-
-const undoTooltip = props => (<Tooltip className="show" {...props}>Undo</Tooltip>);
-const redoTooltip = props => (<Tooltip className="show" {...props}>Redo</Tooltip>);
 
 
 export class Editor extends Component
@@ -54,7 +50,7 @@ export class Editor extends Component
             prevSelectionEnd: 0,
             textareaWidth: 100,
             undoStack: [],
-            poppedUndoStack: [],
+            appliedUndoStack: [],
             redoStack: [],
             lockFinalLine: false,
         };
@@ -238,10 +234,11 @@ export class Editor extends Component
         }
     
         //Add the old text to the undo stack
+        let undoToAdd = null;
         if (this.state.undoStack.length === 0 //No undo stack yet
         || (typeOfTextChange.type === TextChange.SINGLE_INSERT && typeOfTextChange.inserted.match(/^\s*$/)) //Only between words
         || (typeOfTextChange.type !== TextChange.SINGLE_INSERT))
-            this.addTextToUndo(oldText, this.state.prevCursorPosition, this.state.prevSelectionEnd); //Add the old text to the undo stack
+            undoToAdd = {text: oldText, selectionStart: this.state.prevCursorPosition, selectionEnd: this.state.prevSelectionEnd};
 
         //If the formatted text is different from the new text, update the cursor position twice
         if (formattedText !== newText
@@ -258,6 +255,12 @@ export class Editor extends Component
                     //Change the cursor position after formatting the text
                     cursorPos = this.getNewCursorPosition(formattedText, DetermineTextChangeType(newText, formattedText), typeOfTextChange); //Diff of formatting new text
                     this.setTextState(formattedText, cursorPos, cursorPos, autoAdjustScroll);
+
+                    //Update the undo stack
+                    if (undoToAdd == null) //Not adding new text this change (optimization)
+                        this.updateLastUndoObject(cursorPos, cursorPos); //Update the last undo object with the new cursor positions so the redo will work properly
+                    else
+                        this.addTextToUndo(undoToAdd.text, undoToAdd.selectionStart, undoToAdd.selectionEnd, cursorPos, cursorPos); //Add the old text to the undo stack
                 },
                 newText, //Set the new text first so the cursor position is correct
             );
@@ -267,6 +270,12 @@ export class Editor extends Component
             //Change the cursor position
             cursorPos = this.getNewCursorPosition(formattedText, typeOfTextChangeAfterFormat);
             this.setTextState(formattedText, cursorPos, cursorPos, autoAdjustScroll);
+
+            //Update the undo stack
+            if (undoToAdd == null) //Not adding new text this change (optimization)
+                this.updateLastUndoObject(cursorPos, cursorPos); //Update the last undo object with the new cursor positions so the redo will work properly
+            else
+                this.addTextToUndo(undoToAdd.text, undoToAdd.selectionStart, undoToAdd.selectionEnd, cursorPos, cursorPos); //Add the old text to the undo stack
         }
 
         this.setState({redoStack: []}); //Nothing to redo anymore
@@ -475,11 +484,27 @@ export class Editor extends Component
      * @param {string} text - The text to revert to after undoing.
      * @param {number} selectionStart - The starting position of the selection/cursor position to revert to.
      * @param {number} selectionEnd - The ending position of the selection to revert to.
+     * @param {number} selectionStartForRedo - The starting position of the selection/cursor position when redoing this undo.
+     * @param {number} selectionEndForRedo - The ending position of the selection when redoing this undo.
      */
-    addTextToUndo(text, selectionStart, selectionEnd)
+    addTextToUndo(text, selectionStart, selectionEnd, selectionStartForRedo, selectionEndForRedo)
     {
         let undoStack = this.state.undoStack.slice(); //Copy to avoid mutating state directly
-        undoStack.push({text, selectionStart, selectionEnd});
+        undoStack.push({text, selectionStart, selectionEnd, selectionStartForRedo, selectionEndForRedo});
+        this.setState({undoStack: undoStack});
+    }
+
+    /**
+     * Updates the last undo object in the undo stack with the new selection start and end for redo.
+     * @param {number} selectionStartForRedo - The starting position of the selection/cursor position when redoing this undo.
+     * @param {number} selectionEndForRedo - The ending position of the selection when redoing this undo.
+     */
+    updateLastUndoObject(selectionStartForRedo, selectionEndForRedo)
+    {
+        let undoStack = this.state.undoStack.slice(); //Copy to avoid mutating state directly
+        let lastUndoApplied = undoStack[undoStack.length - 1]; //Get the last undo object
+        lastUndoApplied.selectionStartForRedo = selectionStartForRedo; //Update the selection start for redo
+        lastUndoApplied.selectionEndForRedo = selectionEndForRedo; //Update the selection end for redo
         this.setState({undoStack: undoStack});
     }
 
@@ -501,20 +526,20 @@ export class Editor extends Component
      */
     undoLastChange()
     {
-        if (this.state.undoStack.length > 0)
+        let undoStack = this.state.undoStack.slice(); //Copy to avoid mutating state directly
+
+        if (undoStack.length > 0)
         {
-            let undoStack = this.state.undoStack.slice(); //Copy to avoid mutating state directly
-            let poppedUndoStack = this.state.poppedUndoStack.slice(); //Copy to avoid mutating state directly
-            let lastState = undoStack.pop(); //Remove the last change from the undo stack
-            poppedUndoStack.push(lastState); //Save the undone change in case a redo there is an undo after a redo
+            let appliedUndoStack = this.state.appliedUndoStack.slice(); //Copy to avoid mutating state directly
+            let undoApplied = undoStack.pop(); //Remove the last change from the undo stack
+            appliedUndoStack.push(undoApplied); //Save the undone change in case a redo there is an undo after a redo
 
             //Update Redo State
-            let typeOfTextChange = DetermineTextChangeType(lastState.text, this.state.text); //Figure out where the text changed and always place the cursor after that on redo. Not perfect but the best that can be done
-            this.addTextToRedo(this.state.text, typeOfTextChange.end, typeOfTextChange.end);
+            this.addTextToRedo(this.state.text, undoApplied.selectionStartForRedo, undoApplied.selectionEndForRedo);
 
             //Actually perform undo
-            this.setState({undoStack: undoStack, poppedUndoStack: poppedUndoStack});
-            this.setTextState(lastState.text, lastState.selectionStart, lastState.selectionEnd, true);
+            this.setState({undoStack: undoStack, appliedUndoStack: appliedUndoStack});
+            this.setTextState(undoApplied.text, undoApplied.selectionStart, undoApplied.selectionEnd, true);
         }
     }
 
@@ -523,19 +548,21 @@ export class Editor extends Component
      */
     redoLastChange()
     {
-        if (this.state.redoStack.length > 0)
+        let redoStack = this.state.redoStack.slice(); //Copy to avoid mutating state directly
+
+        if (redoStack.length > 0)
         {
-            let redoStack = this.state.redoStack.slice(); //Copy to avoid mutating state directly
-            let lastState = redoStack.pop(); //Remove the last change from the redo stack
+            let redoApplied = redoStack.pop(); //Remove the last change from the redo stack
 
             //Update Undo State
-            let poppedUndoStack = this.state.poppedUndoStack.slice(); //Copy to avoid mutating state directly
-            let topPoppedUndoState = poppedUndoStack.pop(); //Remove the last change from the previous undo stack
-            this.addTextToUndo(topPoppedUndoState.text, topPoppedUndoState.selectionStart, topPoppedUndoState.selectionEnd); //Add the previous undo back to the undo stack
+            let appliedUndoStack = this.state.appliedUndoStack.slice(); //Copy to avoid mutating state directly
+            let lastUndoApplied = appliedUndoStack.pop(); //Remove the last change from the previous undo stack
+            this.addTextToUndo(lastUndoApplied.text, lastUndoApplied.selectionStart, lastUndoApplied.selectionEnd, //Add the previous undo back to the undo stack
+                               lastUndoApplied.selectionStartForRedo, lastUndoApplied.selectionEndForRedo);
 
             //Actually perform redo
-            this.setState({redoStack: redoStack, poppedUndoStack: poppedUndoStack});
-            this.setTextState(lastState.text, lastState.selectionStart, lastState.selectionEnd, true);
+            this.setState({redoStack: redoStack, appliedUndoStack: appliedUndoStack});
+            this.setTextState(redoApplied.text, redoApplied.selectionStart, redoApplied.selectionEnd, true);
         }
     }
 
@@ -621,16 +648,10 @@ export class Editor extends Component
                                      lockFinalLine={this.lockFinalLine.bind(this)} />
 
                 {/*Undo & Redo Buttons*/}
-                <div className="undo-redo-buttons">
-                    <OverlayTrigger placement="right" overlay={undoTooltip}>
-                        <span><FaUndo onClick={this.undoLastChange.bind(this)} size={30} //Span is necessary for the tooltip to work here
-                                className={"undo-redo-button " + (this.state.undoStack.length === 0 ? "disabled-undo-redo-button" : "active-undo-redo-button")}/></span>
-                    </OverlayTrigger>
-                    <OverlayTrigger placement="right" overlay={redoTooltip}>
-                        <span><FaRedo onClick={this.redoLastChange.bind(this)} size={30}
-                                className={"undo-redo-button " + (this.state.redoStack.length === 0 ? "disabled-undo-redo-button" : "active-undo-redo-button")}/></span>
-                    </OverlayTrigger>
-                </div>
+                <UndoRedoButtons undoStack={this.state.undoStack}
+                                 redoStack={this.state.redoStack}
+                                 undo={this.undoLastChange.bind(this)}
+                                 redo={this.redoLastChange.bind(this)} />
 
                 {/*Hidden div for matching the width of the textarea to*/}
                 <div className="fr-text hidden-div" ref={this.hiddenDivRef}>{this.createDivText()}</div>
