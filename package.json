@@ -4,6 +4,11 @@
   "homepage": ".",
   "license": "GPL-3.0-only",
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/material": "^7.0.2",
+    "@popperjs/core": "^2.11.8",
+    "@types/react": "18",
     "axios": "^1.9.0",
     "bootstrap": "^5.3.5",
     "darkreader": "^4.9.105",
@@ -15,7 +20,7 @@
     "react-toastify": "^11.0.5",
     "semantic-ui-css": "^2.5.0",
     "semantic-ui-react": "^2.1.5",
-    "sweetalert2": "^11.19.1"
+    "sweetalert2": "^11.21.0"
   },
   "devDependencies": {
     "@testing-library/dom": "^10.4.0",

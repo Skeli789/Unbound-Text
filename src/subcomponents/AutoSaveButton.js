@@ -4,7 +4,7 @@
  */
 
 import React, {Component} from 'react';
-import {Button, OverlayTrigger, Tooltip} from "react-bootstrap";
+import {IconButton, Tooltip} from '@mui/material';
 
 import {MdSave} from "react-icons/md";
 
@@ -49,28 +49,24 @@ export class AutoSaveButton extends Component
 
     /**
      * Renders the AutoSaveButton component.
-     * @returns {JSX.Element} The rendered AutoSaveButton component.
+     * @returns {JSX.Element} The rendered component.
      */
     render()
     {
         const size = 42;
-        const iconClass = "autosave-button";
+        const id = "autosave-button";
         const iconColour = (this.state.on) ? "red" : "white";
-        const tooltipText = (this.state.on) ? "AutoSave is On" : "AutoSave is Off";
-        const tooltip = props => (<Tooltip {...props}>{tooltipText}</Tooltip>);
+        const tooltip = (this.state.on) ? "AutoSave is On" : "AutoSave is Off";
 
         return (
-            <Button size="lg"
-                    id="autosave-button"
-                    className="footer-button"
-                    aria-label="Toggle AutoSave"
-                    onClick={this.toggleAutoSave.bind(this)}>
-                <OverlayTrigger placement="top" overlay={tooltip}>
-                    <div className={`footer-button-icon ${iconClass}`}>
+            <Tooltip title={tooltip} placement="top" arrow>
+                <IconButton id={id} data-testid={id}
+                            className={"footer-button " + id}
+                            aria-label="Toggle AutoSave"
+                            onClick={this.toggleAutoSave.bind(this)}>
                         <MdSave size={size} color={iconColour}/>
-                    </div>
-                </OverlayTrigger>
-            </Button>
+                </IconButton>
+            </Tooltip>
         );
     }
 }

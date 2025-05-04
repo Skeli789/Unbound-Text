@@ -16,14 +16,14 @@ describe('Editor is rendered and can be typed in', () =>
 
     test('renders with initial text', async () =>
     {
-        const {getByTestId} = render(<Editor text={initialText} showTranslate={true} showTranslationBox={dummyFunc} test={true} />);
+        const {getByTestId} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
         const textarea = getByTestId('main-textarea');
         expect(textarea).toHaveValue(initialText);
     });
 
     test('updates text on user input', async () =>
     {
-        const {getByTestId} = render(<Editor text={initialText} showTranslate={true} showTranslationBox={dummyFunc} test={true} />);
+        const {getByTestId} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
         const textarea = getByTestId('main-textarea');
         fireEvent.change(textarea, { target: { value: 'Hello, world' } });
         expect(textarea).toHaveValue('Hello, world');
@@ -31,7 +31,7 @@ describe('Editor is rendered and can be typed in', () =>
 
     test('undo (Ctrl+Z) reverts last change', async () =>
     {
-        const {getByTestId} = render(<Editor text={initialText} showTranslate={true} showTranslationBox={dummyFunc} test={true} />);
+        const {getByTestId} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
         const textarea = getByTestId('main-textarea');
 
         // Make a change
@@ -45,7 +45,7 @@ describe('Editor is rendered and can be typed in', () =>
 
     test('redo (Ctrl+Y) reapplies undone change', async () =>
     {
-        const {getByTestId} = render(<Editor text={initialText} showTranslate={true} showTranslationBox={dummyFunc} test={true} />);
+        const {getByTestId} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
         const textarea = getByTestId('main-textarea');
 
         // Change and undo
@@ -209,7 +209,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         test(data.name, async () =>
         {
             //Create the editor
-            const {getByTestId} = render(<Editor text="" showTranslate={true} showTranslationBox={() => {}}  test={true} />);
+            const {getByTestId} = render(<Editor text="" isTranslation={false} showTranslationBox={() => {}}  test={true} />);
             const textarea = getByTestId('main-textarea');
             fireEvent.focus(textarea);
 

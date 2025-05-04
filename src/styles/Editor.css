@@ -192,9 +192,8 @@ button, svg, .navbar-brand
 
 .prettify-button
 {
-    font-size: 1.25rem;
-    padding-top: 1px !important;
-    padding-bottom: 1px !important;
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
     margin-top: 0.5rem !important;
     grid-area: prettifier;
 }
@@ -212,12 +211,13 @@ button, svg, .navbar-brand
 
 .translate-navbar
 {
-    justify-content: flex-start !important;
+    justify-content: space-between !important;
 }
 
 .translated-text-navbar
 {
     justify-content: center !important;
+    height: 4rem;
 }
 
 .translate-button-active, .translate-button-active:hover
@@ -349,8 +349,8 @@ button, svg, .navbar-brand
 
 .text-colour-dropdown /* Applies to the container */
 {
-    display: flex;
     margin-top: 20px;
+    width: fit-content;
     height: fit-content;
     grid-area: colourButton;
 }

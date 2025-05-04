@@ -4,7 +4,7 @@
  */
 
 import React, {Component} from 'react';
-import {OverlayTrigger, Tooltip} from "react-bootstrap";
+import {Tooltip} from "@mui/material";
 
 import {FaLock, FaUnlock} from "react-icons/fa";
 
@@ -16,7 +16,7 @@ export class LockFinalLineButton extends Component
      * @constructor
      * @param {Object} props - The props object containing the component's properties.
      * @param {boolean} props.isFinalLineLocked - Indicates if the final line is locked.
-     * @param {function} props.lockFinalLine - Function to lock the final line.
+     * @param {Function} props.lockFinalLine - Function to lock the final line.
      */
     constructor(props)
     {
@@ -28,18 +28,17 @@ export class LockFinalLineButton extends Component
 
     /**
      * Renders the LockFinalLineButton component.
-     * @returns {JSX.Element} The rendered LockFinalLineButton component.
+     * @returns {JSX.Element} The rendered component.
      */
     render()
     {
         const size = 30;
         const isFinalLineLocked = this.props.isFinalLineLocked;
-        const tooltipText = (isFinalLineLocked) ? "Final Line Locked" : "Final Line Unlocked";
-        const tooltip = props => (<Tooltip {...props}>{tooltipText}</Tooltip>);
+        const tooltip = (isFinalLineLocked) ? "Final Line Locked" : "Final Line Unlocked";
 
         return (
             <div className="lock-buttons">
-                <OverlayTrigger placement="left" overlay={tooltip}>
+                <Tooltip title={tooltip} placement="left" arrow enterTouchDelay={0}>
                     <span> 
                     { //Span is necessary for the tooltip to work here
                         !isFinalLineLocked ?
@@ -50,7 +49,7 @@ export class LockFinalLineButton extends Component
                                 className="lock-button text-unlocked"/>
                     }
                     </span>
-                </OverlayTrigger>
+                </Tooltip>
             </div>
         );
     }

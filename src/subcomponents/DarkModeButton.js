@@ -4,8 +4,8 @@
  */
 
 import React, {Component} from 'react';
-import {Button, OverlayTrigger, Tooltip} from "react-bootstrap";
 import {enable as enableDarkMode, disable as disableDarkMode} from 'darkreader';
+import {IconButton, Tooltip} from '@mui/material';
 
 import {MdSunny, MdModeNight} from 'react-icons/md';
 
@@ -17,7 +17,7 @@ export class DarkModeButton extends Component
      * @constructor
      * @param {Object} props - The props object containing the component's properties.
      * @param {boolean} props.darkMode - The current dark mode state.
-     * @param {function} props.toggleParentDarkMode - The function to toggle dark mode in the parent component.
+     * @param {Function} props.toggleParentDarkMode - The function to toggle dark mode in the parent component.
      */
     constructor(props)
     {
@@ -45,27 +45,23 @@ export class DarkModeButton extends Component
 
     /**
      * Renders the DarkModeButton component.
-     * @returns {JSX.Element} The rendered DarkModeButton component.
+     * @returns {JSX.Element} The rendered component.
      */
     render()
     {
         const size = 42;
-        const iconClass = "dark-mode-button";
-        const tooltipText = (this.props.darkMode) ? "Light Mode" : "Dark Mode";
-        const tooltip = props => (<Tooltip {...props}>{tooltipText}</Tooltip>);
+        const id = "dark-mode-button";
+        const tooltip = (this.props.darkMode) ? "Light Mode" : "Dark Mode";
 
         return (
-            <Button size="lg"
-                    id="dark-mode-button"
-                    className="footer-button"
-                    aria-label="Toggle Dark Mode"
-                    onClick={this.toggleDarkMode.bind(this)}>
-                <OverlayTrigger placement="top" overlay={tooltip}>
-                    <div className={`footer-button-icon ${iconClass}`}>
-                        {this.props.darkMode ? <MdSunny size={size} /> : <MdModeNight size={size} />}
-                    </div>
-                </OverlayTrigger>
-            </Button>
+            <Tooltip title={tooltip} placement="top" arrow enterTouchDelay={0} >
+                <IconButton id={id} data-testid={id}
+                            className={"footer-button " + id}
+                            aria-label="Toggle Dark Mode"
+                            onClick={this.toggleDarkMode.bind(this)}>
+                    {this.props.darkMode ? <MdSunny size={size} /> : <MdModeNight size={size} />}
+                </IconButton>
+            </Tooltip>
         );
     }
 }
