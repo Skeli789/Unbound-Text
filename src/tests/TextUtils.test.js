@@ -1,7 +1,7 @@
 import '@testing-library/jest-dom';
 
 import {
-    DoesLineEndParagraph, DoesLineHaveScrollAfterIt, DoesLineHaveScrollAfterItByLines,
+    DoesLineEndTextbox, DoesLineHaveScrollAfterIt, DoesLineHaveScrollAfterItByLines,
     FindIndexOfLineEnd, FindIndexOfLineStart, GetCharacterWidth, GetDisplayColour, GetLineTotalWidth,
     GetMacroWidth, GetNextLetterIndex, GetStringWidth, IsColour, IsPause, IsPunctuation,
     LineHasCharAfterIndex, LineHasCharAfterIndexBeforeOtherChar, ReplaceMacros, ReplaceWithMacros,
@@ -313,30 +313,30 @@ describe('FindIndexOfLineEnd', () =>
     });
 });
 
-//Tests for DoesLineEndParagraph
-describe('DoesLineEndParagraph', () =>
+//Tests for DoesLineEndTextbox
+describe('DoesLineEndTextbox', () =>
 {
     test('only one line', () =>
     {
-        expect(DoesLineEndParagraph('A', 0)).toBe(false);
+        expect(DoesLineEndTextbox('A', 0)).toBe(false);
     });
 
     test('two lines seperated by a single blank line', () =>
     {
-        expect(DoesLineEndParagraph('A\nB', 0)).toBe(false);
+        expect(DoesLineEndTextbox('A\nB', 0)).toBe(false);
     });
 
     test('two lines seperated by two blank lines', () =>
     {
-        expect(DoesLineEndParagraph('A\n\nB', 0)).toBe(true);
-        expect(DoesLineEndParagraph('A\n\nB', 3)).toBe(false); //Second line not followed by a paragraph
+        expect(DoesLineEndTextbox('A\n\nB', 0)).toBe(true);
+        expect(DoesLineEndTextbox('A\n\nB', 3)).toBe(false); //Second line not followed by a paragraph
     });
 
     test('two lines then two blank lines', () =>
     {
-        expect(DoesLineEndParagraph('A\nB\n\nC', 0)).toBe(false);
-        expect(DoesLineEndParagraph('A\nB\n\nC', 2)).toBe(true);
-        expect(DoesLineEndParagraph('A\nB\n\nC', 5)).toBe(false); //Last line not followed by a paragraph
+        expect(DoesLineEndTextbox('A\nB\n\nC', 0)).toBe(false);
+        expect(DoesLineEndTextbox('A\nB\n\nC', 2)).toBe(true);
+        expect(DoesLineEndTextbox('A\nB\n\nC', 5)).toBe(false); //Last line not followed by a paragraph
     });
 });
 

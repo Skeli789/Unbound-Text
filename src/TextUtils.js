@@ -41,6 +41,12 @@ export const OTHER_REPLACEMENT_MACROS =
     "B_BUTTON": "🅱",
 };
 
+/**
+ * Replaces macros in the given text with their corresponding values from the provided object.
+ * @param {string} text - The text containing macros to replace.
+ * @param {Object} obj - An object mapping macros to their replacement values.
+ * @returns {string} - The text with macros replaced.
+ */
 export function ReplaceMacros(text, obj)
 {
     for (let key of Object.keys(obj))
@@ -49,6 +55,12 @@ export function ReplaceMacros(text, obj)
     return text;
 }
 
+/**
+ * Replaces values in the given text with their corresponding macros from the provided object.
+ * @param {string} text - The text containing values to replace with macros.
+ * @param {Object} obj - An object mapping values to their corresponding macros.
+ * @returns {string} - The text with values replaced by macros.
+ */
 export function ReplaceWithMacros(text, obj)
 {
     for (let key of Object.keys(obj))
@@ -57,6 +69,11 @@ export function ReplaceWithMacros(text, obj)
     return text;
 }
 
+/**
+ * Checks if the given character is a colour symbol.
+ * @param {string} char - The character to check.
+ * @returns {boolean} - Wherther the character is a colour symbol.
+ */
 export function IsColour(char)
 {
     return char === "🟢"
@@ -65,6 +82,12 @@ export function IsColour(char)
         || char === "⚫";
 }
 
+/**
+ * Gets the display colour for a given colour symbol, considering dark mode.
+ * @param {string} colour - The colour symbol.
+ * @param {boolean} darkModeEnabled - Whether dark mode is enabled.
+ * @returns {string} - The display colour.
+ */
 export function GetDisplayColour(colour, darkModeEnabled)
 {
     //Change colour for dark mode
@@ -76,16 +99,33 @@ export function GetDisplayColour(colour, darkModeEnabled)
     return colour;
 }
 
+/**
+ * Checks if the given character is a punctuation mark.
+ * @param {string} char - The character to check.
+ * @returns {boolean} - Whether the character is a punctuation mark.
+ */
 export function IsPunctuation(char)
 {
     return char === "." || char === "!" || char === "?";
 }
 
+/**
+ * Checks if the text at the given index represents a pause macro.
+ * @param {Array<string>} text - The text as an array of characters.
+ * @param {number} nextLetterIndex - The index to check.
+ * @returns {boolean} - Whether the text at the index is a pause macro.
+ */
 export function IsPause(text, nextLetterIndex)
 {
     return text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[PAUSE]";
 }
 
+/**
+ * Finds the next letter index in the text, skipping over macros and special symbols.
+ * @param {Array<string>} text - The text as an array of characters.
+ * @param {number} nextLetterIndex - The current index to start from.
+ * @returns {number} - The index of the next letter.
+ */
 export function GetNextLetterIndex(text, nextLetterIndex)
 {
     if (nextLetterIndex >= text.length)
@@ -117,6 +157,12 @@ export function GetNextLetterIndex(text, nextLetterIndex)
     return nextLetterIndex;
 }
 
+/**
+ * Gets the width of a character, considering the next character.
+ * @param {string} char - The character to measure.
+ * @param {string} nextChar - The next character in the text.
+ * @returns {number} - The width of the character.
+ */
 export function GetCharacterWidth(char, nextChar)
 {
     if (IsColour(char))
@@ -129,6 +175,11 @@ export function GetCharacterWidth(char, nextChar)
         return 6; //Assume default size is 6  
 }
 
+/**
+ * Gets the width of a macro text.
+ * @param {string} macroText - The macro text to measure.
+ * @returns {number} - The width of the macro.
+ */
 export function GetMacroWidth(macroText)
 {
     if (macroText in FontSizes.macroSizes) //Macro has a pre-defined length like PLAYER
@@ -137,6 +188,11 @@ export function GetMacroWidth(macroText)
     return 0; //Default take up no space
 }
 
+/**
+ * Calculates the total width of a string, considering macros and special characters.
+ * @param {string} text - The text to measure.
+ * @returns {number} - The total width of the string.
+ */
 export function GetStringWidth(text)
 {
     let width = 0;
@@ -178,6 +234,13 @@ export function GetStringWidth(text)
     return width;
 }
 
+/**
+ * Calculates the total width allowed for a line, considering scroll arrows and formatting.
+ * @param {Array<string>} lines - The lines of text.
+ * @param {number} lineIndex - The index of the current line.
+ * @param {boolean} finalLineLocked - Whether the final line is locked.
+ * @returns {number} - The total width allowed for the line.
+ */
 export function GetLineTotalWidth(lines, lineIndex, finalLineLocked)
 {
     let totalWidth = FULL_LINE_WIDTH; //Default width for a line
@@ -193,6 +256,12 @@ export function GetLineTotalWidth(lines, lineIndex, finalLineLocked)
     return totalWidth;
 }
 
+/**
+ * Finds the starting index of a line given the ending index.
+ * @param {string} text - The text to search.
+ * @param {number} lineEndIndex - The ending index of the line.
+ * @returns {number} - The starting index of the line.
+ */
 export function FindIndexOfLineStart(text, lineEndIndex)
 {
     let lineStartIndex;
@@ -211,6 +280,12 @@ export function FindIndexOfLineStart(text, lineEndIndex)
     return lineStartIndex;
 }
 
+/**
+ * Finds the ending index of a line given the cursor index.
+ * @param {string} text - The text to search.
+ * @param {number} cursorIndex - The current cursor index.
+ * @returns {number} - The ending index of the line.
+ */
 export function FindIndexOfLineEnd(text, cursorIndex)
 {
     let lineEndIndex;
@@ -227,7 +302,13 @@ export function FindIndexOfLineEnd(text, cursorIndex)
     return lineEndIndex;
 }
 
-export function DoesLineEndParagraph(text, lineStartIndex)
+/**
+ * Determines if a line ends a textbox based on the presence of double newlines.
+ * @param {string} text - The text to check.
+ * @param {number} lineStartIndex - The starting index of the line.
+ * @returns {boolean} - Whether the line ends a textbox.
+ */
+export function DoesLineEndTextbox(text, lineStartIndex)
 {
     for (let i = lineStartIndex; i < text.length; ++i)
     {
@@ -243,6 +324,14 @@ export function DoesLineEndParagraph(text, lineStartIndex)
     return false;
 }
 
+/**
+ * Determines if a line has a scroll arrow after it based on its position and content.
+ * @param {string} text - The text to check.
+ * @param {number} lineStartIndex - The starting index of the line.
+ * @param {number} lineEndIndex - The ending index of the line.
+ * @param {boolean} finalLineLocked - Whether the final line is locked.
+ * @returns {boolean} - Whether the line has a scroll arrow after it.
+ */
 export function DoesLineHaveScrollAfterIt(text, lineStartIndex, lineEndIndex, finalLineLocked)
 {
     if (finalLineLocked && lineEndIndex >= text.length)
@@ -251,7 +340,7 @@ export function DoesLineHaveScrollAfterIt(text, lineStartIndex, lineEndIndex, fi
     //First line
     if (lineStartIndex === 0)
     {
-        if (DoesLineEndParagraph(text, lineStartIndex))
+        if (DoesLineEndTextbox(text, lineStartIndex))
             return true; //Scroll arrow is on the first line
 
         return false; //First line doesn't has a scroll arrow after it
@@ -260,7 +349,7 @@ export function DoesLineHaveScrollAfterIt(text, lineStartIndex, lineEndIndex, fi
     //Any other line
     if (text[lineStartIndex - 1] === "\n")
     {
-        if (DoesLineEndParagraph(text, lineStartIndex))
+        if (DoesLineEndTextbox(text, lineStartIndex))
             return true; //Scroll arrow is on the first line
 
         if (lineStartIndex === 1)
@@ -273,6 +362,12 @@ export function DoesLineHaveScrollAfterIt(text, lineStartIndex, lineEndIndex, fi
     return true;
 }
 
+/**
+ * Determines if a line has a scroll arrow after it based on the lines array and index.
+ * @param {Array<string>} lines - The lines of text.
+ * @param {number} lineIndex - The index of the current line.
+ * @returns {boolean} - Whether the line has a scroll arrow after it.
+ */
 export function DoesLineHaveScrollAfterItByLines(lines, lineIndex)
 {
     let previousLineBlank = lineIndex === 0 || lines[lineIndex - 1].length === 0; //For the first line the previous line is always blank
@@ -290,6 +385,13 @@ export function DoesLineHaveScrollAfterItByLines(lines, lineIndex)
     return !previousLineBlank;
 }
 
+/**
+ * Checks if a line contains a specific character after a given index.
+ * @param {string} line - The line to check.
+ * @param {number} index - The index to start checking from.
+ * @param {string} char - The character to look for.
+ * @returns {boolean} - Whether the character is found.
+ */
 export function LineHasCharAfterIndex(line, index, char)
 {
     for (let i = index; i < line.length; ++i)
@@ -301,6 +403,14 @@ export function LineHasCharAfterIndex(line, index, char)
     return false;
 }
 
+/**
+ * Checks if a line contains a specific character after a given index, stopping if another character is found first.
+ * @param {string} line - The line to check.
+ * @param {number} index - The index to start checking from.
+ * @param {string} char - The character to look for.
+ * @param {string} otherChar - The character that stops the search.
+ * @returns {boolean} - Whether the character is found before the other character.
+ */
 export function LineHasCharAfterIndexBeforeOtherChar(line, index, char, otherChar)
 {
     for (let i = index; i < line.length; ++i)
@@ -314,6 +424,13 @@ export function LineHasCharAfterIndexBeforeOtherChar(line, index, char, otherCha
     return false;
 }
 
+/**
+ * Formats a string for the textarea, wrapping lines and replacing macros.
+ * @param {string} text - The text to format.
+ * @param {boolean} finalLineLocked - Whether the final line is locked.
+ * @param {Object} [textChange={}] - Information about a recent text change.
+ * @returns {string} - The formatted text.
+ */
 export function FormatStringForDisplay(text, finalLineLocked, textChange={})
 {
     let width = 0;
