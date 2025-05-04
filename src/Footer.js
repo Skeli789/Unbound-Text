@@ -18,7 +18,7 @@ export class Footer extends Component
      * @constructor
      * @param {Object} props - The props object containing the component's properties.
      * @param {boolean} props.darkMode - The current dark mode state.
-     * @param {function} props.toggleParentDarkMode - The function to toggle dark mode in the parent component.
+     * @param {Function} props.toggleParentDarkMode - The function to toggle dark mode in the parent component.
      */
     constructor(props)
     {
@@ -28,7 +28,7 @@ export class Footer extends Component
 
     /**
      * Renders the Footer component.
-     * @returns {JSX.Element} The rendered Footer component.
+     * @returns {JSX.Element} The rendered component.
      */
     render()
     {

@@ -16,7 +16,7 @@ export class LockFinalLineButton extends Component
      * @constructor
      * @param {Object} props - The props object containing the component's properties.
      * @param {boolean} props.isFinalLineLocked - Indicates if the final line is locked.
-     * @param {function} props.lockFinalLine - Function to lock the final line.
+     * @param {Function} props.lockFinalLine - Function to lock the final line.
      */
     constructor(props)
     {
@@ -28,7 +28,7 @@ export class LockFinalLineButton extends Component
 
     /**
      * Renders the LockFinalLineButton component.
-     * @returns {JSX.Element} The rendered LockFinalLineButton component.
+     * @returns {JSX.Element} The rendered component.
      */
     render()
     {

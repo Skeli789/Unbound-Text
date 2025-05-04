@@ -1,3 +1,7 @@
+/**
+ * This file defines the Editor component.
+ * It is used to display the text editor and handle text input, formatting, and other features.
+ */
 import React, {Component} from 'react';
 import {OverlayTrigger, Tooltip} from "react-bootstrap";
 import {TextArea} from 'semantic-ui-react';
@@ -25,6 +29,16 @@ const redoTooltip = props => (<Tooltip className="show" {...props}>Redo</Tooltip
 
 export class Editor extends Component
 {
+    /**
+     * Represents the Editor component.
+     * @constructor
+     * @param {Object} props - The props object containing the component's properties.
+     * @param {string} props.text - The initial text to be displayed in the editor.
+     * @param {boolean} props.darkMode - Whether dark mode is enabled.
+     * @param {boolean} props.isTranslation - Whether the editor is for translated text.
+     * @param {boolean} props.test - Whether the component is being tested.
+     * @param {Function} props.showTranslationBox - Function to show the translation box.
+     */
     constructor(props)
     {
         super(props);
@@ -43,7 +57,6 @@ export class Editor extends Component
             poppedUndoStack: [],
             redoStack: [],
             lockFinalLine: false,
-            showTranslate: props.showTranslate,
         };
 
         this.hiddenDivRef = React.createRef(); //Ref for hidden div to match the textarea width
@@ -58,6 +71,9 @@ export class Editor extends Component
         this.updateMirrorRefPositionInterval = null; //Interval to update the mirror ref's position
     }
 
+    /**
+     * Runs after the component is created.
+     */
     async componentDidMount()
     {
         //Update the mirror ref's position to match the textarea's position
@@ -74,6 +90,9 @@ export class Editor extends Component
         }
     }
 
+    /**
+     * Runs when the component is removed from the DOM.
+     */
     componentWillUnmount()
     {
         //Clear the interval to update the mirror ref's position
@@ -85,6 +104,9 @@ export class Editor extends Component
             document.getElementById("editor-page").removeEventListener("scroll", this.updateMirrorRefPosition);
     }
 
+    /**
+     * Updates the position of the mirror ref to match the textarea's position.
+     */
     async updateMirrorRefPosition()
     {
         //Wait for the editor page to be created
@@ -106,6 +128,10 @@ export class Editor extends Component
         this.mirrorRef.current.style.left = `${this.textAreaRef.current.ref.current.offsetLeft - scrollLeft}px`;
     }
 
+    /**
+     * HaNdles the key down event for the textarea.
+     * @param {Object} event - The key down event.
+     */
     onKeyDown(event)
     {
         if (event.keyCode === 90 && event.ctrlKey) //Ctrl + Z
@@ -122,6 +148,10 @@ export class Editor extends Component
             this.handleCursorChange(event);
     }
 
+    /**
+     * Gets the current line of text where the cursor is located.
+     * @returns {string} The current line of text.
+     */
     getCursorLine()
     {
         let text = this.state.text;
@@ -130,11 +160,19 @@ export class Editor extends Component
         return text.substring(lineStartIndex, lineEndIndex);
     }
 
+    /**
+     * Gets the width of the current line of text where the cursor is located.
+     * @returns {number} The width of the current line of text.
+     */
     getCursorLineWidth()
     {
         return GetStringWidth(this.getCursorLine());
     }
 
+    /**
+     * Checks if the current line of text would have a scroll after it ingame.
+     * @returns 
+     */
     doesCursorLineHaveScrollAfterIt()
     {
         let lineEndIndex = FindIndexOfLineEnd(this.state.text, this.state.cursorPosition);
@@ -143,6 +181,13 @@ export class Editor extends Component
         return DoesLineHaveScrollAfterIt(this.state.text, lineStartIndex, lineEndIndex, this.state.lockFinalLine);
     }
 
+    /**
+     * Sets the text state of the editor.
+     * @param {string} newText - The new text to be set.
+     * @param {number} selectionStart - The starting position of the selection/cursor position.
+     * @param {number} selectionEnd - The ending position of the selection.
+     * @param {boolean} autoAdjustScroll - Whether to automatically adjust the scroll position after the text change.
+     */
     setTextState(newText, selectionStart, selectionEnd, autoAdjustScroll)
     {
         this.setState
@@ -150,7 +195,7 @@ export class Editor extends Component
             text: newText,
         }, () =>
         {
-            if (this.state.showTranslate //Don't save the translated text
+            if (!this.props.isTranslation //Don't save the translated text
             && !this.props.test) //Don't auto save in the test environment
                 AutoSaveText(newText); //Auto save the text for future visits
 
@@ -163,10 +208,16 @@ export class Editor extends Component
             });
 
             if (selectionStart >= 0)
-                SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, !this.state.showTranslate);
+                SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, this.props.isTranslation);
         });
     }
 
+    /**
+     * Sets the new text in the editor and formats it.
+     * @param {string} newText - The new text to be set.
+     * @param {boolean} autoAdjustScroll - Whether to automatically adjust the scroll position after the text change.
+     * @returns {string} The formatted text.
+     */
     setNewText(newText, autoAdjustScroll)
     {
         //Format the new text
@@ -182,7 +233,7 @@ export class Editor extends Component
         const typeOfTextChangeAfterFormat = DetermineTextChangeType(oldText, formattedText);
         if (typeOfTextChangeAfterFormat.type === TextChange.NO_CHANGE)
         {
-            SetTextareaCursorPos(this.state.prevCursorPosition, this.state.prevSelectionEnd, false, !this.state.showTranslate);
+            SetTextareaCursorPos(this.state.prevCursorPosition, this.state.prevSelectionEnd, false, this.props.isTranslation);
             return formattedText; //No change
         }
     
@@ -222,6 +273,10 @@ export class Editor extends Component
         return formattedText;
     }
 
+    /**
+     * Handles the text change event for the textarea.
+     * @param {Object} event - The text change event.
+     */
     handleTextChange(event)
     {
         const newText = event.target.value;
@@ -235,6 +290,13 @@ export class Editor extends Component
         );
     }
 
+    /**
+     * Sets the new cursor position in the textarea and calls a function if provided.
+     * @param {number} selectionStart - The new starting position of the selection/cursor position.
+     * @param {number} selectionEnd - The new ending position of the selection.
+     * @param {Function} func - The function to be called after setting the cursor position (optional).
+     * @param {string} text - The new text to be set (optional).
+     */
     setNewCursorPosThenCallFunc(selectionStart, selectionEnd, func=null, text=null)
     {
         if (func == null)
@@ -254,11 +316,19 @@ export class Editor extends Component
         this.setState(stateUpdate, func);
     }
 
+    /**
+     * Handles the cursor change event for the textarea.
+     * @param {Object} event - The cursor change event.
+     */
     handleCursorChange(event)
     {
         this.setNewCursorPosThenCallFunc(event.target.selectionStart, event.target.selectionEnd);
     }
 
+    /**
+     * Handles the scroll event for the textarea.
+     * @param {Object} event - The scroll event.
+     */
     handleScroll(e)
     {
         //Keep mirror in sync
@@ -266,9 +336,13 @@ export class Editor extends Component
         this.mirrorRef.current.scrollLeft = e.target.scrollLeft;
     }
 
+    /**
+     * Adds text at the start of the selection in the textarea.
+     * @param {string} textToAdd - The text to be added at the start of the selection.
+     */
     addTextAtSelectionStart(textToAdd)
     {
-        const textarea = document.getElementById(GetTextAreaId(!this.state.showTranslate));
+        const textarea = document.getElementById(GetTextAreaId(this.props.isTranslation));
         if (textarea == null)
             return; //Textarea doesn't exist
 
@@ -293,6 +367,10 @@ export class Editor extends Component
         );
     }
 
+    /**
+     * Sets the prettified text in the editor.
+     * @param {string} finalText - The final text to be set afteR using the prettifier.
+     */
     setPrettifiedText(finalText)
     {
         this.setState({lockFinalLine: false}, () => //So it doesn't interfere with the prettifer
@@ -304,11 +382,22 @@ export class Editor extends Component
         });
     }
 
+    /**
+     * Toggles the last line to be locked or unlocked.
+     * @param {boolean} lockLine - Whether to lock the last line or not.
+     */
     lockFinalLine(lockLine)
     {
         this.setState({lockFinalLine: lockLine});
     }
 
+    /**
+     * Gets the new cursor position based on the text change.
+     * @param {string} newText - The new text after the change.
+     * @param {Object} typeOfTextChange - The type of text change that occurred.
+     * @param {Object} prevTypeOfTextChange - The previous type of text change before the formatting (optional).
+     * @returns {number} The new cursor position.
+     */
     getNewCursorPosition(newText, typeOfTextChange, prevTypeOfTextChange=null)
     {
         let cursorPos;
@@ -381,6 +470,12 @@ export class Editor extends Component
         return cursorPos;
     }
 
+    /**
+     * Adds text to the undo stack.
+     * @param {string} text - The text to revert to after undoing.
+     * @param {number} selectionStart - The starting position of the selection/cursor position to revert to.
+     * @param {number} selectionEnd - The ending position of the selection to revert to.
+     */
     addTextToUndo(text, selectionStart, selectionEnd)
     {
         let undoStack = this.state.undoStack.slice(); //Copy to avoid mutating state directly
@@ -388,6 +483,12 @@ export class Editor extends Component
         this.setState({undoStack: undoStack});
     }
 
+    /**
+     * Adds text to the redo stack.
+     * @param {string} text - The text to revert to after redoing.
+     * @param {number} selectionStart - The starting position of the selection/cursor position to revert to.
+     * @param {number} selectionEnd - The ending position of the selection to revert to.
+     */
     addTextToRedo(text, selectionStart, selectionEnd)
     {
         let redoStack = this.state.redoStack.slice(); //Copy to avoid mutating state directly
@@ -395,6 +496,9 @@ export class Editor extends Component
         this.setState({redoStack: redoStack});
     }
 
+    /**
+     * Undoes the last change made in the editor.
+     */
     undoLastChange()
     {
         if (this.state.undoStack.length > 0)
@@ -414,6 +518,9 @@ export class Editor extends Component
         }
     }
 
+    /**
+     * Redoes the last change undone in the editor.
+     */
     redoLastChange()
     {
         if (this.state.redoStack.length > 0)
@@ -432,6 +539,10 @@ export class Editor extends Component
         }
     }
 
+    /**
+     * Creates a div with the text to be displayed in the hidden div.
+     * @returns {Array} The array of div elements with the text to be displayed.
+     */
     createDivText()
     {
         let result = [];
@@ -444,19 +555,21 @@ export class Editor extends Component
         return result;
     }
 
+    /**
+     * Renders the Editor component.
+     * @returns {JSX.Element} The rendered component.
+     */
     render()
     {
-        const {text, textareaWidth, showTranslate} = this.state;
-
+        const {text, textareaWidth} = this.state;
+        const {darkMode, isTranslation} = this.props;
         const textAreaStyle = {width: `calc(${textareaWidth}px + 2em)`, minWidth: "calc(340px + 2em)", maxWidth: "99vw", whiteSpace: "pre"};
-        const buttonsContainerStyle = {width: `calc(${textareaWidth}px + 3em)`, minWidth: "calc(340px + 3em)", maxWidth: "99vw",};
-
         const textareaHeight = (this.textAreaRef.current) ? this.textAreaRef.current.ref.current.clientHeight : 0; //Get the height of the textarea to set the height of the mirror div
 
         return (
-            <div className="editor-grid" id={(showTranslate) ? "editor-grid" : "editor-grid-translate"}>
+            <div className="editor-grid" id={(!isTranslation) ? "editor-grid" : "editor-grid-translate"}>
                 {/*Toolbar*/}
-                <QuickButtons buttonsContainerStyle={buttonsContainerStyle}
+                <QuickButtons textareaWidth={textareaWidth}
                               addTextAtSelectionStart={this.addTextAtSelectionStart.bind(this)}/>
 
                 {/*Text Input*/}
@@ -465,15 +578,15 @@ export class Editor extends Component
                     <div
                         className="fr-text mirror-textarea"
                         ref={this.mirrorRef}
-                        style={{...textAreaStyle, height: textareaHeight, color: GetDisplayColour(this.state.textColour, this.props.darkMode)}} //Force the height to be the same as the textarea
-                        dangerouslySetInnerHTML={{ __html: ParseColouredTextToHtml(text, this.props.darkMode)}}
+                        style={{...textAreaStyle, height: textareaHeight, color: GetDisplayColour(this.state.textColour, darkMode)}} //Force the height to be the same as the textarea
+                        dangerouslySetInnerHTML={{ __html: ParseColouredTextToHtml(text, darkMode)}}
                     />
 
                     {/*Actual textarea where the user types*/}
                     <TextArea
                         className="fr-text main-textarea top-textarea"
-                        id={GetTextAreaId(!showTranslate)}
-                        data-testid={GetTextAreaId(!showTranslate)}
+                        id={GetTextAreaId(isTranslation)}
+                        data-testid={GetTextAreaId(isTranslation)}
                         ref={this.textAreaRef}
                         rows={5}
                         style={textAreaStyle}
@@ -487,12 +600,7 @@ export class Editor extends Component
                 </div>
 
                 {/*Converted Text*/}
-                <ConvertedText
-                    text={text}
-                    textAreaStyle={textAreaStyle}
-                    showTranslate={this.state.showTranslate}
-                    darkMode={this.props.darkMode}
-                />
+                <ConvertedText text={text} textAreaStyle={textAreaStyle} darkMode={darkMode} />
 
                 {/*Prettifier*/}
                 <PrettifyButton text={text} setPrettifiedText={this.setPrettifiedText.bind(this)}/>
@@ -502,11 +610,11 @@ export class Editor extends Component
                            totalWidth={(this.doesCursorLineHaveScrollAfterIt()) ? SEMI_LINE_WIDTH: FULL_LINE_WIDTH} />
 
                 {/*Translation*/}
-                <TranslationButton text={text} showTranslate={this.state.showTranslate} showTranslationBox={this.showTranslationBox}/>
+                <TranslationButton text={text} isForTranslationBox={isTranslation} showTranslationBox={this.showTranslationBox}/>
 
                 {/* Current Text Colour Button */}
                 <CurrentTextColourButton currentColour={this.state.textColour}
-                                             setParentCurrentColour={(textColour) => this.setState({textColour})} />
+                                         setParentCurrentColour={(textColour) => this.setState({textColour})} />
 
                 {/*Lock Final Line Button*/}
                 <LockFinalLineButton isFinalLineLocked={this.state.lockFinalLine}
@@ -531,6 +639,11 @@ export class Editor extends Component
     }
 }
 
+/**
+ * Gets the ID of the textarea based on whether it is a translation box or not.
+ * @param {boolean} isTranslationBox - Whether the textarea is for translated text.
+ * @returns {string} The ID of the textarea.
+ */
 function GetTextAreaId(isTranslationBox)
 {
     if (isTranslationBox)
@@ -539,6 +652,13 @@ function GetTextAreaId(isTranslationBox)
         return "main-textarea";
 }
 
+/**
+ * Updates the cursor position in the textarea and adjusts the scroll if needed.
+ * @param {number} selectionStart - The starting position of the selection/cursor position.
+ * @param {number} selectionEnd - The ending position of the selection.
+ * @param {boolean} autoAdjustScroll - Whether to automatically adjust the scroll position after the text change.
+ * @param {boolean} isTranslationBox - Whether the textarea is for translated text.
+ */
 function SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, isTranslationBox)
 {
     //Find the textarea element
@@ -576,5 +696,5 @@ function SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, is
     newScrollTop = Math.max(0, Math.min(newScrollTop, maxScroll));
     textArea.scrollTop = newScrollTop;
 }
-  
+
 export default Editor;

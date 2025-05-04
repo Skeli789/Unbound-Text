@@ -41,7 +41,7 @@ export class CurrentTextColourButton extends Component
 
     /**
      * Renders the CurrentTextColourButton component.
-     * @returns {JSX.Element} The rendered CurrentTextColourButton component.
+     * @returns {JSX.Element} The rendered component.
      */
     render()
     {

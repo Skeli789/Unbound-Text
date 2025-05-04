@@ -49,7 +49,7 @@ export class AutoSaveButton extends Component
 
     /**
      * Renders the AutoSaveButton component.
-     * @returns {JSX.Element} The rendered AutoSaveButton component.
+     * @returns {JSX.Element} The rendered component.
      */
     render()
     {

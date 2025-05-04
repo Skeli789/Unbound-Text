@@ -1,3 +1,8 @@
+/**
+ * This file defines the the application start point.
+ * It contains the main component and also handles dark mode settings.
+ */
+
 import React, {useEffect, useState} from "react";
 import {ToastContainer} from "react-toastify";
 import {enable as enableDarkMode, disable as disableDarkMode, isEnabled as isDarkReaderEnabled,
@@ -48,6 +53,7 @@ function App()
         setLoaded(true);
     }, []);
 
+    //Prevent loading the app until the setup is complete
     if (!loaded)
         return <div className="app" />;
 

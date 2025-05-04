@@ -1,3 +1,8 @@
+/**
+ * This file defines the PrettifyButton component.
+ * It is used to format the text to make it optimal for reading in textboxes.
+ */
+
 import React, {Component} from 'react';
 import {Button} from "react-bootstrap";
 import Swal from 'sweetalert2';
@@ -7,6 +12,13 @@ import {IsColour, IsPause, IsPunctuation, GetNextLetterIndex, FormatStringForDis
 
 export class PrettifyButton extends Component
 {
+    /**
+     * Represents the PrettifyButton component.
+     * @constructor
+     * @param {Object} props - The props object containing the component's properties.
+     * @param {string} props.text - The text to be prettified.
+     * @param {Function} props.setPrettifiedText - Function to set the prettified text in the parent component.
+     */
     constructor(props)
     {
         super(props);
@@ -14,6 +26,10 @@ export class PrettifyButton extends Component
         this.setParentPrettifiedText = this.props.setPrettifiedText;
     }
 
+    /**
+     * Formats the text to make it optimal for reading.
+     * @returns {string} The prettified text.
+     */
     prettifyText()
     {
         let finalText = "";
@@ -25,7 +41,7 @@ export class PrettifyButton extends Component
         text = text.replaceAll("\n", " "); //First, remove all of the new lines
         text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
         text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
-        text = Array.from(text)
+        text = Array.from(text); //Convert to an array for easier manipulation
 
         for (let [i, letter] of text.entries())
         {
@@ -63,7 +79,7 @@ export class PrettifyButton extends Component
                     finalText += "\n\n"; //Move to new textbox
                     skipNextCharIfWhitespace = true;
                 }
-                else if (letter === "…")
+                else if (letter === "…") //Handle ellipses
                 {
                     if (i + 1 < text.length)
                     {
@@ -121,6 +137,9 @@ export class PrettifyButton extends Component
         this.setParentPrettifiedText(finalText.trim()); //Remove the last new lines
     }
 
+    /**
+     * Confirms with the user if they want to prettify the text.
+     */
     tryPrettifyText()
     {
         Swal.fire(
@@ -145,10 +164,17 @@ export class PrettifyButton extends Component
         });
     }
 
+    /**
+     * Renders the PrettifyButton component.
+     * @returns {JSX.Element} The rendered component.
+     */
     render()
     {
+        const id = "prettify-button";
+
         return (
-            <Button onClick={this.tryPrettifyText.bind(this)} variant="danger" className="prettify-button">
+            <Button variant="danger" className={id} id={id} data-testid={id}
+                    onClick={this.tryPrettifyText.bind(this)}>
                 Prettify
             </Button>
         );

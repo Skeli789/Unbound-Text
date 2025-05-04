@@ -17,7 +17,7 @@ export class DarkModeButton extends Component
      * @constructor
      * @param {Object} props - The props object containing the component's properties.
      * @param {boolean} props.darkMode - The current dark mode state.
-     * @param {function} props.toggleParentDarkMode - The function to toggle dark mode in the parent component.
+     * @param {Function} props.toggleParentDarkMode - The function to toggle dark mode in the parent component.
      */
     constructor(props)
     {
@@ -45,7 +45,7 @@ export class DarkModeButton extends Component
 
     /**
      * Renders the DarkModeButton component.
-     * @returns {JSX.Element} The rendered DarkModeButton component.
+     * @returns {JSX.Element} The rendered component.
      */
     render()
     {

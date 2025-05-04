@@ -23,7 +23,7 @@ export class Header extends Component
 
     /**
      * Renders the Header component.
-     * @returns {JSX.Element} The rendered Header component.
+     * @returns {JSX.Element} The rendered component.
      */
     render()
     {

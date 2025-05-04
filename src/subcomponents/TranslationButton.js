@@ -1,3 +1,8 @@
+/**
+ * This file defines the TranslationButton component.
+ * It is used to translate text into another language using an external API.
+ */
+
 import axios from 'axios';
 import React, {Component} from 'react';
 import {Navbar, NavDropdown} from "react-bootstrap";
@@ -19,6 +24,13 @@ const SUPPORT_EMAIL = process.env.REACT_APP_EMAIL || ""; //Email for the transla
 
 export class TranslationButton extends Component
 {
+    /**
+     * Represents the TranslationButton component.
+     * @param {Object} props - The props object containing the component's properties.
+     * @param {string} props.text - The text to be translated.
+     * @param {boolean} props.isForTranslationBox - Whether the button is for the translation box.
+     * @param {Function} props.showTranslationBox - Function to show the translated text in another editor.
+     */
     constructor(props)
     {
         super(props);
@@ -31,18 +43,31 @@ export class TranslationButton extends Component
         this.showTranslationBox = props.showTranslationBox;
     }
 
+    /**
+     * Checks if a language has been chosen for translation.
+     * @return {boolean} Whether a language has been chosen.
+     */
     isLanguageChosen()
     {
         return this.state.translateToLanguage in SUPPORTED_LANGUAGES;
     }
 
+    /**
+     * Sets the translation language to the selected language.
+     * @param {string} language - The language to set for translation.
+     */
     setTranslationLanguage(language)
     {
         this.setState({translateToLanguage: language});
     }
 
+    /**
+     * Translates the text using the selected language.
+     * returns {Promise<void>} - A promise that resolves when the translation is complete.
+     */
     async translateText()
     {
+        //Handle errors
         if (!this.isLanguageChosen())
         {
             Swal.fire(
@@ -64,6 +89,7 @@ export class TranslationButton extends Component
             return;
         }
 
+        //Create the text to be translated
         let text, textList, currText;
         let translatedTextList = [];
         let actualTextList = [];
@@ -79,6 +105,7 @@ export class TranslationButton extends Component
         text = text.replaceAll("[", "<").replaceAll("]", ">"); //Prevent buffers from being removed by turning them into HTML tags
         textList = text.split("\n");
 
+        //Translate the text
         Swal.fire(
         {
             title: "Translating...",
@@ -105,7 +132,6 @@ export class TranslationButton extends Component
             {
                 if (currText !== "")
                     currText += "\n";
-
                 currText += text;
             }
         }
@@ -152,14 +178,34 @@ export class TranslationButton extends Component
         }
     }
 
-    render()
+    /**
+     * Creates a the language list for the dropdown menu.
+     * @returns {Array<JSX.Element>} The list of languages as NavDropdown.Item elements.
+     */
+    createLanguageList()
     {
-        var languages = [];
+        let languages = [];
 
         for (let language of Object.keys(SUPPORTED_LANGUAGES))
-            languages.push(<NavDropdown.Item key={SUPPORTED_LANGUAGES[language]} onClick={this.setTranslationLanguage.bind(this, language)}>{language}</NavDropdown.Item>);
+        {
+            languages.push(
+                <NavDropdown.Item key={SUPPORTED_LANGUAGES[language]}
+                                  onClick={this.setTranslationLanguage.bind(this, language)}>
+                    {language}
+                </NavDropdown.Item>
+            );
+        }
 
-        if (!this.props.showTranslate) //Is the translated text box
+        return languages;
+    }
+
+    /**
+     * Renders the TranslationButton component.
+     * @returns {JSX.Element} The rendered component.
+     */
+    render()
+    {
+        if (this.props.isForTranslationBox) //Is the translated text box
         {
             return (
                 <Navbar variant="dark" bg="dark" expand="lg" className="translate-navbar translated-text-navbar">
@@ -177,7 +223,7 @@ export class TranslationButton extends Component
                     title={this.state.translateToLanguage}
                     menuVariant="dark"
                 >
-                    {languages}
+                    {this.createLanguageList()}
                 </NavDropdown>
             </Navbar>
         );

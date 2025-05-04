@@ -26,7 +26,7 @@ export class SpaceInfo extends Component
 
     /**
      * Renders the SpaceInfo component.
-     * @returns {JSX.Element} The rendered SpaceInfo component.
+     * @returns {JSX.Element} The rendered component.
      */
     render()
     {
