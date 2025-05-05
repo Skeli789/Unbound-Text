@@ -1,70 +1,45 @@
-# Getting Started with Create React App
+# Unbound Text
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+## What is this?
 
-## Available Scripts
+Unbound Text is a tool to format text for compilation within the [CFRU](https://github.com/Skeli789/Complete-Fire-Red-Upgrade).
 
-In the project directory, you can run:
+- The production site can be accessed from [here](https://skeli789.github.io/Unbound-Text/).
 
-### `yarn start`
+## Features
+- **Auto Formatting**
+  - Never worry about textbox overflow!
+- **Text Prettifier**
+  - Format the text for maximum readability with the click of a button!
+- **Undo/Redo**
+  - Easily revert mistaken changes!
+- **Colour Highlighing**
+  - View the text with the colours as it would appear in the game!
+- **Auto-Save**
+  - Every change is saved so you don't lose your work!
+- **Translation**
+  - Translate from English to other languages!
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Develop Locally
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+To run the `master` branch locally for development purposes, the steps are as follows:
 
-### `yarn test`
+1. Install [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/).
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+1. Install the dependencies with:
+    ```bash
+    yarn install
+    ```
 
-### `yarn build`
+1. Create a file `.env.development.local` and add the contents:
+    ```js
+    VITE_TRANSLATION_EMAIL="<YOUR_EMAIL>"
+    ```
+    Where `<YOUR_EMAIL>` is replaced with your actual email.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+1. Run the client with:
+    ```bash
+    yarn start
+    ```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `yarn eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `yarn build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+1. Visit http://localhost:3000 in your browser to access the site.

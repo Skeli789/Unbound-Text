@@ -58,7 +58,7 @@ jobs:
     needs: run_frontend_tests
     runs-on: ubuntu-latest
     env:
-      REACT_APP_EMAIL: ${{ vars.REACT_APP_EMAIL }}
+      VITE_TRANSLATION_EMAIL: ${{ vars.VITE_TRANSLATION_EMAIL }}
     steps:
     # Checkout the code
     - name: Checkout Repository
