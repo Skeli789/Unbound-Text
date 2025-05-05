@@ -16,6 +16,9 @@ concurrency:
   group: ${{ github.event_name == 'workflow_call' && format('frontend-tests-{0}-{1}', github.workflow, github.run_id) || format('frontend-tests-{0}-{1}', github.workflow, github.ref) }}
   cancel-in-progress: true
 
+env:
+  VITE_TRANSLATION_EMAIL: ${{ vars.VITE_TRANSLATION_EMAIL }}
+
 jobs:
   test-react:
     runs-on: ubuntu-latest

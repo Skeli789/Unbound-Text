@@ -20,7 +20,7 @@ const SUPPORTED_LANGUAGES =
     "it": "Italian",
     "vi": "Vietnamese",
 };
-const SUPPORT_EMAIL = process.env.REACT_APP_EMAIL || ""; //Email for the translation API
+const SUPPORT_EMAIL = import.meta.env.VITE_TRANSLATION_EMAIL || ""; //Email for the translation API
 
 
 export class TranslationButton extends Component
