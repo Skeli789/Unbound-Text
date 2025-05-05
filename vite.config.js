@@ -6,7 +6,7 @@ export default defineConfig(
     {
         root: ".",
         publicDir: "public",
-        base: "Unbound-Text/",
+        base: "/Unbound-Text/",
         plugins: [react()],
         test: defineTestConfig(
             {
