@@ -1,5 +1,3 @@
-import '@testing-library/jest-dom';
-
 import {
     DoesLineEndTextbox, DoesLineHaveScrollAfterIt, DoesLineHaveScrollAfterItByLines,
     FindIndexOfLineEnd, FindIndexOfLineStart, GetCharacterWidth, GetDisplayColour, GetLineTotalWidth,
