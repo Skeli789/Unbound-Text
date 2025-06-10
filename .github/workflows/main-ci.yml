@@ -1,9 +1,9 @@
 name: Release Pipeline
 
-# Run when pushing to master or manually triggered
+# Run when pushing to crown or manually triggered
 on:
   push:
-    branches: ["master"]
+    branches: ["crown"]
   workflow_dispatch:
 
 # Only allow one job to run at a time per branch
@@ -37,17 +37,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with :
+        with:
           fetch-depth: 0
 
       - name: Configure Git
         uses: ./.github/actions/configure_bot_git
 
-      - name: Merge master into ${{ env.DEPLOY_BRANCH }}
+      - name: Merge crown into ${{ env.DEPLOY_BRANCH }}
         run: |
           git fetch origin
           git checkout ${{ env.DEPLOY_BRANCH }}
-          git merge origin/master --no-edit
+          git merge origin/crown --no-edit
 
       - name: Push updated branch
         run: git push origin ${{ env.DEPLOY_BRANCH }} --force
@@ -59,6 +59,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VITE_TRANSLATION_EMAIL: ${{ vars.VITE_TRANSLATION_EMAIL }}
+      VITE_DEPLOY_ENV: gh-pages
     steps:
     # Checkout the code
     - name: Checkout Repository
@@ -89,3 +90,5 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./build
         publish_branch: ${{ env.GH_PAGES_BRANCH }}
+        destination_dir: crown
+        keep_files: true
