@@ -3,7 +3,7 @@ name: Release Pipeline
 # Run when pushing to crown or manually triggered
 on:
   push:
-    branches: ["crown"]
+    branches: ["master", "crown"]
   workflow_dispatch:
 
 # Only allow one job to run at a time per branch
