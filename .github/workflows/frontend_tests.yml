@@ -3,7 +3,7 @@ name: Front-End Tests
 # Run when pushing to a side branch or manually triggered/called
 on:
   push:
-    branches-ignore: ["master"] # On master it's run as part of the release pipeline
+    branches-ignore: ["master", "crown"] # On master it's run as part of the release pipeline
     paths:
       - ".github/workflows/frontend_tests.yml"
       - "src/**"

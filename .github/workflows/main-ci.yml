@@ -3,7 +3,7 @@ name: Release Pipeline
 # Run when pushing to master or manually triggered
 on:
   push:
-    branches: ["master"]
+    branches: ["master", "crown"]
   workflow_dispatch:
 
 # Only allow one job to run at a time per branch
@@ -37,7 +37,7 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with :
+        with:
           fetch-depth: 0
 
       - name: Configure Git
@@ -89,3 +89,4 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./build
         publish_branch: ${{ env.GH_PAGES_BRANCH }}
+        keep_files: true
