@@ -1,4 +1,24 @@
 .app
 {
-    padding-left: calc(100vw - 100%);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    overflow: hidden;
+}
+
+.app, #root
+{
+    height: 100%;
+}
+
+/* Fix the dark mode icon of the error toast */
+[data-darkreader-scheme="dark"] .Toastify__toast-theme--dark.Toastify__toast--error svg
+{
+    --darkreader-inline-fill: var(--toastify-icon-color-error) !important;
+}
+
+/* Fix the dark mode icon of the success toast */
+[data-darkreader-scheme="dark"] .Toastify__toast-theme--dark.Toastify__toast--success svg
+{
+    --darkreader-inline-fill: var(--toastify-icon-color-success) !important;
 }

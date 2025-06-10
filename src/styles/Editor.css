@@ -6,28 +6,42 @@
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: space-evenly; /* Centres horizontally when there's no second editor */
     align-items: center;
     text-align: center;
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    height: 100%;
     width: 100%;
+    flex-grow: 1; /* Basically height: 100% but doesn't mess up the header and footer */
+    scrollbar-gutter: stable both-edges; /*Prevents scrollbar from shifting everything when it appears*/
+    overflow-y: auto; /* Scrollbar only appears when needed */
 }
 
 .editor-grid
 {
     display: grid;
-    grid-template-columns: auto auto auto auto 10.5rem auto;
-    grid-template-rows: auto auto auto auto auto;
-    grid-template-areas: 
+    grid-template-columns: auto auto auto auto 12rem auto;
+    grid-template-rows: auto auto auto auto auto auto;
+    grid-template-areas:  /* TODO: Put back trainerName */
         "topLeft quickButtons quickButtons quickButtons quickButtons topRight"
-        "topLeft trainerName trainerName trainerName trainerName trainerName"
-        "lockButton textAreaMain textAreaMain textAreaMain textAreaMain undoButtons"
+        "colourButton textAreaMain textAreaMain textAreaMain textAreaMain undoButtons"
+        "lockButton textAreaMain textAreaMain textAreaMain textAreaMain bottomRight"
         "bottomLeft textAreaSub textAreaSub textAreaSub textAreaSub bottomRight"
         "bottomLeft prettifier lockMobile undoMobile spaceCount bottomRight"
-        "bottomLeft translator translator translator translator bottomRight"
+        "bottomLeft translator translator translator translator bottomRight";
+
+    /*Background around editor*/
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    width:  fit-content;
+    height: fit-content;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    box-shadow: var(--bs-box-shadow-lg) !important;
+    background-color: white;
+}
+
+[data-darkreader-scheme="dark"] #editor-grid, [data-darkreader-scheme="dark"] #editor-grid-translate
+{
+    background-color: #2c2c2c !important;
 }
 
 
@@ -42,7 +56,7 @@
 .quick-button
 {
     border-radius: 0px !important;
-    font-size: 0.75rem !important;
+    font-size: 0.9rem !important;
     height: fit-content !important;
 }
 
@@ -51,9 +65,10 @@
 
 .fr-text
 {
-    font-family: "Pokemon Fire Red", "Arial Narrow" !important;
-    font-size: 1.75rem !important;
-    line-height: 1.75rem !important;
+    font-family: "Pokemon Fire Red", monospace !important;
+    font-size: 2rem !important;
+    font-size-adjust: 0.312; /* So the fallback text is the same size as the original font */
+    line-height: 2rem !important;
     word-spacing: 0.5rem !important;
     letter-spacing: -0.5px !important;
 }
@@ -63,9 +78,49 @@
     grid-area: trainerName;
 }
 
-.main-textarea
+.main-textarea-container
 {
     grid-area: textAreaMain;
+    margin-bottom: 1px;
+}
+
+.main-textarea
+{
+    /* Transparent text but not transparent cursor */
+    position: relative;
+    color: transparent !important;
+    caret-color: black !important;
+}
+
+.top-textarea
+{
+    z-index: 1 !important;
+    background: transparent !important;
+}
+
+.mirror-textarea
+{
+    position: absolute; /* Attach to the textarea */
+    text-align: left;
+    border-color: transparent !important;
+    pointer-events: none; /* So clicks go through */
+}
+
+.main-textarea-container .main-textarea::selection
+{
+    color: transparent !important; /* Prevent the non-coloured text from appearing when selected */
+}
+
+[data-darkreader-scheme="dark"] .main-textarea::selection
+{
+    /* Fix dark mode text selection colour */
+    --darkreader-text-ffffff: transparent;
+}
+
+[data-darkreader-scheme="dark"] ::selection
+{
+    /* Fix dark mode text selection background */
+    --darkreader-background-0060d4: rgba(240, 240, 240, 0.1);
 }
 
 .converted-text
@@ -77,7 +132,7 @@
     grid-area: textAreaSub;
 }
 
-textarea
+textarea, .mirror-textarea
 {
     resize: none !important;
     margin: 0;
@@ -103,18 +158,22 @@ textarea:focus
     -webkit-appearance: none;
 }
 
+[data-darkreader-scheme="dark"] textarea
+{
+    color: white;
+    background-color: #1a1a1a;
+    border: 1px solid #444;
+}
+
+[data-darkreader-scheme="dark"] textarea:focus
+{
+    color: white;
+    border-color: #85b7d9;
+    background-color: #1a1a1a;
+}
+
 
 /* Buttons & Details Below */
-
-.space-info
-{
-    padding: 1px 0.75rem;
-    border: solid 1px black;
-    margin-top: 3px;
-    width: 10.5rem;
-    margin-left: auto; /*Aligns right*/
-    grid-area: spaceCount;
-}
 
 .hidden-div
 {
@@ -138,23 +197,42 @@ button, svg, .navbar-brand
 
 .prettify-button
 {
-    padding-top: 1px !important;
-    padding-bottom: 1px !important;
-    margin-top: 3px !important;
+    padding-top: 0.25rem !important;
+    padding-bottom: 0.25rem !important;
+    margin-top: 0.5rem !important;
     grid-area: prettifier;
 }
 
-.translate-button
+.translate-navbar
 {
-    padding-top: 1px !important;
-    padding-bottom: 1px !important;
-    margin-top: 3px !important;
+    color: white;
+    border: solid 1px white;
+    border-radius: .28571429rem;
+    padding-left: 0.5rem;
+    padding-right: 0.5rem;
+    margin-top: 0.5rem !important;
     grid-area: translator;
 }
 
-.translated-text-navbar-container
+.translate-navbar
+{
+    justify-content: space-between !important;
+}
+
+.translated-text-navbar
 {
     justify-content: center !important;
+    height: 4rem;
+}
+
+.translate-button-active, .translate-button-active:hover
+{
+    color: chartreuse;
+}
+
+[data-darkreader-scheme="dark"] .translate-navbar
+{
+    border-color: black !important;
 }
 
 
@@ -170,6 +248,11 @@ button, svg, .navbar-brand
 @media (max-width: 500px)
 {
     /* Displayed if width is <= than 500px goes here */
+    .editor-page
+    {
+        align-items: unset !important;
+    }
+
     textarea
     {
         overflow-x: auto !important;
@@ -192,6 +275,20 @@ button, svg, .navbar-brand
     .lock-buttons
     {
         grid-area: lockMobile !important;
+        justify-content: center !important;
+    }
+
+    .lock-button
+    {
+        margin-right: 0px !important;
+    }
+
+    .text-colour-dropdown
+    {
+        position: relative !important;
+        right: 20px; /* Shift to the left */
+        z-index: 2; /* Ensure it's on top of the text area */
+        grid-area: textAreaMain !important;
     }
 }
 
@@ -250,4 +347,28 @@ button, svg, .navbar-brand
 {
     color: black;
     background-color: #ffc107;
+}
+
+
+/* Current Text Colour Button */
+
+.text-colour-dropdown /* Applies to the container */
+{
+    margin-top: 20px;
+    width: fit-content;
+    height: fit-content;
+    grid-area: colourButton;
+}
+
+#text-colour-dropdown /* Applies to the button inside the container */
+{
+    width: fit-content;
+    font-size: 1.05rem;
+    background-color: #ffc107;
+    padding: 5px;
+}
+
+#text-colour-dropdown::after /* Remove the dropdown arrow */
+{
+    display: none;
 }

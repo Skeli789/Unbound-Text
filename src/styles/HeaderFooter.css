@@ -1,0 +1,37 @@
+.header, .footer
+{
+    --purple: rgb(147 51 234);
+    background-color: var(--purple);
+    height: 56px;
+    width: 100%;
+    z-index: 100;
+}
+
+.header
+{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: white;
+}
+
+.footer
+{
+    display: flex;
+    justify-content: space-between;
+}
+
+.skeli-games-logo
+{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+    margin-left: 0.5rem;
+    color: white;
+}
+
+.footer-button
+{
+    color: white !important;
+}

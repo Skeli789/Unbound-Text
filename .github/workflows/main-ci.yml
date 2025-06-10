@@ -1,0 +1,91 @@
+name: Release Pipeline
+
+# Run when pushing to master or manually triggered
+on:
+  push:
+    branches: ["master"]
+  workflow_dispatch:
+
+# Only allow one job to run at a time per branch
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# Allow this workflow to trigger actions on other branches
+permissions:
+  contents: write
+  actions: write
+
+env:
+  DEPLOY_BRANCH: heroku
+  GH_PAGES_BRANCH: gh-pages
+
+jobs:
+  # Run front-end tests
+  run_frontend_tests:
+    name: Run Front-End Tests
+    uses: ./.github/workflows/frontend_tests.yml
+
+  # Update the deploy branch
+  update_deploy_branch:
+    name: Update Deployment Branch
+    needs: run_frontend_tests
+    runs-on: ubuntu-latest
+    env:
+      # Use personal access token so the workflows run on the deployment branch after the push
+      GITHUB_PAT: ${{ secrets.ACTIONS_PAT }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with :
+          fetch-depth: 0
+
+      - name: Configure Git
+        uses: ./.github/actions/configure_bot_git
+
+      - name: Merge master into ${{ env.DEPLOY_BRANCH }}
+        run: |
+          git fetch origin
+          git checkout ${{ env.DEPLOY_BRANCH }}
+          git merge origin/master --no-edit
+
+      - name: Push updated branch
+        run: git push origin ${{ env.DEPLOY_BRANCH }} --force
+
+  # Deploy to GitHub Pages
+  deploy_to_gh_pages:
+    name: Deploy to GitHub Pages
+    needs: run_frontend_tests
+    runs-on: ubuntu-latest
+    env:
+      VITE_TRANSLATION_EMAIL: ${{ vars.VITE_TRANSLATION_EMAIL }}
+    steps:
+    # Checkout the code
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    ## Setup dependencies ##
+    - name: Setup Node.js with Yarn caching
+      uses: actions/setup-node@v4
+      with:
+        node-version: "22.x"
+        cache: yarn
+        cache-dependency-path: yarn.lock
+
+    # Install dependencies
+    - name: Install dependencies
+      run: yarn install
+
+    # Build the app ##
+    - name: Build app
+      run: yarn build
+
+    # Push to GitHub Pages ##
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v4
+      with:
+        github_token: ${{ secrets.GITHUB_TOKEN }}
+        publish_dir: ./build
+        publish_branch: ${{ env.GH_PAGES_BRANCH }}

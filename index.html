@@ -2,18 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/UnboundTextIcon.png" />
+    <link rel="icon" href="/UnboundTextIcon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#000000" />
     <meta
-      name="CFRU Text Editor"
-      content="Tool to format text for Unbound and other CFRU ROM Hacks."
+      name="Unbound Text Editor"
+      content="Tool to format text for ROM Hacks."
     />
     <!--
       manifest.json provides metadata used when your web app is installed on a
       user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
     -->
-    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="manifest" href="/manifest.json" />
     <!--
       Notice the use of %PUBLIC_URL% in the tags above.
       It will be replaced with the URL of the `public` folder during the build.
@@ -23,30 +23,39 @@
       work correctly both with client-side routing and a non-root public URL.
       Learn how to configure a non-root public URL by running `npm run build`.
     -->
-    <title>CFRU Text</title>
+    <title>Unbound Text</title>
 
     <style>
         @font-face
         {
             font-family: 'Pokemon Fire Red';
-            src: url('%PUBLIC_URL%/fonts/pokemon_fire_red.eot');
-            src: local('☺'), url('%PUBLIC_URL%/fonts/pokemon_fire_red.woff') format('woff'), url('%PUBLIC_URL%/fonts/pokemon_fire_red.ttf') format('truetype'), url('%PUBLIC_URL%/fonts/pokemon_fire_red.svg') format('svg');
+            src: url('/fonts/pokemon_fire_red.eot');
+            src: local('☺'),
+                 url('/fonts/pokemon_fire_red.woff') format('woff'),
+                 url('/fonts/pokemon_fire_red.ttf') format('truetype'),
+                 url('/fonts/pokemon_fire_red.svg') format('svg');
             font-weight: normal;
             font-style: normal;
         }
         @font-face
         {
             font-family: 'Pokemon RSE';
-            src: url('%PUBLIC_URL%/fonts/pkmnrs.eot');
-            src: local('☺'), url('%PUBLIC_URL%/fonts/pkmnrs.woff') format('woff'), url('%PUBLIC_URL%/fonts/pkmnrs.ttf') format('truetype'), url('%PUBLIC_URL%/fonts/pkmnrs.svg') format('svg');
+            src: url('/fonts/pkmnrs.eot');
+            src: local('☺'),
+                 url('/fonts/pkmnrs.woff') format('woff'),
+                 url('/fonts/pkmnrs.ttf') format('truetype'),
+                 url('/fonts/pkmnrs.svg') format('svg');
             font-weight: normal;
             font-style: normal;
         }
         @font-face
         {
             font-family: 'Pokemon DPPT';
-            src: url('%PUBLIC_URL%/fonts/Pokemon DPPt.eot');
-            src: local('☺'), url('%PUBLIC_URL%/fonts/Pokemon DPPt.woff') format('woff'), url('%PUBLIC_URL%/fonts/Pokemon DPPt.ttf') format('truetype'), url('%PUBLIC_URL%/fonts/Pokemon DPPt.svg') format('svg');
+            src: url('/fonts/Pokemon DPPt.eot');
+            src: local('☺'),
+                 url('/fonts/Pokemon DPPt.woff') format('woff'),
+                 url('/fonts/Pokemon DPPt.ttf') format('truetype'),
+                 url('/fonts/Pokemon DPPt.svg') format('svg');
             font-weight: normal;
             font-style: normal;
         }
@@ -55,6 +64,7 @@
   <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>
     <div id="root"></div>
+    <script type="module" src="/src/index.jsx"></script>
     <!--
       This HTML file is a template.
       If you open it directly in the browser, you will see an empty page.
