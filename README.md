@@ -1,10 +1,12 @@
-# Unbound Text
+# Crown Text
 
 ## What is this?
 
-Unbound Text is a tool to format text for compilation within the [CFRU](https://github.com/Skeli789/Complete-Fire-Red-Upgrade).
+Crown Text is a tool to format text for compilation within [pokeemerald](https://github.com/pret/pokeemerald).
 
-- The production site can be accessed from [here](https://skeli789.github.io/Unbound-Text/).
+Specifically tailored to the ROM Hack [Crown](https://www.pokecommunity.com/threads/pok%C3%A9mon-crown.463821/).
+
+- The production site can be accessed from [here](https://skeli789.github.io/Crown-Text/).
 
 ## Features
 - **Auto Formatting**

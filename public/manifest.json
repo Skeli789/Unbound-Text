@@ -1,9 +1,9 @@
 {
-  "short_name": "Unbound Text",
-  "name": "Unbound Text Editor",
+  "short_name": "Crown Text",
+  "name": "Crown Text Editor",
   "icons": [
     {
-      "src": "UnboundTextIcon.png",
+      "src": "CrownTextIcon.png",
       "sizes": "64x64 32x32 24x24 16x16",
       "type": "image/x-icon"
     }

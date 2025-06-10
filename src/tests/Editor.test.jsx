@@ -64,7 +64,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         {
             name: "Typing when blank always keeps cursor at end",
             default: "",
-            insert: "Hello[[.]] It's me, the bestest editor ever!",
+            insert: "Hello{{.}} It's me, the bestest editor ever!",
             expected: "Hello… It's me, the bestest editor\never!|"
         },
         {
@@ -88,7 +88,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         {
             name: "Adding a colour stays at the end of the colour",
             default: "Hello… It's me, the |coolest,\nawesome!",
-            insert: "[[]GREEN", //The ] is added automatically
+            insert: "{{}GREEN", //The } is added automatically
             expected: "Hello… It's me, the 🟢|coolest,\nawesome!"
         },
         {
@@ -104,21 +104,21 @@ describe('Typing in editor moves the cursor where expected', () =>
             expected: "Hello, one two three four five sixty\nthirty| seventy, eighty.",
         },
         {
-            name: "Adding [ to .] completes the ellipsis",
-            default: "Hello|.] one",
-            insert: "[[]",
+            name: "Adding { to .} completes the ellipsis",
+            default: "Hello|.} one",
+            insert: "{{}",
             expected: "Hello…| one",
         },
         {
-            name: "Adding . to [] completes the ellipsis",
-            default: "Hello[|] one",
+            name: "Adding . to {} completes the ellipsis",
+            default: "Hello{|} one",
             insert: ".",
             expected: "Hello…| one",
         },
         {
-            name: "Adding ] to [. completes the ellipsis",
-            default: "Hello[.| one",
-            insert: "]",
+            name: "Adding } to {. completes the ellipsis",
+            default: "Hello{.| one",
+            insert: "}",
             expected: "Hello…| one",
         },
         {
@@ -141,21 +141,21 @@ describe('Typing in editor moves the cursor where expected', () =>
         },
         {
             name: "Deleting multiple characters to finish a macro",
-            default: "Hello, one two [GRE|\n\n|EN] text.",
+            default: "Hello, one two {GRE|\n\n|EN} text.",
             insert: -1,
             expected: "Hello, one two 🟢| text.",
         },
         {
             name: "Replace multiple characters to finish a macro",
-            default: "Hello, one two [GR|\n\nE|N] text.",
+            default: "Hello, one two {GR|\n\nE|N} text.",
             insert: "EE",
             expected: "Hello, one two 🟢| text.",
         },
         {
-            name: "Replace full macro with just [",
-            default: "Hello, |[PLAYER]|",
-            insert: "[[]",
-            expected: "Hello, []|", //Technically, this is a bug, but it's not a big deal
+            name: "Replace full macro with just {",
+            default: "Hello, |{PLAYER}|",
+            insert: "{{}",
+            expected: "Hello, {}|", //Technically, this is a bug, but it's not a big deal
         },
         {
             name: "Replace text with the first character of the text",
@@ -165,7 +165,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         },
         {
             name: "Replace one character with another to finish a macro",
-            default: "Hello [R|B|D] man",
+            default: "Hello {R|B|D} man",
             insert: "E",
             expected: "Hello 🔴| man",
         },
@@ -184,7 +184,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         {
             name: "Pasting a colour and other text",
             default: "",
-            paste: "[RED_FR] is best!",
+            paste: "{RED_FR} is best!",
             expected: "🔴 is best!|",
         },
         {

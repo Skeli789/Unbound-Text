@@ -98,30 +98,30 @@ describe('IsPunctuation', () =>
 //Tests for IsPause
 describe('IsPause', () =>
 {
-    test('detects [PAUSE] in text', () =>
+    test('detects {PAUSE} in text', () =>
     {
-        const text = Array.from('abc[PAUSE]def');
+        const text = Array.from('abc{PAUSE}def');
         expect(IsPause(text, 3)).toBe(true);
         expect(IsPause(text, 4)).toBe(false);
     });
 
-    test('detects [PAUSE] at end of text', () =>
+    test('detects {PAUSE} at end of text', () =>
     {
-        const text = Array.from('abc[PAUSE]');
+        const text = Array.from('abc{PAUSE}');
         expect(IsPause(text, 3)).toBe(true);
         expect(IsPause(text, 4)).toBe(false);
     });
 
-    test('detects [PAUSE] at start of text', () =>
+    test('detects {PAUSE} at start of text', () =>
     {
-        const text = Array.from('[PAUSE]abc');
+        const text = Array.from('{PAUSE}abc');
         expect(IsPause(text, 0)).toBe(true);
         expect(IsPause(text, 1)).toBe(false);
     });
 
-    test('detects [PAUSE] in empty text', () =>
+    test('detects {PAUSE} in empty text', () =>
     {
-        const text = Array.from('[PAUSE]');
+        const text = Array.from('{PAUSE}');
         expect(IsPause(text, 0)).toBe(true);
         expect(IsPause(text, 1)).toBe(false);
     });
@@ -144,15 +144,15 @@ describe('GetNextLetterIndex', () =>
 
     test('skips pauses', () =>
     {
-        const pauseText = Array.from('[PAUSE]X');
+        const pauseText = Array.from('{PAUSE}X');
         expect(GetNextLetterIndex(pauseText, 0)).toBe(7);
     });
 
     test('returns markers for rival, player, buffer', () =>
     {
-       expect(GetNextLetterIndex(Array.from('[RIVAL]'), 0)).toBe(1);
-       expect(GetNextLetterIndex(Array.from('[PLAYER]'), 0)).toBe(1);
-       expect(GetNextLetterIndex(Array.from('[BUFFER]'), 0)).toBe(1);
+       expect(GetNextLetterIndex(Array.from('{RIVAL}'), 0)).toBe(1);
+       expect(GetNextLetterIndex(Array.from('{PLAYER}'), 0)).toBe(1);
+       expect(GetNextLetterIndex(Array.from('{BUFFER}'), 0)).toBe(1);
     });
 });
 
@@ -201,7 +201,7 @@ describe('GetStringWidth', () =>
 
     test('handles macros', () =>
     {
-        expect(GetStringWidth('[PLAYER]')).toBe(42);
+        expect(GetStringWidth('{PLAYER}')).toBe(42);
     });
 
     test('stops at newline', () =>

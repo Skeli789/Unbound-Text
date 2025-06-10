@@ -22,6 +22,7 @@
     grid-template-rows: auto auto auto auto auto auto;
     grid-template-areas:  /* TODO: Put back trainerName */
         "topLeft quickButtons quickButtons quickButtons quickButtons topRight"
+        "topLeft trainerName trainerName trainerName trainerName topRight"
         "colourButton textAreaMain textAreaMain textAreaMain textAreaMain undoButtons"
         "lockButton textAreaMain textAreaMain textAreaMain textAreaMain bottomRight"
         "bottomLeft textAreaSub textAreaSub textAreaSub textAreaSub bottomRight"
@@ -76,6 +77,11 @@
 .trainer-name-input
 {
     grid-area: trainerName;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    margin-bottom: 5px;
+    overflow-y: hidden !important;
+    overflow-x: auto !important;
 }
 
 .main-textarea-container

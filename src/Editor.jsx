@@ -42,6 +42,7 @@ export class Editor extends Component
         this.state =
         {
             text: props.text || "",
+            trainerName: props.trainerName || "",
             textColour: GetPreviouslyUsedTextColour() || "black",
             firstLineWidth: 0,
             cursorPosition: 0,
@@ -61,7 +62,8 @@ export class Editor extends Component
 
         this.showTranslationBox = (translatedText) =>
         {
-            this.props.showTranslationBox(FormatStringForDisplay(FormatStringForDisplay(translatedText, this.state.lockFinalLine), this.state.lockFinalLine));
+            this.props.showTranslationBox(FormatStringForDisplay(FormatStringForDisplay(translatedText, this.state.lockFinalLine), this.state.lockFinalLine),
+                                          this.state.trainerName);
         }
         this.updateMirrorRefPosition = this.updateMirrorRefPosition.bind(this);
         this.updateMirrorRefPositionInterval = null; //Interval to update the mirror ref's position
@@ -178,6 +180,16 @@ export class Editor extends Component
     }
 
     /**
+     * Automatically saves the text in the editor if auto-save is enabled.
+     */
+    tryAutoSaveText()
+    {
+        if (!this.props.isTranslation //Don't save the translated text
+        && !this.props.test) //Don't auto save in the test environment
+            AutoSaveText(this.state.text, this.state.trainerName); //Auto save the text for future visits
+    }
+
+    /**
      * Sets the text state of the editor.
      * @param {string} newText - The new text to be set.
      * @param {number} selectionStart - The starting position of the selection/cursor position.
@@ -191,9 +203,7 @@ export class Editor extends Component
             text: newText,
         }, () =>
         {
-            if (!this.props.isTranslation //Don't save the translated text
-            && !this.props.test) //Don't auto save in the test environment
-                AutoSaveText(newText); //Auto save the text for future visits
+            this.tryAutoSaveText();
 
             this.setState
             ({
@@ -243,9 +253,9 @@ export class Editor extends Component
         //If the formatted text is different from the new text, update the cursor position twice
         if (formattedText !== newText
         && !(typeOfTextChange.type === TextChange.SINGLE_INSERT
-            && typeOfTextChange.inserted === "["
+            && typeOfTextChange.inserted === "{"
             && typeOfTextChangeAfterFormat.type === TextChange.MULTI_INSERT
-            && typeOfTextChangeAfterFormat.inserted === "[]"
+            && typeOfTextChangeAfterFormat.inserted === "{}"
         )) //Unless the user opened a bracket, don't update the cursor position so they stay inside the brackets
         {
             this.setNewCursorPosThenCallFunc(
@@ -363,7 +373,7 @@ export class Editor extends Component
 
         //Determine the new cursor position
         let newCursorPos = textarea.selectionStart + textToAdd.length; //String length so unicode characters are treated properly
-        if (textToAdd.endsWith("[]"))
+        if (textToAdd.endsWith("{}"))
             newCursorPos -= 1; //Start inside square brackets    
 
         //Set the new cursor position and then format the text
@@ -599,6 +609,16 @@ export class Editor extends Component
                 <QuickButtons textareaWidth={textareaWidth}
                               addTextAtSelectionStart={this.addTextAtSelectionStart.bind(this)}/>
 
+                {/*Trainer Name*/}
+                <TextArea
+                    className="fr-text trainer-name-input"
+                    id="trainer-name-input"
+                    rows={1}
+                    style={textAreaStyle}
+                    value={this.state.trainerName}
+                    onChange={(e) => this.setState({trainerName: e.target.value}, () => this.tryAutoSaveText())} //Auto save the trainer name
+                />
+
                 {/*Text Input*/}
                 <div className="main-textarea-container">
                     {/*Mirror div where the coloured text is displayed*/}
@@ -627,7 +647,8 @@ export class Editor extends Component
                 </div>
 
                 {/*Converted Text*/}
-                <ConvertedText text={text} textAreaStyle={textAreaStyle} darkMode={darkMode} />
+                <ConvertedText text={text} trainerName={this.state.trainerName} colour={this.state.textColour}
+                               textAreaStyle={textAreaStyle} darkMode={darkMode} />
 
                 {/*Prettifier*/}
                 <PrettifyButton text={text} setPrettifiedText={this.setPrettifiedText.bind(this)}/>

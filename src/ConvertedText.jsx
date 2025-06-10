@@ -32,6 +32,8 @@ export class ConvertedText extends Component
      * @constructor
      * @param {Object} props - The props object containing the component's properties.
      * @param {string} props.text - The text to be converted.
+     * @param {string} props.trainerName - The trainer name to be used in the text.
+     * @param {string} props.colour - The colour to be used in the text.
      * @param {boolean} props.darkMode - Whether the dark mode is enabled.
      * @param {Object} props.textAreaStyle - The style for the text area.
      */
@@ -48,8 +50,9 @@ export class ConvertedText extends Component
     {
         let toastTheme = this.props.darkMode ? "dark" : "colored";
         const toastOptions = {...BASE_TOAST_OPTIONS, theme: toastTheme};
+        const ingameText = CreateIngameText(this.props.text, this.props.trainerName, this.props.colour);
 
-        if (this.props.text === "") //Don't copy empty text
+        if (ingameText === "") //Don't copy empty text
         {
             toast.error("No text to copy!", toastOptions);
             return;
@@ -57,7 +60,7 @@ export class ConvertedText extends Component
 
         if (navigator.clipboard && navigator.clipboard.writeText)
         {
-            navigator.clipboard.writeText(this.props.text).then((text) => //Copy to clipboard
+            navigator.clipboard.writeText(ingameText).then((text) => //Copy to clipboard
             {
                 //console.log(`Copied text to clipboard: ${text}`);
                 toast.success("Copied text to clipboard!", toastOptions);
@@ -87,7 +90,7 @@ export class ConvertedText extends Component
                 id="converted-text"
                 rows={1}
                 style={this.props.textAreaStyle}
-                value={CreateIngameText(this.props.text)}
+                value={CreateIngameText(this.props.text, this.props.trainerName, this.props.colour)}
                 onClick={this.copyConvertedText.bind(this)}
             />
         );
@@ -99,7 +102,7 @@ export class ConvertedText extends Component
  * @param {string} text - The text to be converted. 
  * @returns {string} The converted text.
  */
-export function CreateIngameText(text)
+export function CreateIngameText(text, trainerName, colour)
 {
     let finalText = "";
     let newTextbox = true;
@@ -178,6 +181,15 @@ export function CreateIngameText(text)
         else
             finalText += letter;
     }
+
+    if (finalText === "")
+        return "";
+
+    if (colour)
+        finalText = `{${colour.toUpperCase()}}` + finalText;
+
+    if (trainerName)
+        finalText = `{PLATE=${trainerName}=}` + finalText;
 
     return finalText;
 }

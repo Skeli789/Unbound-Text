@@ -96,15 +96,15 @@ export class TranslationButton extends Component
         let translatedTextList = [];
         let actualTextList = [];
         text = CreateIngameText(this.props.text); //Start with the ingame text as a base
-        text = text.replaceAll("\\e", "é").replaceAll('\\"', '"').replaceAll("[.]", "…");
+        text = text.replaceAll("\\e", "é").replaceAll('\\"', '"').replaceAll("{.}", "…");
         text = text.replaceAll(/(\.)\\n/g, ".\n"); //\n's with a . before them
         text = text.replaceAll(/(!)\\n/g, "!\n"); //\n's with a ! before them
         text = text.replaceAll(/(\?)\\n/g, "?\n"); //\n's with a ? before them
         text = text.replaceAll(/(…)\\n/g, "…\n"); //\n's with a … before them
         text = text.replaceAll("\\n", " ").replaceAll("\\l", " ").replaceAll("\\p", "\n"); //
-        text = text.replaceAll("[PLAYER]", "Billybobbydoe").replaceAll("[RIVAL]", "Billybobbyfoe"); //So they provide the correct context in the sentence
-        text = text.replaceAll("[PAUSE][", "[PAUSE").replaceAll("[BUFFER][0", "[BUFFER0");
-        text = text.replaceAll("[", "<").replaceAll("]", ">"); //Prevent buffers from being removed by turning them into HTML tags
+        text = text.replaceAll("{PLAYER}", "Billybobbydoe").replaceAll("{RIVAL}", "Billybobbyfoe"); //So they provide the correct context in the sentence
+        text = text.replaceAll("{PAUSE}{", "{PAUSE").replaceAll("{BUFFER}{0", "{BUFFER0");
+        text = text.replaceAll("{", "<").replaceAll("}", ">"); //Prevent buffers from being removed by turning them into HTML tags
         textList = text.split("\n");
 
         //Translate the text
@@ -157,10 +157,10 @@ export class TranslationButton extends Component
 
                 let response = await axios.get(`https://api.mymemory.translated.net/get`, data);
                 text = response.data.responseData.translatedText;
-                text = text.replaceAll("Billybobbydoe", "[PLAYER]").replaceAll("Billybobbyfoe", "[RIVAL]"); //Give Player and Rival their buffers back
+                text = text.replaceAll("Billybobbydoe", "{PLAYER}").replaceAll("Billybobbyfoe", "{RIVAL}"); //Give Player and Rival their buffers back
                 text = text.replaceAll(/<\/.*>/g, ""); //Remove closing tags added in
                 text = text.replaceAll("<pause", "<pause><").replaceAll("<buffer0", "<buffer><0"); //Restore newer buffers
-                text = text.replaceAll("<", "[").replaceAll(">", "]"); //Convert all buffers back
+                text = text.replaceAll("<", "{").replaceAll(">", "}"); //Convert all buffers back
                 translatedTextList.push(text);
             }
 

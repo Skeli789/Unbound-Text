@@ -34,7 +34,7 @@ export class QuickButton extends Component
             <Tooltip title={this.props.tooltip} placement="top" arrow enterTouchDelay={0}>
                 <Button variant="secondary" className="quick-button"
                         onClick={() => this.props.func(this.props.text)}>
-                    {this.props.text.replaceAll("[]", "")}
+                    {this.props.text.replaceAll("{}", "")}
                 </Button>
             </Tooltip>
         )

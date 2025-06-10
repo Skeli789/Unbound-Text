@@ -1,6 +1,6 @@
 .header, .footer
 {
-    --purple: rgb(147 51 234);
+    --purple: rgb(32, 200, 232);
     background-color: var(--purple);
     height: 56px;
     width: 100%;

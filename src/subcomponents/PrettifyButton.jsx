@@ -57,9 +57,9 @@ export class PrettifyButton extends Component
             if (!IsColour(letter)) //Not a real character, so continue trying to skip
                 skipNextCharIfWhitespace = false;
 
-            if (letter === "[")
+            if (letter === "{")
                 inMacro = true;
-            else if (letter === "]")
+            else if (letter === "}")
                 inMacro = false;
             else if (!inMacro)
             {
@@ -105,7 +105,7 @@ export class PrettifyButton extends Component
                                     if (/^[A-Z]*$/.test(text[secondNextLetterIndex])) //And next character is an uppercase letter
                                     {
                                         let nextIndex = i + 1;
-                                        while (text[nextIndex] === " ") ++nextIndex; //Fixes problems like "... [PAUSE][20]I hate it!"
+                                        while (text[nextIndex] === " ") ++nextIndex; //Fixes problems like "... {PAUSE}{20}I hate it!"
 
                                         if (!IsPause(text, nextIndex)) //Pause between ... and capital letter clearly indicates it should be in the same textbox
                                         {

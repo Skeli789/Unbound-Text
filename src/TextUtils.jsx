@@ -32,13 +32,12 @@ export const SYMBOLS_TO_TEXT_COLOUR_DARK_MODE =
 
 export const OTHER_REPLACEMENT_MACROS =
 {
-    ".": "…",
     "ARROW_UP": "↑",
     "ARROW_DOWN": "↓",
     "ARROW_LEFT": "←",
     "ARROW_RIGHT": "→",
-    "A_BUTTON": "🅰",
-    "B_BUTTON": "🅱",
+    "KEY_A": "🅰",
+    "KEY_B": "🅱",
 };
 
 /**
@@ -50,7 +49,7 @@ export const OTHER_REPLACEMENT_MACROS =
 export function ReplaceMacros(text, obj)
 {
     for (let key of Object.keys(obj))
-        text = text.replaceAll(`[${key}]`, obj[key]);
+        text = text.replaceAll(`{${key}}`, obj[key]);
 
     return text;
 }
@@ -64,7 +63,7 @@ export function ReplaceMacros(text, obj)
 export function ReplaceWithMacros(text, obj)
 {
     for (let key of Object.keys(obj))
-        text = text.replaceAll(obj[key], `[${key}]`);
+        text = text.replaceAll(obj[key], `{${key}}`);
 
     return text;
 }
@@ -117,7 +116,7 @@ export function IsPunctuation(char)
  */
 export function IsPause(text, nextLetterIndex)
 {
-    return text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[PAUSE]";
+    return text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "{PAUSE}";
 }
 
 /**
@@ -135,15 +134,15 @@ export function GetNextLetterIndex(text, nextLetterIndex)
         return GetNextLetterIndex(text, nextLetterIndex + 1); //Skip past colour
     else if (IsPause(text, nextLetterIndex))
         return GetNextLetterIndex(text, nextLetterIndex + 7); //Skip past pause start
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[RIVAL]")
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "{RIVAL}")
         return nextLetterIndex + 1; //Return the index of the R
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 8).join("") === "[PLAYER]")
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 8).join("") === "{PLAYER}")
         return nextLetterIndex + 1; //Return the index of the P
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[BUFFER")
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "{BUFFER")
         return nextLetterIndex + 1; //Return the index of the B
-    else if (text[nextLetterIndex] === "[")
+    else if (text[nextLetterIndex] === "{")
     {
-        while (nextLetterIndex < text.length && text[nextLetterIndex] !== "]")
+        while (nextLetterIndex < text.length && text[nextLetterIndex] !== "}")
             ++nextLetterIndex;
 
         ++nextLetterIndex;
@@ -205,14 +204,14 @@ export function GetStringWidth(text)
         if (letter === "\n")
             break; //End of line
 
-        if (letter === "[") //Start of macro
+        if (letter === "{") //Start of macro
         {
             inMacro = true;
             macroText = "";
         }
         else if (inMacro)
         {
-            if (letter === "]") //End of macro
+            if (letter === "}") //End of macro
             {
                 inMacro = false;
                 width += GetMacroWidth(macroText)
@@ -439,10 +438,11 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
 
     //Replace certain text strings
     text = text.replaceAll("\\pn", "\n\n").replaceAll("\\n", "\n").replaceAll("\\p", "\n\n").replaceAll("\\l", "\n"); //Enable copy-paste - first is from HexManiac
-    text = text.replaceAll("[.]", "…").replaceAll("...", "…").replaceAll("…]", "…"); //Remove accidental extra square bracket
-    text = text.replaceAll("[[", "[").replaceAll("]]", "]");
+    text = text.replaceAll("{.}", "…").replaceAll("...", "…").replaceAll("…}", "…"); //Remove accidental extra square bracket
+    text = text.replaceAll("{{", "{").replaceAll("}}", "}");
     text = text.replaceAll("\\e", "é");
-    text = text.replaceAll("_FR]", "]").replaceAll("_EM]", "]"); //XSE Colour Endings
+    text = text.replaceAll("_FR}", "}").replaceAll("_EM}", "}"); //XSE Colour Endings
+    text = text.replaceAll("@", "").replaceAll("/end", ""); //Remove FBI crown line start and end
 
     if (finalLineLocked)
         text = text.replace(/\n*$/, "") //Remove blank line at the end
@@ -496,7 +496,7 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
         {
             if (letter === " " && j - 2 >= 0 && line[j - 1] === " " && line[j - 2] === " ") //Three whitespaces in a row
                 continue; //Don't allow
-            else if (letter === "[") //Start of macro
+            else if (letter === "{") //Start of macro
             {
                 inMacro = true;
                 macroText = "";
@@ -507,22 +507,22 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
                 currWord = []; //Reset
 
                 //Add a closing brace if there isn't one on the line yet and only if the user just added the [
-                if (!LineHasCharAfterIndex(line, j, "]")
+                if (!LineHasCharAfterIndex(line, j, "}")
                 && textChange.type === TextChange.SINGLE_INSERT
-                && textChange.inserted === "[" //Only add if the user just added it
+                && textChange.inserted === "{" //Only add if the user just added it
                 && j + charsProcessed >= textChange.start) //Only add if the user just added it
-                    letter += "]"; //Automatically add closing brace
+                    letter += "}"; //Automatically add closing brace
             }
             else if (inMacro)
             {
-                if (letter === "]") //End of macro
+                if (letter === "}") //End of macro
                 {
                     inMacro = false;
                     width += GetMacroWidth(macroText)
                 }
                 else //Build up the macro
                 {
-                    if (LineHasCharAfterIndexBeforeOtherChar(line, j, "]", "["))
+                    if (LineHasCharAfterIndexBeforeOtherChar(line, j, "}", "{"))
                         letter = letter.toUpperCase();
 
                     macroText += letter;
@@ -601,6 +601,7 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
     let finalText = finalLines.map((line) => line.join("")).join("\n");
     finalText = ReplaceMacros(finalText, COLOURS); //Do last to allow either capitalization
     finalText = ReplaceMacros(finalText, OTHER_REPLACEMENT_MACROS); //Do last to allow either capitalization
+    finalText = finalText.replaceAll("…", "..."); // FBI doesn't like the ellipses character
     return finalText;
 }
 
