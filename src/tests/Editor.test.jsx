@@ -65,31 +65,31 @@ describe('Typing in editor moves the cursor where expected', () =>
             name: "Typing when blank always keeps cursor at end",
             default: "",
             insert: "Hello{{.}} It's me, the bestest editor ever!",
-            expected: "Hello... It's me, the bestest editor\never!|"
+            expected: "Hello… It's me, the bestest editor\never!|"
         },
         {
             name: "Typing in the middle of the line moves the last word to the next line",
-            default: "Hello... It's me, the |bestest editor\never!",
+            default: "Hello… It's me, the |bestest editor\never!",
             insert: "cool ",
-            expected: "Hello... It's me, the cool |bestest\neditor ever!"
+            expected: "Hello… It's me, the cool |bestest\neditor ever!"
         },
         {
             name: "Expanding the word at the end of line moves it to the next line",
-            default: "Hello... It's me, the cool bestest|\neditor ever!",
+            default: "Hello… It's me, the cool bestest|\neditor ever!",
             insert: "estest",
-            expected: "Hello... It's me, the cool\nbestestestest| editor ever!"
+            expected: "Hello… It's me, the cool\nbestestestest| editor ever!"
         },
         {
             name: "Skipping the second line reformats the first line",
-            default: "Hello... It's me, the coolest, awesome!\n|",
+            default: "Hello… It's me, the coolest, awesome!\n|",
             insert: "\n",
-            expected: "Hello... It's me, the coolest,\nawesome!\n\n|",
+            expected: "Hello… It's me, the coolest,\nawesome!\n\n|",
         },
         {
             name: "Adding a colour stays at the end of the colour",
-            default: "Hello... It's me, the |coolest,\nawesome!",
+            default: "Hello… It's me, the |coolest,\nawesome!",
             insert: "{{}GREEN", //The } is added automatically
-            expected: "Hello... It's me, the 🟢|coolest,\nawesome!"
+            expected: "Hello… It's me, the 🟢|coolest,\nawesome!"
         },
         {
             name: "Space then adding a new word at the end of the line puts it on the new line",
@@ -107,19 +107,19 @@ describe('Typing in editor moves the cursor where expected', () =>
             name: "Adding { to .} completes the ellipsis",
             default: "Hello|.} one",
             insert: "{{}",
-            expected: "Hello...| one",
+            expected: "Hello…| one",
         },
         {
             name: "Adding . to {} completes the ellipsis",
             default: "Hello{|} one",
             insert: ".",
-            expected: "Hello...| one",
+            expected: "Hello…| one",
         },
         {
             name: "Adding } to {. completes the ellipsis",
             default: "Hello{.| one",
             insert: "}",
-            expected: "Hello...| one",
+            expected: "Hello…| one",
         },
         {
             name: "Deleting one character from the end of the line",

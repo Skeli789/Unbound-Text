@@ -114,6 +114,7 @@ export function CreateIngameText(text, trainerName, colour)
     text = text.replaceAll("–", "-");
     text = text.replaceAll("“", '"');
     text = text.replaceAll("”", '"');
+    text = text.replaceAll("…", "..."); // FBI doesn;'t like ellipses
     text = ReplaceWithMacros(text, COLOURS);
     text = ReplaceWithMacros(text, OTHER_REPLACEMENT_MACROS);
 

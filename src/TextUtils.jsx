@@ -601,7 +601,6 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
     let finalText = finalLines.map((line) => line.join("")).join("\n");
     finalText = ReplaceMacros(finalText, COLOURS); //Do last to allow either capitalization
     finalText = ReplaceMacros(finalText, OTHER_REPLACEMENT_MACROS); //Do last to allow either capitalization
-    finalText = finalText.replaceAll("…", "..."); // FBI doesn't like the ellipses character
     return finalText;
 }
 
