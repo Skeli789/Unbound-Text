@@ -88,7 +88,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         {
             name: "Adding a colour stays at the end of the colour",
             default: "Hello... It's me, the |coolest,\nawesome!",
-            insert: "[[]GREEN", //The } is added automatically
+            insert: "{{}GREEN", //The } is added automatically
             expected: "Hello... It's me, the 🟢|coolest,\nawesome!"
         },
         {
