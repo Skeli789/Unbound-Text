@@ -26,32 +26,6 @@ jobs:
     name: Run Front-End Tests
     uses: ./.github/workflows/frontend_tests.yml
 
-  # Update the deploy branch
-  update_deploy_branch:
-    name: Update Deployment Branch
-    needs: run_frontend_tests
-    runs-on: ubuntu-latest
-    env:
-      # Use personal access token so the workflows run on the deployment branch after the push
-      GITHUB_PAT: ${{ secrets.ACTIONS_PAT }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Configure Git
-        uses: ./.github/actions/configure_bot_git
-
-      - name: Merge crown into ${{ env.DEPLOY_BRANCH }}
-        run: |
-          git fetch origin
-          git checkout ${{ env.DEPLOY_BRANCH }}
-          git merge origin/crown --no-edit
-
-      - name: Push updated branch
-        run: git push origin ${{ env.DEPLOY_BRANCH }} --force
-
   # Deploy to GitHub Pages
   deploy_to_gh_pages:
     name: Deploy to GitHub Pages
