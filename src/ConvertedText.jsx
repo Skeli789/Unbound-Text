@@ -48,8 +48,9 @@ export class ConvertedText extends Component
     {
         let toastTheme = this.props.darkMode ? "dark" : "colored";
         const toastOptions = {...BASE_TOAST_OPTIONS, theme: toastTheme};
+        const ingameText = CreateIngameText(this.props.text);
 
-        if (this.props.text === "") //Don't copy empty text
+        if (ingameText === "") //Don't copy empty text
         {
             toast.error("No text to copy!", toastOptions);
             return;
@@ -57,7 +58,7 @@ export class ConvertedText extends Component
 
         if (navigator.clipboard && navigator.clipboard.writeText)
         {
-            navigator.clipboard.writeText(this.props.text).then((text) => //Copy to clipboard
+            navigator.clipboard.writeText(ingameText).then((text) => //Copy to clipboard
             {
                 //console.log(`Copied text to clipboard: ${text}`);
                 toast.success("Copied text to clipboard!", toastOptions);
