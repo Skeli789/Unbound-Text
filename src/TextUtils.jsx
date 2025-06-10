@@ -438,7 +438,7 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
 
     //Replace certain text strings
     text = text.replaceAll("\\pn", "\n\n").replaceAll("\\n", "\n").replaceAll("\\p", "\n\n").replaceAll("\\l", "\n"); //Enable copy-paste - first is from HexManiac
-    text = text.replaceAll("{.}", "…").replaceAll("...", "…").replaceAll("…}", "…"); //Remove accidental extra square bracket
+    text = text.replaceAll("{.}", "…").replaceAll("...", "…").replaceAll("…}", "…"); //Remove accidental extra curly braces
     text = text.replaceAll("{{", "{").replaceAll("}}", "}");
     text = text.replaceAll("\\e", "é");
     text = text.replaceAll("_FR}", "}").replaceAll("_EM}", "}"); //XSE Colour Endings
@@ -506,7 +506,7 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
                 lastWordStartIndex = j;
                 currWord = []; //Reset
 
-                //Add a closing brace if there isn't one on the line yet and only if the user just added the [
+                //Add a closing brace if there isn't one on the line yet and only if the user just added the {
                 if (!LineHasCharAfterIndex(line, j, "}")
                 && textChange.type === TextChange.SINGLE_INSERT
                 && textChange.inserted === "{" //Only add if the user just added it

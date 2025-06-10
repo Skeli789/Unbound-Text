@@ -13,7 +13,7 @@ describe('ReplaceMacros', () =>
     test('replaces keys with values', () =>
     {
         const obj = { HELLO: 'hi', WORLD: 'earth' };
-        expect(ReplaceMacros('A [HELLO] [WORLD]!', obj)).toBe('A hi earth!');
+        expect(ReplaceMacros('A {HELLO} {WORLD}!', obj)).toBe('A hi earth!');
     });
 });
 
@@ -23,7 +23,7 @@ describe('ReplaceWithMacros', () =>
     test('replaces values with keys', () =>
     {
         const obj = { HELLO: 'hi', WORLD: 'earth' };
-        expect(ReplaceWithMacros('A hi earth!', obj)).toBe('A [HELLO] [WORLD]!');
+        expect(ReplaceWithMacros('A hi earth!', obj)).toBe('A {HELLO} {WORLD}!');
     });
 });
 

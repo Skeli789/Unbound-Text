@@ -256,7 +256,7 @@ export class Editor extends Component
             && typeOfTextChange.inserted === "{"
             && typeOfTextChangeAfterFormat.type === TextChange.MULTI_INSERT
             && typeOfTextChangeAfterFormat.inserted === "{}"
-        )) //Unless the user opened a bracket, don't update the cursor position so they stay inside the brackets
+        )) //Unless the user opened a brace, don't update the cursor position so they stay inside the braces
         {
             this.setNewCursorPosThenCallFunc(
                 cursorPos, cursorPos, //Set the cursor position after just making the text change
@@ -374,7 +374,7 @@ export class Editor extends Component
         //Determine the new cursor position
         let newCursorPos = textarea.selectionStart + textToAdd.length; //String length so unicode characters are treated properly
         if (textToAdd.endsWith("{}"))
-            newCursorPos -= 1; //Start inside square brackets    
+            newCursorPos -= 1; //Start inside curly braces    
 
         //Set the new cursor position and then format the text
         this.setNewCursorPosThenCallFunc(
