@@ -93,8 +93,13 @@ export function GetDisplayColour(colour, darkModeEnabled)
     //Change colour for dark mode
     let upperCaseColour = colour.toUpperCase();
 
-    if (darkModeEnabled && upperCaseColour in COLOURS)
-        colour = SYMBOLS_TO_TEXT_COLOUR_DARK_MODE[COLOURS[upperCaseColour]];
+    if (upperCaseColour in COLOURS)
+    {
+        if (!darkModeEnabled)
+            colour = SYMBOLS_TO_TEXT_COLOUR[COLOURS[upperCaseColour]];
+        else
+            colour = SYMBOLS_TO_TEXT_COLOUR_DARK_MODE[COLOURS[upperCaseColour]];
+    }
 
     return colour;
 }
