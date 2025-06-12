@@ -5,11 +5,13 @@ export const SEMI_LINE_WIDTH = 196;
 
 export const COLOURS =
 {
-    "BLACK": "⚫",
+    "GRAY": "⚫",
     "GREEN": "🟢",
     "BLUE": "🔵",
     "RED": "🔴",
-    "ORANGE": "🟠",
+    "YELLOW": "🟡",
+    "PINK": "🩷",
+    "TEAL": "💧",
 };
 
 export const SYMBOLS_TO_TEXT_COLOUR = //Light mode
@@ -18,7 +20,9 @@ export const SYMBOLS_TO_TEXT_COLOUR = //Light mode
     "🟢": "green",
     "🔵": "blue",
     "🔴": "red",
-    "🟠": "orange",
+    "🟡": "gold",
+    "🩷": "deeppink",
+    "💧": "deepskyblue",
 };
 
 export const SYMBOLS_TO_TEXT_COLOUR_DARK_MODE =
@@ -27,7 +31,9 @@ export const SYMBOLS_TO_TEXT_COLOUR_DARK_MODE =
     "🟢": "forestgreen",
     "🔵": "mediumblue",
     "🔴": "indianred",
-    "🟠": "orange",
+    "🟡": "gold",
+    "🩷": "deeppink",
+    "💧": "deepskyblue",
 };
 
 export const OTHER_REPLACEMENT_MACROS =
@@ -92,8 +98,13 @@ export function GetDisplayColour(colour, darkModeEnabled)
     //Change colour for dark mode
     let upperCaseColour = colour.toUpperCase();
 
-    if (darkModeEnabled && upperCaseColour in COLOURS)
-        colour = SYMBOLS_TO_TEXT_COLOUR_DARK_MODE[COLOURS[upperCaseColour]];
+    if (upperCaseColour in COLOURS)
+    {
+        if (!darkModeEnabled)
+            colour = SYMBOLS_TO_TEXT_COLOUR[COLOURS[upperCaseColour]];
+        else
+            colour = SYMBOLS_TO_TEXT_COLOUR_DARK_MODE[COLOURS[upperCaseColour]];
+    }
 
     return colour;
 }

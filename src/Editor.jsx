@@ -43,7 +43,7 @@ export class Editor extends Component
         {
             text: props.text || "",
             trainerName: props.trainerName || "",
-            textColour: GetPreviouslyUsedTextColour() || "black",
+            textColour: GetPreviouslyUsedTextColour() || "gray",
             firstLineWidth: 0,
             cursorPosition: 0,
             selectionEnd: 0,

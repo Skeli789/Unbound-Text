@@ -39,7 +39,7 @@ export class QuickButtons extends Component
 
         return (
             <div className="quick-buttons" style={style}>
-                <QuickButton text="⚫" tooltip="Black" func={this.addTextAtSelectionStart}/>
+                <QuickButton text="⚫" tooltip="Gray" func={this.addTextAtSelectionStart}/>
                 <QuickButton text="🔵" tooltip="Blue" func={this.addTextAtSelectionStart}/>
                 <QuickButton text="🔴" tooltip="Red" func={this.addTextAtSelectionStart}/>
                 <QuickButton text="🟢" tooltip="Green" func={this.addTextAtSelectionStart}/>
