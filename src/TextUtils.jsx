@@ -448,6 +448,7 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
     text = text.replaceAll("[[", "[").replaceAll("]]", "]"); //Remove accidental extra square bracket
     text = text.replaceAll("\\e", "é");
     text = text.replaceAll("‘", "'").replaceAll("’", "'").replaceAll("“", '"').replaceAll("”", '\\"'); //Replace smart quotes with normal ones
+    text = text.replaceAll("—", "-").replaceAll("–", "-"); //Replace long dashes with normal ones
     text = text.replaceAll("_FR]", "]").replaceAll("_EM]", "]"); //XSE Colour Endings
 
     if (finalLineLocked)
