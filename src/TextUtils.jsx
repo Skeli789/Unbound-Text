@@ -445,8 +445,9 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
     //Replace certain text strings
     text = text.replaceAll("\\pn", "\n\n").replaceAll("\\n", "\n").replaceAll("\\p", "\n\n").replaceAll("\\l", "\n"); //Enable copy-paste - first is from HexManiac
     text = text.replaceAll("[.]", "…").replaceAll("...", "…").replaceAll("…]", "…"); //Remove accidental extra square bracket
-    text = text.replaceAll("[[", "[").replaceAll("]]", "]");
+    text = text.replaceAll("[[", "[").replaceAll("]]", "]"); //Remove accidental extra square bracket
     text = text.replaceAll("\\e", "é");
+    text = text.replaceAll("‘", "'").replaceAll("’", "'").replaceAll("“", '"').replaceAll("”", '\\"'); //Replace smart quotes with normal ones
     text = text.replaceAll("_FR]", "]").replaceAll("_EM]", "]"); //XSE Colour Endings
 
     if (finalLineLocked)
