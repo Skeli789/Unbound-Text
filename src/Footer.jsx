@@ -4,9 +4,7 @@
  */
 
 import React, {Component} from "react";
-
-import AutoSaveButton from "./subcomponents/AutoSaveButton";
-import DarkModeButton from "./subcomponents/DarkModeButton";
+import {AppBar, Link, Toolbar, Typography} from "@mui/material";
 
 import "./styles/HeaderFooter.css";
 
@@ -17,8 +15,6 @@ export class Footer extends Component
      * Represents the Footer component.
      * @constructor
      * @param {Object} props - The props object containing the component's properties.
-     * @param {boolean} props.darkMode - The current dark mode state.
-     * @param {Function} props.toggleParentDarkMode - The function to toggle dark mode in the parent component.
      */
     constructor(props)
     {
@@ -35,16 +31,21 @@ export class Footer extends Component
         let currentYear = new Date().getFullYear();
 
         return (
-            <div className="footer">
-                <div className="skeli-games-logo">
-                    2021-{currentYear} Skeli Games
-                </div>
-                <div className="d-flex">
-                    <AutoSaveButton />
-                    <DarkModeButton darkMode={this.props.darkMode}
-                                    toggleParentDarkMode={this.props.toggleParentDarkMode} />
-                </div>
-            </div>
+            <AppBar position="static" component="footer" elevation={0} color="primary" enableColorOnDark className="footer">
+                <Toolbar variant="dense" className="footer-toolbar">
+                    <Typography variant="body2" className="skeli-games-logo">
+                        &copy; 2021-{currentYear} Unbound Text
+                    </Typography>
+                    <Typography variant="body2" className="footer-credit">
+                        Created by Skeli for{" "}
+                        <Link href="https://www.pokecommunity.com/threads/pok%C3%A9mon-unbound-completed.382178/"
+                              target="_blank" rel="noopener noreferrer"
+                              color="inherit" underline="hover">
+                            Unbound
+                        </Link>
+                    </Typography>
+                </Toolbar>
+            </AppBar>
         );
     }
 }

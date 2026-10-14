@@ -1,47 +1,64 @@
-/* The CSS for the main page */
+/* Editor layout. The .fr-text rules hold the calibrated game-font metrics and must not change. */
 
 .editor-page
 {
-    /* Centre horizontally and vertically */
     display: flex;
     flex-direction: row;
     flex-wrap: wrap;
-    justify-content: space-evenly; /* Centres horizontally when there's no second editor */
-    align-items: center;
-    text-align: center;
+    justify-content: center;
+    align-content: center;
+    align-content: safe center; /* Keeps the top reachable if the frame is taller than the page */
+    align-items: flex-start;
+    gap: 1rem 2rem;
+    box-sizing: border-box;
     width: 100%;
-    flex-grow: 1; /* Basically height: 100% but doesn't mess up the header and footer */
+    flex-grow: 1; /* Fills the space between the header and footer */
+    min-height: 0; /* Lets this page scroll instead of pushing the footer off screen */
+    padding: 1rem;
     scrollbar-gutter: stable both-edges; /*Prevents scrollbar from shifting everything when it appears*/
     overflow-y: auto; /* Scrollbar only appears when needed */
 }
 
 .editor-grid
 {
+    --editor-min-field-width: calc(340px + 4rem + 2px); /* 396px field plus its 1px border on each side; 4rem is 56px, the same as 2em of the game font */
     display: grid;
-    grid-template-columns: auto auto auto auto 12rem auto;
-    grid-template-rows: auto auto auto auto auto auto;
+    grid-template-columns: 2.5rem minmax(0, auto) minmax(0, auto) 2.5rem; /* Equal gutters keep the frame balanced; the middle columns can shrink so long lines scroll */
     grid-template-areas: 
-        "topLeft quickButtons quickButtons quickButtons quickButtons topRight"
-        "colourButton textAreaMain textAreaMain textAreaMain textAreaMain undoButtons"
-        "lockButton textAreaMain textAreaMain textAreaMain textAreaMain bottomRight"
-        "bottomLeft textAreaSub textAreaSub textAreaSub textAreaSub bottomRight"
-        "bottomLeft prettifier lockMobile undoMobile spaceCount bottomRight"
-        "bottomLeft translator translator translator translator bottomRight";
-
-    /*Background around editor*/
-    margin-top: 1rem;
-    margin-bottom: 1rem;
-    width:  fit-content;
-    height: fit-content;
-    padding: 1.5rem;
-    border-radius: 1rem;
-    box-shadow: var(--bs-box-shadow-lg) !important;
-    background-color: white;
+        ". quickButtons quickButtons ."
+        "colourButton textAreaMain textAreaMain undoButtons"
+        "lockButton textAreaMain textAreaMain undoButtons"
+        ". textAreaSub textAreaSub ."
+        ". prettifyButton spaceCount ."
+        ". translator translator .";
+    gap: 0.5rem 0.75rem;
+    align-items: start;
+    justify-items: start;
+    box-sizing: border-box;
+    width: fit-content;
+    max-width: 100%;
+    margin: 0.5rem 0;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background-color: var(--surface);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
 }
 
-[data-darkreader-scheme="dark"] #editor-grid, [data-darkreader-scheme="dark"] #editor-grid-translate
+/* Labels that stay in the page for screen readers but are not shown */
+
+.visually-hidden
 {
-    background-color: #2c2c2c !important;
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: -1px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    clip-path: inset(50%) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
 }
 
 
@@ -50,14 +67,32 @@
 .quick-buttons
 {
     display: flex;
+    flex-wrap: wrap;
+    gap: 0.375rem;
     grid-area: quickButtons;
+    justify-self: stretch;
+    contain: inline-size; /* Wraps to the width of the text box instead of setting the frame width */
+    max-width: 100%;
 }
 
 .quick-button
 {
-    border-radius: 0px !important;
-    font-size: 0.9rem !important;
-    height: fit-content !important;
+    min-width: 0 !important;
+    padding: 0.125rem 0.5rem !important;
+    font-size: 0.8rem !important;
+    line-height: 1.5 !important;
+    border-color: var(--border) !important;
+    border-radius: 4px !important;
+    color: var(--text) !important;
+}
+
+/* Colour symbols get a compact square button */
+.quick-button.quick-button-symbol
+{
+    min-width: 2rem !important;
+    padding: 0.125rem 0 !important;
+    font-size: 1rem !important;
+    line-height: 1.5 !important;
 }
 
 
@@ -76,7 +111,10 @@
 .main-textarea-container
 {
     grid-area: textAreaMain;
-    margin-bottom: 1px;
+    justify-self: stretch;
+    max-width: 100%;
+    min-width: var(--editor-min-field-width); /* Pixel floor so the grid counts the minimum before the text is measured */
+    position: relative; /* Anchors the mirror to the text field */
 }
 
 .main-textarea
@@ -84,7 +122,7 @@
     /* Transparent text but not transparent cursor */
     position: relative;
     color: transparent !important;
-    caret-color: black !important;
+    caret-color: var(--caret) !important;
 }
 
 .top-textarea
@@ -100,6 +138,7 @@
     overflow: hidden;
     text-align: left;
     border-color: transparent !important;
+    border: 0 !important; /* The field root draws the frame, so the mirror has no border of its own */
     pointer-events: none; /* So clicks go through */
 }
 
@@ -108,79 +147,114 @@
     color: transparent !important; /* Prevent the non-coloured text from appearing when selected */
 }
 
-[data-darkreader-scheme="dark"] .main-textarea::selection
+textarea::selection
 {
-    /* Fix dark mode text selection colour */
-    --darkreader-text-ffffff: transparent;
+    background-color: rgb(100 100 100 / 40%); /* Selection tint */
 }
 
-[data-darkreader-scheme="dark"] ::selection
+.converted-text-container
 {
-    /* Fix dark mode text selection background */
-    --darkreader-background-0060d4: rgba(240, 240, 240, 0.1);
-}
-
-.converted-text
-{
-    cursor: copy;
-    padding-top: 0px !important;
-    overflow-y: hidden !important;
-    overflow-x: auto !important;
+    display: block;
     grid-area: textAreaSub;
+    justify-self: stretch;
+    max-width: 100%;
+    min-width: 0;
 }
 
 textarea, .mirror-textarea
 {
     resize: none !important;
+    box-sizing: border-box;
     margin: 0;
     -webkit-appearance: none;
     padding: .78571429em 1em;
-    background: #fff;
-    border: 1px solid rgba(34,36,38,.15);
+    background: var(--textarea-bg);
+    border: 1px solid var(--border);
     outline: 0;
-    color: rgba(0,0,0,.87);
-    border-radius: .28571429rem;
-    box-shadow: 0 0 0 0 transparent inset;
-    transition: color .1s ease,border-color .1s ease;
+    color: var(--text);
+    border-radius: 6px;
+    box-shadow: none;
+    transition: border-color .1s ease, box-shadow .1s ease;
     overflow-x: hidden;
 }
 
 textarea:focus
 {
-    color: rgba(0,0,0,.95);
-    border-color: #85b7d9;
-    border-radius: .28571429rem;
-    background: #fff;
-    box-shadow: 0 0 0 0 rgb(34 36 38 / 35%) inset;
+    border-color: var(--focus);
+    box-shadow: 0 0 0 2px var(--focus-ring);
     -webkit-appearance: none;
 }
 
-[data-darkreader-scheme="dark"] textarea
+/* MUI input fields: the root draws the frame and the native textarea keeps the calibrated text box inside it */
+
+.text-field.MuiInputBase-root
 {
-    color: white;
-    background-color: #1a1a1a;
-    border: 1px solid #444;
+    display: flex;
+    box-sizing: border-box;
+    max-width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--textarea-bg);
+    transition: border-color .1s ease, box-shadow .1s ease;
 }
 
-[data-darkreader-scheme="dark"] textarea:focus
+.text-field.MuiInputBase-root:focus-within
 {
-    color: white;
-    border-color: #85b7d9;
-    background-color: #1a1a1a;
+    border-color: var(--focus);
+    box-shadow: 0 0 0 2px var(--focus-ring);
+}
+
+.text-field.MuiInputBase-root .text-field-input
+{
+    flex: 1 1 auto;
+    box-sizing: border-box;
+    min-width: 0;
+    margin: 0;
+    padding: .78571429em 1em;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
+    box-shadow: none;
+    outline: 0;
+    color: var(--text);
+    overflow-x: auto; /* Long lines scroll inside the field */
+}
+
+.text-field.MuiInputBase-root .text-field-input:focus
+{
+    box-shadow: none;
+    outline: 0;
+}
+
+.main-textarea-field.MuiInputBase-root,
+.converted-text-field.MuiInputBase-root
+{
+    min-width: min(var(--editor-min-field-width), 100%); /* Minimum frame width, never wider than its container */
+}
+
+.text-field.MuiInputBase-root .converted-text
+{
+    cursor: copy;
+    padding: 0 0 .78571429em 1em; /* Text starts at the top; the copy button sits in the reserved end space */
+    overflow-y: hidden;
 }
 
 
 /* Buttons & Details Below */
 
+/* Measures the longest line at its natural width; the right edge sits on the viewport's left edge so it never extends the page */
 .hidden-div
 {
     visibility: hidden;
     position: fixed;
     top: 0;
-    left: 0;
+    left: auto;
+    right: 100%;
+    width: max-content;
+    white-space: pre;
 }
 
-button, svg, .navbar-brand
+button, svg
 {
     cursor: pointer;
     -webkit-touch-callout: none; /* iOS Safari */
@@ -192,44 +266,37 @@ button, svg, .navbar-brand
                                   supported by Chrome, Edge, Opera and Firefox */
 }
 
+/* Wide screens place the children directly in the grid; narrow screens turn this into one row */
+.editor-bottom-actions
+{
+    display: contents;
+}
+
 .prettify-button
 {
-    padding-top: 0.25rem !important;
-    padding-bottom: 0.25rem !important;
-    margin-top: 0.5rem !important;
-    grid-area: prettifier;
+    grid-area: prettifyButton;
+    justify-self: start;
+    align-self: center;
+    white-space: nowrap;
 }
 
-.translate-navbar
+/* The space details use the same centre line as the prettify button */
+.editor-bottom-actions .space-info
 {
-    color: white;
-    border: solid 1px white;
-    border-radius: .28571429rem;
-    padding-left: 0.5rem;
-    padding-right: 0.5rem;
-    margin-top: 0.5rem !important;
+    grid-area: spaceCount;
+    justify-self: end;
+    align-self: center;
+    margin-top: 0;
+}
+
+.translate-toolbar
+{
     grid-area: translator;
-}
-
-.translate-navbar
-{
-    justify-content: space-between !important;
-}
-
-.translated-text-navbar
-{
-    justify-content: center !important;
-    height: 4rem;
-}
-
-.translate-button-active, .translate-button-active:hover
-{
-    color: chartreuse;
-}
-
-[data-darkreader-scheme="dark"] .translate-navbar
-{
-    border-color: black !important;
+    justify-self: stretch;
+    contain: inline-size; /* Wraps to the text box width instead of widening the frame */
+    box-sizing: border-box;
+    padding-top: 0.5rem;
+    border-top: 1px solid var(--border);
 }
 
 
@@ -239,80 +306,119 @@ button, svg, .navbar-brand
 {
     display: flex;
     flex-direction: column;
+    gap: 0.25rem;
+    align-self: start;
     grid-area: undoButtons;
 }
 
-@media (max-width: 500px)
+/* Disabled undo and redo icons use the muted text colour so they stay readable */
+.undo-redo-buttons .MuiIconButton-root.Mui-disabled
 {
-    /* Displayed if width is <= than 500px goes here */
-    .editor-page
+    color: var(--muted);
+}
+
+@media (max-width: 640px)
+{
+    /* Narrow screens use one column so every text field starts at the same left edge as the toolbar and actions */
+    .editor-grid
     {
-        align-items: unset !important;
+        position: relative; /* Anchors the overlaid colour symbol to the grid */
+        grid-template-areas:
+            "quickButtons"
+            "textAreaMain"
+            "textAreaSub"
+            "bottomActions"
+            "translator";
+        grid-template-columns: minmax(0, 1fr); /*Shrinkable track keeps the text fields inside the frame*/
+        width: 100%;
+        padding: 0.75rem;
     }
 
-    textarea
+    /* The 28px symbol overlays the start of the primary field's first line, half of it outside the field edge */
+    .editor-grid .text-colour-dropdown
     {
-        overflow-x: auto !important;
+        grid-area: textAreaMain;
+        position: absolute;
+        top: 0;
+        left: -14px;
+        z-index: 2; /* Above the primary field, below MUI popups */
+    }
+
+    .main-textarea-container,
+    .converted-text-container
+    {
+        justify-self: stretch;
+    }
+
+    /* Clamped so the minimum never exceeds the frame on small screens */
+    .main-textarea-container
+    {
+        min-width: min(var(--editor-min-field-width), 100%);
+    }
+
+    /* One non-wrapping row: prettify, lock, undo and redo, then space count */
+    .editor-bottom-actions
+    {
+        grid-area: bottomActions;
+        justify-self: stretch;
+        display: flex;
+        flex-wrap: nowrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    .editor-bottom-actions > *
+    {
+        flex: 0 0 auto;
+    }
+
+    .editor-bottom-actions .prettify-button
+    {
+        min-width: 0;
+        padding: 4px 6px;
+    }
+
+    /* Two-class selectors win over the later desktop lock rules */
+    .editor-bottom-actions .lock-buttons
+    {
+        align-self: center;
+    }
+
+    .editor-bottom-actions .lock-button
+    {
+        width: 28px;
+        height: 28px;
+        padding: 0 !important;
     }
 
     .undo-redo-buttons
     {
         flex-direction: row;
-        margin: auto;
-        grid-area: undoMobile !important;
-        margin-bottom: 5px;
-        margin-top: 5px;
+        gap: 0;
+        align-self: center;
     }
 
-    .undo-redo-button
+    .undo-redo-buttons .MuiIconButton-root
     {
-        margin-bottom: 0px !important;
+        width: 28px;
+        height: 28px;
+        padding: 4px;
     }
 
-    .lock-buttons
+    .editor-bottom-actions .space-info
     {
-        grid-area: lockMobile !important;
-        justify-content: center !important;
+        flex: 0 0 auto;
+        font-size: 12px;
+        padding: 4px;
+        white-space: nowrap;
     }
 
-    .lock-button
+    .editor-page
     {
-        margin-right: 0px !important;
+        padding: 0.5rem;
     }
-
-    .text-colour-dropdown
-    {
-        position: relative !important;
-        right: 20px; /* Shift to the left */
-        z-index: 2; /* Ensure it's on top of the text area */
-        grid-area: textAreaMain !important;
-    }
-}
-
-.undo-redo-button
-{
-    cursor: pointer;
-    margin-left: 5px;
-    margin-bottom: 10px;
-    padding: 5px;
-    border-radius: 0.25rem;
-    color: white;
-}
-
-.active-undo-redo-button
-{
-    background-color: #0d6efd;
-}
-
-.active-undo-redo-button:hover
-{
-    background-color: #0b5ed7;
-}
-
-.disabled-undo-redo-button
-{
-    cursor: initial !important;
-    background-color: #6c757d;
 }
 
 
@@ -321,51 +427,22 @@ button, svg, .navbar-brand
 .lock-buttons
 {
     display: flex;
-    flex-direction: column;
     grid-area: lockButton;
-    justify-content: flex-end;
+    align-self: end;
 }
 
 .lock-button
 {
-    cursor: pointer;
-    margin-right: 5px;
-    padding: 5px;
-    border-radius: 0.25rem;
-    color: white;
-}
-
-.text-unlocked
-{
-    background-color: #dc3545;
-}
-
-.text-locked
-{
-    color: black;
-    background-color: #ffc107;
+    min-width: 0 !important;
+    padding: 0.25rem !important;
+    border-color: var(--border) !important;
 }
 
 
 /* Current Text Colour Button */
 
-.text-colour-dropdown /* Applies to the container */
+.text-colour-dropdown
 {
-    margin-top: 20px;
-    width: fit-content;
-    height: fit-content;
     grid-area: colourButton;
-}
-
-#text-colour-dropdown /* Applies to the button inside the container */
-{
-    width: fit-content;
-    font-size: 1.05rem;
-    background-color: #ffc107;
-    padding: 5px;
-}
-
-#text-colour-dropdown::after /* Remove the dropdown arrow */
-{
-    display: none;
+    align-self: start;
 }

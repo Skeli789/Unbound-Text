@@ -4,31 +4,36 @@
  */
 
 import React, {Component} from 'react';
-import Swal from 'sweetalert2';
-import {Button} from "@mui/material";
+import {Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle} from "@mui/material";
 
 import {IsColour, IsPause, IsPunctuation, GetNextLetterIndex, FormatStringForDisplay} from "../TextUtils";
+import {NotificationContext} from "../NotificationContext";
 
 
 export class PrettifyButton extends Component
 {
+    static contextType = NotificationContext;
+
     /**
      * Represents the PrettifyButton component.
      * @constructor
      * @param {Object} props - The props object containing the component's properties.
      * @param {string} props.text - The text to be prettified.
      * @param {Function} props.setPrettifiedText - Function to set the prettified text in the parent component.
+     * @param {string} [props.idPrefix=""] - Prefix for the element ids, unique per editor.
      */
     constructor(props)
     {
         super(props);
 
         this.setParentPrettifiedText = this.props.setPrettifiedText;
+        this.buttonRef = React.createRef();
+        this.state = {confirmOpen: false};
     }
 
+    //Formatting
     /**
-     * Formats the text to make it optimal for reading.
-     * @returns {string} The prettified text.
+     * Formats the text to make it optimal for reading and passes the result to the parent.
      */
     prettifyText()
     {
@@ -126,58 +131,85 @@ export class PrettifyButton extends Component
         }
 
         //Format each text box individually so the first line of each can be max length
-        let lines = finalText.split("\n\n"); //Split the text by textboxes
-        for (let i = 0; i < lines.length; ++i)
-        {
-            let line = FormatStringForDisplay(lines[i], false); //Format the line for display
-            lines[i] = line; //Replace the line with the formatted line
-        }
-
-        finalText = lines.join("\n\n"); //Join the lines back together
+        finalText = finalText.split("\n\n") //Split the text by textboxes
+            .map((line) => FormatStringForDisplay(line, false)) //Format the line for display
+            .join("\n\n"); //Join the lines back together
         this.setParentPrettifiedText(finalText.trim()); //Remove the last new lines
     }
 
+    //Dialog
     /**
-     * Confirms with the user if they want to prettify the text.
+     * Opens the confirmation dialog before the text is reformatted.
      */
-    tryPrettifyText()
+    openConfirm()
     {
-        Swal.fire(
-        {
-            icon: "warning",
-            title: "Make your text pretty?\nThis will reformat your text!",
-            showCancelButton: true,
-            confirmButtonText: 'Do It',
-            scrollbarPadding: false,
-        }).then((result) =>
-        {
-            if (result.isConfirmed)
-            {
-                this.prettifyText();
-                Swal.fire(
-                {
-                    icon: "success",
-                    title: "Prettified!",
-                    scrollbarPadding: false,
-                });
-            }
-        });
+        this.buttonRef.current?.blur(); //Chromium blocks aria-hidden on a focused opener
+        this.setState({confirmOpen: true});
     }
 
+    /**
+     * Returns focus to the Prettify button once the dialog has finished closing.
+     */
+    restoreOpenerFocus()
+    {
+        this.buttonRef.current?.focus();
+    }
+
+    /**
+     * Closes the confirmation dialog without changing the text.
+     */
+    closeConfirm()
+    {
+        this.setState({confirmOpen: false});
+    }
+
+    /**
+     * Prettifies the text once the user confirms, then shows a success notification.
+     */
+    confirmPrettify()
+    {
+        if (!this.state.confirmOpen) //Ignore repeated clicks while the dialog is closing
+            return;
+
+        this.setState({confirmOpen: false});
+        this.prettifyText();
+        this.context.notify({message: "Prettified!", severity: "success"});
+    }
+
+    //Render
     /**
      * Renders the PrettifyButton component.
      * @returns {JSX.Element} The rendered component.
      */
     render()
     {
+        const idPrefix = this.props.idPrefix || "";
         const id = "prettify-button";
+        const dialogTitleId = idPrefix + "prettify-dialog-title";
+        const dialogDescriptionId = idPrefix + "prettify-dialog-description";
 
         return (
-            <Button variant="contained" color="error" size="large"
-                    className={id} id={id} data-testid={id}
-                    onClick={this.tryPrettifyText.bind(this)}>
-                Prettify
-            </Button>
+            <>
+                <Button variant="contained" color="error" size="small"
+                        className={id} id={idPrefix + id} data-testid={idPrefix + id} ref={this.buttonRef}
+                        onClick={this.openConfirm.bind(this)}>
+                    Prettify
+                </Button>
+                <Dialog open={this.state.confirmOpen} onClose={this.closeConfirm.bind(this)}
+                        slotProps={{transition: {onExited: this.restoreOpenerFocus.bind(this)}}}
+                        aria-labelledby={dialogTitleId} aria-describedby={dialogDescriptionId}>
+                    <DialogTitle id={dialogTitleId}>Make your text pretty?</DialogTitle>
+                    <DialogContent>
+                        <DialogContentText id={dialogDescriptionId}>
+                            This will reformat your text!
+                        </DialogContentText>
+                    </DialogContent>
+                    <DialogActions>
+                        <Button color="inherit" sx={{color: "text.primary"}} onClick={this.closeConfirm.bind(this)}>Cancel</Button>
+                        <Button variant="contained" onClick={this.confirmPrettify.bind(this)}>Do It</Button>
+                    </DialogActions>
+                </Dialog>
+            </>
         );
     }
 }

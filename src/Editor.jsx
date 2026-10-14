@@ -3,8 +3,7 @@
  * It is used to display the text editor and handle text input, formatting, and other features.
  */
 import React, {Component} from 'react';
-import {TextArea} from 'semantic-ui-react';
-
+import {InputBase} from '@mui/material';
 
 import ConvertedText from './ConvertedText';
 import {BuildValidatedFormatChange} from './EditContext';
@@ -26,8 +25,21 @@ import UndoRedoButtons from './subcomponents/UndoRedoButtons';
 import "./styles/Editor.css";
 
 
+/**
+ * Copies the scroll offsets to the mirror, writing only the values that changed.
+ * @param {HTMLElement} mirror - The mirror element to update.
+ * @param {number} scrollTop - The vertical scroll offset to copy.
+ * @param {number} scrollLeft - The horizontal scroll offset to copy.
+ */
+function setMirrorScroll(mirror, scrollTop, scrollLeft)
+{
+    if (mirror.scrollTop !== scrollTop) mirror.scrollTop = scrollTop;
+    if (mirror.scrollLeft !== scrollLeft) mirror.scrollLeft = scrollLeft;
+}
+
 export class Editor extends Component
 {
+    //Lifecycle
     /**
      * Represents the Editor component.
      * @constructor
@@ -65,6 +77,7 @@ export class Editor extends Component
             this.props.showTranslationBox(FormatStringForDisplay(FormatStringForDisplay(translatedText, this.state.lockFinalLine), this.state.lockFinalLine));
         }
         this.scheduleMirrorSync = this.scheduleMirrorSync.bind(this);
+        this.handleLayoutChange = this.handleLayoutChange.bind(this);
         this.editorPage = null;
         this.mirrorResizeObserver = null;
         this.mirrorSyncFrame = null; //Pending frame to synchronize the mirror after layout
@@ -87,24 +100,43 @@ export class Editor extends Component
         this.editorPage = this.mirrorRef.current?.closest('#editor-page');
 
         //Adjust the width of the textarea in case longer text was autosaved
-        const textareaWidth = this.hiddenDivRef.current.offsetWidth;
-        if (textareaWidth !== this.state.textareaWidth)
-            this.setState({textareaWidth});
+        this.commitTextareaWidth();
         this.synchronizeMirror();
 
         //Track scrolling and layout changes without polling
-        this.textAreaRef.current.ref.current.addEventListener("beforeinput", this.captureBeforeInput);
-        window.addEventListener("resize", this.scheduleMirrorSync);
+        this.textAreaRef.current.addEventListener("beforeinput", this.captureBeforeInput);
+        window.addEventListener("resize", this.handleLayoutChange);
         this.editorPage?.addEventListener("scroll", this.scheduleMirrorSync);
 
         if (typeof window.ResizeObserver === "function")
         {
-            this.mirrorResizeObserver = new window.ResizeObserver(this.scheduleMirrorSync);
-            this.mirrorResizeObserver.observe(this.textAreaRef.current.ref.current);
+            this.mirrorResizeObserver = new window.ResizeObserver(this.handleLayoutChange);
+            this.mirrorResizeObserver.observe(this.textAreaRef.current);
             this.mirrorResizeObserver.observe(this.mirrorRef.current.closest('.editor-grid'));
+            this.mirrorResizeObserver.observe(this.hiddenDivRef.current); //Font loads change the measured width
             if (this.editorPage)
                 this.mirrorResizeObserver.observe(this.editorPage);
         }
+    }
+
+    /**
+     * Runs when the component is removed from the DOM.
+     */
+    componentWillUnmount()
+    {
+        this.mounted = false;
+        this.textAreaRef.current?.removeEventListener("beforeinput", this.captureBeforeInput);
+
+        //Cancel the pending mirror synchronization
+        if (this.mirrorSyncFrame != null)
+            window.cancelAnimationFrame(this.mirrorSyncFrame);
+        this.mirrorSyncFrame = null;
+
+        //Release the original listener target and layout observations
+        window.removeEventListener("resize", this.handleLayoutChange);
+        this.editorPage?.removeEventListener("scroll", this.scheduleMirrorSync);
+        this.mirrorResizeObserver?.disconnect();
+        this.editorPage = null;
     }
 
     /**
@@ -113,6 +145,20 @@ export class Editor extends Component
     componentDidUpdate()
     {
         this.synchronizeMirror();
+    }
+
+    //Layout
+    /**
+     * Measures the textarea width and commits it to state only when it changed.
+     * @param {Function} [callback] - Runs after the width commit, or immediately when the width is unchanged.
+     */
+    commitTextareaWidth(callback)
+    {
+        const textareaWidth = this.hiddenDivRef.current.offsetWidth;
+        if (textareaWidth !== this.state.textareaWidth)
+            this.setState({textareaWidth}, callback);
+        else
+            callback?.();
     }
 
     /**
@@ -145,23 +191,17 @@ export class Editor extends Component
     }
 
     /**
-     * Runs when the component is removed from the DOM.
+     * Remeasures the intrinsic text width when the layout changes, then re-aligns the mirror.
      */
-    componentWillUnmount()
+    handleLayoutChange()
     {
-        this.mounted = false;
-        this.textAreaRef.current?.ref.current?.removeEventListener("beforeinput", this.captureBeforeInput);
+        if (!this.mounted)
+            return;
 
-        //Cancel the pending mirror synchronization
-        if (this.mirrorSyncFrame != null)
-            window.cancelAnimationFrame(this.mirrorSyncFrame);
-        this.mirrorSyncFrame = null;
+        //Only a real width change commits state, so layout events never format or change the text
+        this.commitTextareaWidth();
 
-        //Release the original listener target and layout observations
-        window.removeEventListener("resize", this.scheduleMirrorSync);
-        this.editorPage?.removeEventListener("scroll", this.scheduleMirrorSync);
-        this.mirrorResizeObserver?.disconnect();
-        this.editorPage = null;
+        this.scheduleMirrorSync();
     }
 
     /**
@@ -170,17 +210,19 @@ export class Editor extends Component
     updateMirrorRefPosition()
     {
         //Find the textarea and mirror before updating their layout
-        const editorPage = this.editorPage;
-        const textarea = this.textAreaRef.current?.ref.current;
+        const textarea = this.textAreaRef.current;
         const mirror = this.mirrorRef.current;
-        if (!this.mounted || !textarea || !mirror)
+        const container = mirror?.parentElement; //Positioned parent shared by the field and the mirror
+        if (!this.mounted || !textarea || !mirror || !container)
             return;
 
-        //Update the mirror ref's position to match the textarea's position
+        //Position the mirror from the difference between the two boxes, so page scroll and wrapper offsets do not matter
+        const containerBox = container.getBoundingClientRect();
+        const textareaBox = textarea.getBoundingClientRect();
         const height = `${textarea.offsetHeight}px`;
         const width = `${textarea.offsetWidth}px`;
-        const top = `${textarea.offsetTop - (editorPage?.scrollTop || 0)}px`;
-        const left = `${textarea.offsetLeft - (editorPage?.scrollLeft || 0)}px`;
+        const top = `${textareaBox.top - containerBox.top - container.clientTop}px`;
+        const left = `${textareaBox.left - containerBox.left - container.clientLeft}px`;
         const scrollTop = textarea.scrollTop;
         const scrollLeft = textarea.scrollLeft;
 
@@ -190,8 +232,7 @@ export class Editor extends Component
         if (mirror.style.left !== left) mirror.style.left = left;
 
         //Synchronize scrolling after resizing, which can clamp the mirror's scroll offsets
-        if (mirror.scrollTop !== scrollTop) mirror.scrollTop = scrollTop;
-        if (mirror.scrollLeft !== scrollLeft) mirror.scrollLeft = scrollLeft;
+        setMirrorScroll(mirror, scrollTop, scrollLeft);
     }
 
     /**
@@ -251,6 +292,7 @@ export class Editor extends Component
         return DoesLineHaveScrollAfterIt(this.state.text, lineStartIndex, lineEndIndex, this.state.lockFinalLine);
     }
 
+    //Text state
     /**
      * Sets the text state of the editor.
      * @param {string} newText - The new text to be set.
@@ -290,11 +332,7 @@ export class Editor extends Component
             };
 
             //Resize the textarea before restoring the selection
-            const textareaWidth = this.hiddenDivRef.current.offsetWidth;
-            if (textareaWidth !== this.state.textareaWidth)
-                this.setState({textareaWidth}, synchronizeSelection);
-            else
-                synchronizeSelection();
+            this.commitTextareaWidth(synchronizeSelection);
         });
     }
 
@@ -353,6 +391,7 @@ export class Editor extends Component
         return formattedText;
     }
 
+    //Input
     /**
      * Handles the text change event for the textarea.
      * @param {Object} event - The text change event.
@@ -413,6 +452,7 @@ export class Editor extends Component
             this.pendingEdit = {text: this.state.text, priorSelection: ReadTextareaSelection(event.target), inputType: event.inputType};
     }
 
+    //Composition
     /**
      * Begins an IME transaction without formatting its intermediate values.
      * @param {Object} event - The composition event.
@@ -440,6 +480,7 @@ export class Editor extends Component
         this.setNewText(event.target.value, false, context);
     }
 
+    //Selection
     /**
      * Handles the cursor change event for the textarea.
      * @param {Object} event - The cursor change event.
@@ -457,10 +498,18 @@ export class Editor extends Component
     }
 
     /**
-     * Schedules mirror synchronization after textarea scrolling.
+     * Copies the textarea scroll offsets to the mirror immediately, then schedules the full sync.
      */
     handleScroll()
     {
+        const textarea = this.textAreaRef.current;
+        const mirror = this.mirrorRef.current;
+        if (this.mounted && textarea && mirror)
+        {
+            //Offsets only, so no layout reads happen during scrolling
+            setMirrorScroll(mirror, textarea.scrollTop, textarea.scrollLeft);
+        }
+
         this.scheduleMirrorSync();
     }
 
@@ -499,7 +548,7 @@ export class Editor extends Component
     setPrettifiedText(finalText)
     {
         //Place the cursor at the end of the prettified text
-        const textarea = this.textAreaRef.current.ref.current;
+        const textarea = this.textAreaRef.current;
         const context = {text: this.state.text, priorSelection: ReadTextareaSelection(textarea),
             selectionStart: finalText.length, selectionEnd: finalText.length, selectionDirection: NO_SELECTION_DIRECTION};
 
@@ -522,6 +571,7 @@ export class Editor extends Component
         this.setState({lockFinalLine: lockLine});
     }
 
+    //Undo and redo
     /**
      * Undoes the last change made in the editor.
      */
@@ -590,6 +640,7 @@ export class Editor extends Component
         return result;
     }
 
+    //Render
     /**
      * Renders the Editor component.
      * @returns {JSX.Element} The rendered component.
@@ -598,75 +649,93 @@ export class Editor extends Component
     {
         const {text, textareaWidth} = this.state;
         const {darkMode, isTranslation} = this.props;
-        const textAreaStyle = {width: `calc(${textareaWidth}px + 2em)`, minWidth: "calc(340px + 2em)", maxWidth: "99vw", whiteSpace: "pre"};
-        const textareaHeight = this.textAreaRef.current?.ref.current?.offsetHeight || 0;
+        //Clamp to the container so long lines scroll inside the field; Editor.css sets the minimum width
+        const textAreaStyle = {width: `calc(${textareaWidth}px + 2em)`, maxWidth: "100%", whiteSpace: "pre"};
+        const textareaHeight = this.textAreaRef.current?.offsetHeight || 0;
+        const textareaId = GetTextAreaId(isTranslation);
+        const convertedId = (isTranslation) ? "translated-converted-text" : "converted-text";
+        const idPrefix = (isTranslation) ? "translation-" : "";
 
         return (
             <div className="editor-grid" id={(!isTranslation) ? "editor-grid" : "editor-grid-translate"}>
+                {/*Visually hidden title for the text box, still used as its accessible label*/}
+                <label className="visually-hidden" htmlFor={textareaId}>{(isTranslation) ? "Translated text" : "Game text"}</label>
+
                 {/*Toolbar*/}
-                <QuickButtons textareaWidth={textareaWidth}
-                              addTextAtSelectionStart={this.addTextAtSelectionStart.bind(this)}/>
+                <QuickButtons addTextAtSelectionStart={this.addTextAtSelectionStart.bind(this)}/>
 
                 {/*Text Input*/}
                 <div className="main-textarea-container">
-                    {/*Mirror div where the coloured text is displayed*/}
+                    {/*Text field where the user types; the mirror below draws the coloured text behind it*/}
+                    <InputBase
+                        className="text-field main-textarea-field"
+                        id={textareaId}
+                        inputComponent="textarea" //Plain textarea keeps the fixed rows and skips the measuring textarea
+                        inputRef={this.textAreaRef}
+                        multiline
+                        rows={5}
+                        value={text}
+                        onChange={(e) => this.handleTextChange(e)}
+                        onKeyDown={(e) => this.onKeyDown(e)}
+                        onKeyUp={(e) => this.handleCursorChange(e)}
+                        slotProps={{
+                            input: {
+                                className: "fr-text text-field-input main-textarea top-textarea",
+                                type: undefined,
+                                "data-testid": textareaId,
+                                style: textAreaStyle,
+                                onInput: (e) => this.handleTextChange(e),
+                                onSelect: (e) => this.handleCursorChange(e),
+                                onCompositionStart: (e) => this.handleCompositionStart(e),
+                                onCompositionEnd: (e) => this.handleCompositionEnd(e),
+                                onClick: (e) => this.handleCursorChange(e),
+                                onScroll: (e) => this.handleScroll(e),
+                            },
+                        }}
+                    />
+
+                    {/*Mirror div where the coloured text is displayed, placed after the field so the frame background sits beneath it*/}
                     <div
                         className="fr-text mirror-textarea"
                         ref={this.mirrorRef}
+                        aria-hidden="true"
                         style={{...textAreaStyle, height: textareaHeight, color: GetDisplayColour(this.state.textColour, darkMode)}} //Force the height to be the same as the textarea
                         dangerouslySetInnerHTML={this.getMirrorHtml()}
-                    />
-
-                    {/*Actual textarea where the user types*/}
-                    <TextArea
-                        className="fr-text main-textarea top-textarea"
-                        id={GetTextAreaId(isTranslation)}
-                        data-testid={GetTextAreaId(isTranslation)}
-                        ref={this.textAreaRef}
-                        rows={5}
-                        style={textAreaStyle}
-                        value={text}
-                        onChange={(e) => this.handleTextChange(e)}
-                        onInput={(e) => this.handleTextChange(e)}
-                        onSelect={(e) => this.handleCursorChange(e)}
-                        onCompositionStart={(e) => this.handleCompositionStart(e)}
-                        onCompositionEnd={(e) => this.handleCompositionEnd(e)}
-                        onClick={(e) => this.handleCursorChange(e)}
-                        onKeyDown={(e) => this.onKeyDown(e)}
-                        onKeyUp={(e) => this.handleCursorChange(e)}
-                        onScroll={(e) => this.handleScroll(e)}
                     />
                 </div>
 
                 {/*Converted Text*/}
-                <ConvertedText text={text} textAreaStyle={textAreaStyle} darkMode={darkMode} />
+                <ConvertedText text={text} textAreaStyle={textAreaStyle} id={convertedId} />
 
-                {/*Prettifier*/}
-                <PrettifyButton text={text} setPrettifiedText={this.setPrettifiedText.bind(this)}/>
+                {/*Prettifier, lock, undo and space details share one row; the grid places each control in its column on wide screens*/}
+                <div className="editor-bottom-actions">
+                    <PrettifyButton text={text} setPrettifiedText={this.setPrettifiedText.bind(this)} idPrefix={idPrefix}/>
 
-                {/*Space Details*/}
-                <SpaceInfo lineWidth={this.getCursorLineWidth()}
-                           totalWidth={(this.doesCursorLineHaveScrollAfterIt()) ? SEMI_LINE_WIDTH: FULL_LINE_WIDTH} />
+                    {/*Lock Final Line Button*/}
+                    <LockFinalLineButton isFinalLineLocked={this.state.lockFinalLine}
+                                         lockFinalLine={this.lockFinalLine.bind(this)} />
+
+                    {/*Undo & Redo Buttons*/}
+                    <UndoRedoButtons undoStack={this.state.undoStack}
+                                     redoStack={this.state.redoStack}
+                                     undo={this.undoLastChange.bind(this)}
+                                     redo={this.redoLastChange.bind(this)} />
+
+                    {/*Space Details*/}
+                    <SpaceInfo lineWidth={this.getCursorLineWidth()}
+                               totalWidth={(this.doesCursorLineHaveScrollAfterIt()) ? SEMI_LINE_WIDTH: FULL_LINE_WIDTH}
+                               darkMode={darkMode} />
+                </div>
 
                 {/*Translation*/}
                 <TranslationButton text={text} isForTranslationBox={isTranslation} showTranslationBox={this.showTranslationBox}/>
 
                 {/* Current Text Colour Button */}
-                <CurrentTextColourButton currentColour={this.state.textColour}
+                <CurrentTextColourButton currentColour={this.state.textColour} idPrefix={idPrefix}
                                          setParentCurrentColour={(textColour) => this.setState({textColour})} />
 
-                {/*Lock Final Line Button*/}
-                <LockFinalLineButton isFinalLineLocked={this.state.lockFinalLine}
-                                     lockFinalLine={this.lockFinalLine.bind(this)} />
-
-                {/*Undo & Redo Buttons*/}
-                <UndoRedoButtons undoStack={this.state.undoStack}
-                                 redoStack={this.state.redoStack}
-                                 undo={this.undoLastChange.bind(this)}
-                                 redo={this.redoLastChange.bind(this)} />
-
                 {/*Hidden div for matching the width of the textarea to*/}
-                <div className="fr-text hidden-div" ref={this.hiddenDivRef}>{this.createDivText()}</div>
+                <div className="fr-text hidden-div" ref={this.hiddenDivRef} aria-hidden="true">{this.createDivText()}</div>
             </div>
         )
     }

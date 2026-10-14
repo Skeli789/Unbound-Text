@@ -4,9 +4,9 @@
  */
 
 import React, {Component} from 'react';
-import {Tooltip} from "@mui/material";
-
-import {FaLock, FaUnlock} from "react-icons/fa";
+import {ToggleButton, Tooltip} from "@mui/material";
+import LockIcon from "@mui/icons-material/Lock";
+import LockOpenIcon from "@mui/icons-material/LockOpen";
 
 
 export class LockFinalLineButton extends Component
@@ -32,23 +32,18 @@ export class LockFinalLineButton extends Component
      */
     render()
     {
-        const size = 30;
         const isFinalLineLocked = this.props.isFinalLineLocked;
         const tooltip = (isFinalLineLocked) ? "Final Line Locked" : "Final Line Unlocked";
 
         return (
             <div className="lock-buttons">
-                <Tooltip title={tooltip} placement="left" arrow enterTouchDelay={0}>
-                    <span> 
-                    { //Span is necessary for the tooltip to work here
-                        !isFinalLineLocked ?
-                            <FaUnlock onClick={() => this.lockFinalLine(true)} size={size} //Lock final line on click
-                                className="lock-button text-locked"/>
-                        :
-                            <FaLock onClick={() => this.lockFinalLine(false)} size={size} //Unlock final line on click
-                                className="lock-button text-unlocked"/>
-                    }
-                    </span>
+                <Tooltip title={tooltip} placement="left" arrow enterTouchDelay={0} describeChild>
+                    <ToggleButton value="lockFinalLine" size="small" className="lock-button"
+                                  aria-label="Lock final line" selected={isFinalLineLocked}
+                                  sx={{"&.Mui-selected, &.Mui-selected:hover": {backgroundColor: "transparent"}}}
+                                  onChange={() => this.lockFinalLine(!isFinalLineLocked)}>
+                        {isFinalLineLocked ? <LockIcon fontSize="small" color="error" /> : <LockOpenIcon fontSize="small" />}
+                    </ToggleButton>
                 </Tooltip>
             </div>
         );

@@ -1,24 +1,46 @@
+:root
+{
+    --page-bg: #f3f4f6;
+    --surface: #ffffff;
+    --surface-muted: #f9fafb;
+    --textarea-bg: #ffffff;
+    --text: #111827;
+    --muted: #4b5563;
+    --border: #d1d5db;
+    --focus: #9333ea;
+    --focus-ring: rgb(147 51 234 / 25%);
+    --caret: #111827;
+    --radius: 6px;
+    --theme: #9333ea;
+}
+
+[data-color-mode="dark"]
+{
+    --page-bg: #0f1113;
+    --surface: #1a1d21;
+    --surface-muted: #111418;
+    --textarea-bg: #121417;
+    --text: #f3f4f6;
+    --muted: #9ca3af;
+    --border: #3a3f46;
+    --focus: #c084fc;
+    --focus-ring: rgb(192 132 252 / 30%);
+    --caret: #f3f4f6;
+    --theme: #6812a3;
+}
+
 .app
 {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     overflow: hidden;
+    background-color: var(--page-bg);
+    height: 100vh;
+    height: 100dvh;
 }
 
-.app, #root
+#root
 {
     height: 100%;
-}
-
-/* Fix the dark mode icon of the error toast */
-[data-darkreader-scheme="dark"] .Toastify__toast-theme--dark.Toastify__toast--error svg
-{
-    --darkreader-inline-fill: var(--toastify-icon-color-error) !important;
-}
-
-/* Fix the dark mode icon of the success toast */
-[data-darkreader-scheme="dark"] .Toastify__toast-theme--dark.Toastify__toast--success svg
-{
-    --darkreader-inline-fill: var(--toastify-icon-color-success) !important;
 }

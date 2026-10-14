@@ -4,9 +4,11 @@
  */
 
 import React, {Component} from 'react';
-import {Tooltip} from "@mui/material";
+import {IconButton, Tooltip} from "@mui/material";
+import UndoIcon from "@mui/icons-material/Undo";
+import RedoIcon from "@mui/icons-material/Redo";
 
-import {FaUndo, FaRedo} from "react-icons/fa";
+import {ACTIVE_CONTROL_SX, CONTROL_BUTTON_SX} from "../AppTheme";
 
 
 export class UndoRedoButtons extends Component
@@ -24,9 +26,28 @@ export class UndoRedoButtons extends Component
     {
         super(props);
         this.state = {};
+    }
 
-        this.undo = this.props.undo;
-        this.redo = this.props.redo;
+    /**
+     * Renders an undo or redo button with its tooltip.
+     * @param {string} label - The accessible name and tooltip of the button.
+     * @param {React.ReactNode} icon - The icon shown in the button.
+     * @param {boolean} enabled - Whether the action is available.
+     * @param {Function} onClick - Called when the button is clicked.
+     * @returns {JSX.Element} The rendered button.
+     */
+    renderButton(label, icon, enabled, onClick)
+    {
+        return (
+            <Tooltip title={label} placement="right" arrow enterTouchDelay={0} describeChild>
+                <span> {/* Span is necessary for the tooltip to work on a disabled button */}
+                    <IconButton aria-label={label} disabled={!enabled} onClick={onClick}
+                                sx={[CONTROL_BUTTON_SX, enabled && ACTIVE_CONTROL_SX]}>
+                        {icon}
+                    </IconButton>
+                </span>
+            </Tooltip>
+        );
     }
 
     /**
@@ -35,26 +56,13 @@ export class UndoRedoButtons extends Component
      */
     render()
     {
-        const iconSize = 30;
-        const className = "undo-redo-button";
+        const canUndo = this.props.undoStack.length > 0;
+        const canRedo = this.props.redoStack.length > 0;
 
         return (
             <div className="undo-redo-buttons">
-                {/* Undo Button */}
-                <Tooltip title="Undo" placement="right" arrow enterTouchDelay={0}>
-                    <span> {/* Span is necessary for the tooltip to work here */}
-                        <FaUndo onClick={this.undo} size={iconSize}
-                                className={"undo-redo-button " + (this.props.undoStack.length === 0 ? `disabled-${className}` : `active-${className}`)}/>
-                    </span>
-                </Tooltip>
-
-                {/* Redo Button */}
-                <Tooltip title="Redo" placement="right" arrow enterTouchDelay={0}>
-                    <span>
-                        <FaRedo onClick={this.redo} size={iconSize}
-                                className={"undo-redo-button " + (this.props.redoStack.length === 0 ? `disabled-${className}` : `active-${className}`)}/>
-                    </span>
-                </Tooltip>
+                {this.renderButton("Undo", <UndoIcon fontSize="small" />, canUndo, () => this.props.undo())}
+                {this.renderButton("Redo", <RedoIcon fontSize="small" />, canRedo, () => this.props.redo())}
             </div>
         );
     }

@@ -23,10 +23,10 @@ export const SYMBOLS_TO_TEXT_COLOUR = //Light mode
 
 export const SYMBOLS_TO_TEXT_COLOUR_DARK_MODE =
 {
-    "⚫": "black",
-    "🟢": "forestgreen",
-    "🔵": "mediumblue",
-    "🔴": "indianred",
+    "⚫": "white", //So black text stays readable on the dark background
+    "🟢": "#75dd75",
+    "🔵": "#5190ff",
+    "🔴": "#d06666",
     "🟠": "orange",
 };
 

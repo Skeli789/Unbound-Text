@@ -4,17 +4,15 @@
     grid-template-columns: 3ch 1ch 3ch 3ch 2ch 1ch 2ch; /*Ch means character*/
     justify-content: center; /* Aligns horizontally */
     align-items: center; /* Aligns vertically */
-    font-family: monospace;
-    padding: 1px 0.75rem;
+    justify-self: start;
+    font-family: ui-monospace, Consolas, monospace;
+    font-size: 0.9rem;
+    padding: 0.25rem 0.75rem;
     margin-top: 0.5rem;
-    border: solid 1px black;
-    grid-area: spaceCount; /* The editor page grid area */
-}
-
-[data-darkreader-scheme="dark"] .space-info
-{
-    color: white;
-    background-color: #111;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background-color: var(--surface-muted);
+    color: var(--text);
 }
 
 .space-info .cur-num

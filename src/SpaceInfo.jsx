@@ -4,9 +4,12 @@
  */
 import React, {Component} from "react";
 
-import {SEMI_LINE_WIDTH} from "./TextUtils";
+import {GetDisplayColour, FULL_LINE_WIDTH, SEMI_LINE_WIDTH} from "./TextUtils";
 
 import "./styles/SpaceInfo.css";
+
+const AVERAGE_CHAR_WIDTH = 5.6;
+const FULL_LINE_CHAR_COUNT = 36;
 
 
 export class SpaceInfo extends Component
@@ -17,6 +20,7 @@ export class SpaceInfo extends Component
      * @param {Object} props - The props object containing the component's properties.
      * @param {number} props.lineWidth - The width of the current characters on the line.
      * @param {number} props.totalWidth - The total width allowed on the line.
+     * @param {boolean} [props.darkMode=false] - Whether dark mode is enabled, which brightens the success colour.
      */
     constructor(props)
     {
@@ -30,13 +34,13 @@ export class SpaceInfo extends Component
      */
     render()
     {
-        const {lineWidth, totalWidth} = this.props;
-        let charCount = Math.floor(lineWidth / 5.6); //Approximate character count based on average character width
-        let maxCharCount = (totalWidth === SEMI_LINE_WIDTH) ? Math.floor(totalWidth / 5.6) : Math.floor(totalWidth / (206 / 36));
-        let overflowErrorStyle = (lineWidth > totalWidth) ? {color: "red"} : {color: "green"};
+        const {lineWidth, totalWidth, darkMode = false} = this.props;
+        let charCount = Math.floor(lineWidth / AVERAGE_CHAR_WIDTH); //Approximate character count based on average character width
+        let maxCharCount = (totalWidth === SEMI_LINE_WIDTH) ? Math.floor(totalWidth / AVERAGE_CHAR_WIDTH) : Math.floor(totalWidth / (FULL_LINE_WIDTH / FULL_LINE_CHAR_COUNT));
+        let overflowErrorStyle = (lineWidth > totalWidth) ? {color: "red"} : {color: GetDisplayColour("green", darkMode)};
 
         return (
-            <div className="space-info">
+            <div className="space-info" role="group" aria-label="Line width and approximate character count">
                 {/* Line Width */}
                 <span className="cell cur-num" style={overflowErrorStyle}>{lineWidth}</span>
                 <span className="cell slash">/</span>

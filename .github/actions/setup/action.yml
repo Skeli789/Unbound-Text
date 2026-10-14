@@ -1,0 +1,15 @@
+name: 'Setup Node and Dependencies'
+description: 'Sets up Node.js 24 with Yarn caching and installs dependencies from yarn.lock.'
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Node.js with Yarn caching
+      uses: actions/setup-node@v7
+      with:
+        node-version: '24.x'
+        cache: yarn
+        cache-dependency-path: yarn.lock
+
+    - name: Install dependencies
+      shell: bash
+      run: yarn install --frozen-lockfile

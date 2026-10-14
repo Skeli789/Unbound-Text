@@ -1,37 +1,93 @@
 .header, .footer
 {
-    --purple: rgb(147 51 234);
-    background-color: var(--purple);
-    height: 56px;
+    flex-shrink: 0;
     width: 100%;
     z-index: 100;
 }
 
-.header
+/* Title sits in the centre column and the settings controls sit at the right */
+.header .header-toolbar
 {
-    display: flex;
-    justify-content: center;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    color: white;
 }
 
-.footer
+.header-title
+{
+    grid-column: 2;
+    font-weight: 600 !important;
+    letter-spacing: 0;
+    text-align: center;
+    white-space: nowrap;
+}
+
+.header-actions
+{
+    grid-column: 3;
+    justify-self: end;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+/* Icon buttons take the header text colour instead of the faded default */
+.header-actions .MuiIconButton-root
+{
+    color: inherit;
+}
+
+.settings-popover
+{
+    gap: 0.5rem;
+    padding: 0.75rem;
+    min-width: 12rem;
+}
+
+/* Each settings row is one full-width button, so the label, the blank space and the icon all toggle the setting */
+.settings-popover .settings-row
 {
     display: flex;
+    align-items: center;
     justify-content: space-between;
+    gap: 1rem;
+    width: 100%;
+    min-height: 40px;
+    padding: 0.25rem 0.75rem;
+    color: inherit;
+    font-size: 0.875rem;
+    font-weight: 400;
+    letter-spacing: normal;
+    text-align: left;
+    text-transform: none;
+}
+
+.footer-toolbar
+{
+    justify-content: space-between;
+    flex-wrap: wrap;
+    column-gap: 1rem;
+}
+
+@media (max-width: 640px)
+{
+    .header-title
+    {
+        font-size: 1rem !important;
+    }
 }
 
 .skeli-games-logo
 {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    height: 100%;
-    margin-left: 0.5rem;
-    color: white;
+    margin-left: 0.5rem !important;
+    font-size: 0.8rem !important;
 }
 
-.footer-button
+/* Pushed to the right, or onto its own right-aligned line when the footer is too narrow */
+.footer-credit
 {
-    color: white !important;
+    margin-left: auto !important;
+    margin-right: 0.5rem !important;
+    font-size: 0.8rem !important;
+    text-align: right;
 }

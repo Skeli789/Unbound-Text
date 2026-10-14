@@ -1,20 +1,52 @@
 
+html
+{
+    font-size: 14px; /* Keeps the rem-based editor font metrics that Semantic UI set */
+    height: 100%;
+}
+
 body
 {
     margin: 0;
-    font-family: system-ui, sans-serif;
+    height: 100%;
+    font-family: "Trebuchet MS", "Lucida Grande", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     overflow: hidden;
-}
-
-html body.swal2-height-auto /* Fixes the pop-up destroying the layout */
-{
-    height: 100% !important;
 }
 
 code
 {
     font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
       monospace;
+}
+
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--theme);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--theme);
+}
+
+::-webkit-scrollbar-corner {
+    background: transparent;
+}
+
+/* Firefox scrollbar styling */
+* {
+    scrollbar-width: thin;
+    scrollbar-color: var(--theme) transparent;
 }

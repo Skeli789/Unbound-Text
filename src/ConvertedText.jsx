@@ -4,114 +4,21 @@
  */
 
 import React, {Component} from 'react';
-import {toast} from "react-toastify";
-import {TextArea} from 'semantic-ui-react';
+import {IconButton, InputAdornment, InputBase, Tooltip} from '@mui/material';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 
+import {NotificationContext} from "./NotificationContext";
 import {COLOURS, OTHER_REPLACEMENT_MACROS, ReplaceWithMacros} from "./TextUtils"; 
 
 import "./styles/Editor.css";
 
-/** Options for the toast notifications */
-const BASE_TOAST_OPTIONS =
-{
-    position: "bottom-right",
-    autoClose: 3000,
-    hideProgressBar: true, //Don't show the user how much time is left
-    closeOnClick: true,
-    pauseOnHover: false, //Always decrease the timer
-    pauseOnFocusLoss: false, //Always decrease the timer
-    draggable: false,
-    // transition: "slide", //Broken
-};
+const COPY_BUTTON_SIZE = "2.25rem"; //Width reserved at the end of the field for the copy button
 
 
-export class ConvertedText extends Component
-{
-    /**
-     * Represents the ConvertedText component.
-     * @constructor
-     * @param {Object} props - The props object containing the component's properties.
-     * @param {string} props.text - The text to be converted.
-     * @param {boolean} props.darkMode - Whether the dark mode is enabled.
-     * @param {Object} props.textAreaStyle - The style for the text area.
-     */
-    constructor(props)
-    {
-        super(props);
-        this.state = {};
-        this.conversionCache = null; //Share only the latest conversion between rendering and copying
-    }
-
-    /**
-     * Gets compiler output for the current text, reusing only the latest conversion.
-     * @returns {string} The converted text for the latest props.
-     */
-    getConvertedText()
-    {
-        const {text} = this.props;
-        if (!this.conversionCache || this.conversionCache.text !== text)
-            this.conversionCache = {text, convertedText: CreateIngameText(text)};
-
-        return this.conversionCache.convertedText;
-    }
-
-    /**
-     * Copies the converted text to the clipboard.
-     */
-    copyConvertedText()
-    {
-        let toastTheme = this.props.darkMode ? "dark" : "colored";
-        const toastOptions = {...BASE_TOAST_OPTIONS, theme: toastTheme};
-        const ingameText = this.getConvertedText();
-
-        if (ingameText === "") //Don't copy empty text
-        {
-            toast.error("No text to copy!", toastOptions);
-            return;
-        }
-
-        if (navigator.clipboard && navigator.clipboard.writeText)
-        {
-            navigator.clipboard.writeText(ingameText).then((text) => //Copy to clipboard
-            {
-                //console.log(`Copied text to clipboard: ${text}`);
-                toast.success("Copied text to clipboard!", toastOptions);
-            }).catch((err) => //In case the copy fails on mobile browsers
-            {
-                console.error(`Couldn't copy text to clipboard: ${err}`);
-                toast.error("Couldn't copy text to clipboard!", toastOptions);
-            });
-        }
-        else
-        {
-            console.error("Clipboard API not supported");
-            toast.error("Couldn't copy text to clipboard!", toastOptions);
-        }
-    }
-
-    /**
-     * Renders the ConvertedText component.
-     * @returns {JSX.Element} The rendered component.
-     */
-    render()
-    {
-        return (
-            <TextArea
-                readOnly={true}
-                className="fr-text converted-text"
-                id="converted-text"
-                rows={1}
-                style={this.props.textAreaStyle}
-                value={this.getConvertedText()}
-                onClick={this.copyConvertedText.bind(this)}
-            />
-        );
-    }
-}
-
+//Converted text helper
 /**
  * Converts the given text to the format needed for the game compiler.
- * @param {string} text - The text to be converted. 
+ * @param {string} text - The text to be converted.
  * @returns {string} The converted text.
  */
 export function CreateIngameText(text)
@@ -195,6 +102,121 @@ export function CreateIngameText(text)
     }
 
     return finalText;
+}
+
+export class ConvertedText extends Component
+{
+    static contextType = NotificationContext; //Provides notify for copy feedback
+
+    /**
+     * Represents the ConvertedText component.
+     * @constructor
+     * @param {Object} props - The props object containing the component's properties.
+     * @param {string} props.text - The text to be converted.
+     * @param {Object} props.textAreaStyle - The style for the text area.
+     * @param {string} [props.id="converted-text"] - The id for the converted text area, unique per editor.
+     */
+    constructor(props)
+    {
+        super(props);
+        this.state = {};
+        this.conversionCache = null; //Share only the latest conversion between rendering and copying
+    }
+
+    /**
+     * Gets compiler output for the current text, reusing only the latest conversion.
+     * @returns {string} The converted text for the latest props.
+     */
+    getConvertedText()
+    {
+        const {text} = this.props;
+        if (!this.conversionCache || this.conversionCache.text !== text)
+            this.conversionCache = {text, convertedText: CreateIngameText(text)};
+
+        return this.conversionCache.convertedText;
+    }
+
+    //Clipboard
+    /**
+     * Copies the converted text to the clipboard.
+     */
+    copyConvertedText()
+    {
+        const {notify} = this.context;
+        const ingameText = this.getConvertedText();
+        const notifyFailure = () => notify({message: "Couldn't copy text to clipboard!", severity: "error"});
+
+        if (ingameText === "") //Don't copy empty text
+        {
+            notify({message: "No text to copy!", severity: "error"});
+            return;
+        }
+
+        if (navigator.clipboard && navigator.clipboard.writeText)
+        {
+            navigator.clipboard.writeText(ingameText).then(() => //Copy to clipboard
+            {
+                notify({message: "Copied text to clipboard!", severity: "success"});
+            }).catch((err) => //In case the copy fails on mobile browsers
+            {
+                console.error(`Couldn't copy text to clipboard: ${err}`);
+                notifyFailure();
+            });
+        }
+        else
+        {
+            console.error("Clipboard API not supported");
+            notifyFailure();
+        }
+    }
+
+    //Render
+    /**
+     * Renders the ConvertedText component.
+     * @returns {JSX.Element} The rendered component.
+     */
+    render()
+    {
+        const copyText = this.copyConvertedText.bind(this);
+        const id = this.props.id ?? "converted-text";
+
+        //Shrink the field by the copy button so the frame keeps the same width as the main field
+        const {textAreaStyle} = this.props;
+        const width = textAreaStyle?.width;
+        const fieldStyle = {...textAreaStyle, ...(width && {width: `calc(${width} - ${COPY_BUTTON_SIZE})`})};
+
+        return (
+            <div className="converted-text-container">
+                <label className="visually-hidden" htmlFor={id}>Converted text</label>
+                <InputBase
+                    className="text-field converted-text-field"
+                    id={id}
+                    inputComponent="textarea" //Plain textarea keeps the fixed rows and skips the measuring textarea
+                    multiline
+                    readOnly
+                    rows={1}
+                    value={this.getConvertedText()}
+                    endAdornment={
+                        <InputAdornment position="end" sx={{marginLeft: 0}}>
+                            <Tooltip title="Copy converted text" placement="top" arrow describeChild>
+                                <IconButton className="converted-text-copy-button" sx={{color: 'var(--muted)', width: COPY_BUTTON_SIZE, height: COPY_BUTTON_SIZE}} aria-label="Copy converted text" size="small" onClick={copyText}>
+                                    <ContentCopyIcon fontSize="small" />
+                                </IconButton>
+                            </Tooltip>
+                        </InputAdornment>
+                    }
+                    slotProps={{
+                        input: {
+                            className: "fr-text text-field-input converted-text",
+                            type: undefined,
+                            style: fieldStyle,
+                            onClick: copyText,
+                        },
+                    }}
+                />
+            </div>
+        );
+    }
 }
 
 export default ConvertedText;

@@ -24,6 +24,8 @@ Unbound Text is a tool to format text for compilation within the [CFRU](https://
 
 To run the `master` branch locally for development purposes, the steps are as follows:
 
+1. Install [Node.js](https://nodejs.org/).
+
 1. Install [Yarn](https://classic.yarnpkg.com/lang/en/docs/install/).
 
 1. Install the dependencies with:
@@ -42,4 +44,4 @@ To run the `master` branch locally for development purposes, the steps are as fo
     yarn start
     ```
 
-1. Visit http://localhost:3000 in your browser to access the site.
+1. Visit http://localhost:3000/Unbound-Text/ in your browser to access the site.

@@ -4,10 +4,11 @@
  */
 
 import React, {Component} from 'react';
-import {enable as enableDarkMode, disable as disableDarkMode} from 'darkreader';
-import {IconButton, Tooltip} from '@mui/material';
 
-import {MdSunny, MdModeNight} from 'react-icons/md';
+import LightModeIcon from "@mui/icons-material/LightMode";
+import DarkModeIcon from "@mui/icons-material/DarkMode";
+
+import SettingToggleButton from "./SettingToggleButton";
 
 
 export class DarkModeButton extends Component
@@ -18,6 +19,7 @@ export class DarkModeButton extends Component
      * @param {Object} props - The props object containing the component's properties.
      * @param {boolean} props.darkMode - The current dark mode state.
      * @param {Function} props.toggleParentDarkMode - The function to toggle dark mode in the parent component.
+     * @param {string} [props.label] - Optional row label. When set, the whole row is one full-width button.
      */
     constructor(props)
     {
@@ -31,16 +33,8 @@ export class DarkModeButton extends Component
      */
     async toggleDarkMode()
     {
-        let darkMode = this.props.darkMode;
-        if (darkMode)
-            disableDarkMode();
-        else
-            enableDarkMode();
-
-        this.toggleParentDarkMode(!darkMode);
-
-        //Save in local storage
-        localStorage.setItem("darkMode", !darkMode);
+        //The parent saves the choice and applies the theme
+        this.toggleParentDarkMode(!this.props.darkMode);
     }
 
     /**
@@ -49,19 +43,15 @@ export class DarkModeButton extends Component
      */
     render()
     {
-        const size = 42;
-        const id = "dark-mode-button";
-        const tooltip = (this.props.darkMode) ? "Light Mode" : "Dark Mode";
+        const darkMode = Boolean(this.props.darkMode);
+        const tooltip = (darkMode) ? "Light Mode" : "Dark Mode";
+        const icon = (darkMode) ? <LightModeIcon /> : <DarkModeIcon />;
 
         return (
-            <Tooltip title={tooltip} placement="top" arrow enterTouchDelay={0} >
-                <IconButton id={id} data-testid={id}
-                            className={"footer-button " + id}
-                            aria-label="Toggle Dark Mode"
-                            onClick={this.toggleDarkMode.bind(this)}>
-                    {this.props.darkMode ? <MdSunny size={size} /> : <MdModeNight size={size} />}
-                </IconButton>
-            </Tooltip>
+            <SettingToggleButton id="dark-mode-button" ariaLabel="Toggle Dark Mode" pressed={darkMode}
+                                 icon={icon} label={this.props.label} tooltip={tooltip}
+                                 enterTouchDelay={0}
+                                 onClick={this.toggleDarkMode.bind(this)} />
         );
     }
 }

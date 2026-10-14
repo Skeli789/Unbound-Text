@@ -4,12 +4,15 @@
  */
 
 import React, {Component} from 'react';
-import {IconButton, Tooltip} from '@mui/material';
 
-import {MdSave} from "react-icons/md";
+import SaveIcon from "@mui/icons-material/Save";
+
+import SettingToggleButton from "./SettingToggleButton";
+import {CONTROL_BUTTON_SX} from "../AppTheme";
 
 const LOCAL_STORAGE_ENABLED_KEY = "autosaveEnabled";
 const LOCAL_STORAGE_TEXT_KEY = "autoSavedText";
+const ON_COLOUR = "#66bb6a"; //Readable on both the light and dark header
 
 
 export class AutoSaveButton extends Component
@@ -18,6 +21,7 @@ export class AutoSaveButton extends Component
      * Represents the AutoSaveButton component.
      * @constructor
      * @param {Object} props - The props object containing the component's properties.
+     * @param {string} [props.label] - Optional row label. When set, the whole row is one full-width button.
      */
     constructor(props)
     {
@@ -53,20 +57,15 @@ export class AutoSaveButton extends Component
      */
     render()
     {
-        const size = 42;
-        const id = "autosave-button";
-        const iconColour = (this.state.on) ? "red" : "white";
-        const tooltip = (this.state.on) ? "AutoSave is On" : "AutoSave is Off";
+        const on = this.state.on;
+        const tooltip = on ? "AutoSave is On" : "AutoSave is Off";
+        const icon = <SaveIcon sx={{opacity: on ? 1 : 0.5, color: on ? ON_COLOUR : "inherit"}} />;
 
         return (
-            <Tooltip title={tooltip} placement="top" arrow>
-                <IconButton id={id} data-testid={id}
-                            className={"footer-button " + id}
-                            aria-label="Toggle AutoSave"
-                            onClick={this.toggleAutoSave.bind(this)}>
-                        <MdSave size={size} color={iconColour}/>
-                </IconButton>
-            </Tooltip>
+            <SettingToggleButton id="autosave-button" ariaLabel="Toggle AutoSave" pressed={on}
+                                 icon={icon} label={this.props.label} tooltip={tooltip}
+                                 sx={CONTROL_BUTTON_SX}
+                                 onClick={this.toggleAutoSave.bind(this)} />
         );
     }
 }

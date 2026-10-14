@@ -1,14 +1,171 @@
 import React from 'react';
-import {render, fireEvent, act} from '@testing-library/react';
+import {render, fireEvent, act, screen, waitFor} from '@testing-library/react';
 import {userEvent} from '@testing-library/user-event';
 import {vi} from 'vitest';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
 
 import ConvertedText, {CreateIngameText} from '../ConvertedText';
 import Editor from '../Editor';
+import {NotificationContext, NotificationProvider} from '../NotificationContext';
+import SpaceInfo from '../SpaceInfo';
 import {NO_SELECTION_DIRECTION} from '../TextareaUtils';
 import * as TextUtils from '../TextUtils';
 
 
+/**
+ * Replaces navigator.clipboard for the duration of one test.
+ * @param {Object|undefined} clipboard - The clipboard object, or undefined to remove the API.
+ * @returns {Function} A function that restores the original clipboard.
+ */
+function StubClipboard(clipboard)
+{
+    const original = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    if (clipboard === undefined)
+        delete navigator.clipboard;
+    else
+        Object.defineProperty(navigator, 'clipboard', {configurable: true, value: clipboard});
+
+    return () =>
+    {
+        if (original)
+            Object.defineProperty(navigator, 'clipboard', original);
+        else
+            delete navigator.clipboard;
+    };
+}
+
+/**
+ * Gives a textarea fixed layout measurements so scroll tests have a stable frame.
+ * @param {HTMLTextAreaElement} textarea - The textarea to measure.
+ * @param {Object} [sizes] - Overrides for the measured sizes in pixels.
+ */
+function StubTextareaLayout(textarea, {clientHeight = 160, offsetHeight = 162, offsetWidth = 420, scrollHeight = 800} = {})
+{
+    Object.defineProperties(textarea, {
+        clientHeight: {value: clientHeight},
+        offsetHeight: {value: offsetHeight},
+        offsetWidth: {value: offsetWidth},
+        scrollHeight: {value: scrollHeight},
+    });
+}
+
+//Checks the editor layout rules in the stylesheet
+describe('Editor layout stylesheet', () =>
+{
+    const css = readFileSync(join(process.cwd(), 'src', 'styles', 'Editor.css'), 'utf8');
+
+    test('narrow screens use shrinkable grid tracks and stretch the text fields to them', () =>
+    {
+        const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
+        expect(narrow).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+        expect(narrow).toMatch(/\.main-textarea-container,\s*\.converted-text-container\s*\{\s*justify-self:\s*stretch;\s*\}/);
+    });
+
+    test('narrow screens place every control in one non-wrapping row beneath the field', () =>
+    {
+        const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
+        expect(narrow).toMatch(/"quickButtons"\s*"textAreaMain"\s*"textAreaSub"\s*"bottomActions"\s*"translator";/);
+        expect(narrow).toMatch(/\.editor-bottom-actions\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*nowrap;[^}]*\}/);
+        expect(narrow).toMatch(/\.editor-bottom-actions\s*\{[^}]*justify-self:\s*stretch;[^}]*\}/);
+        expect(narrow).toMatch(/\.undo-redo-buttons\s*\{\s*flex-direction:\s*row;/);
+    });
+
+    test('wide screens keep a fixed minimum width for the text fields', () =>
+    {
+        const wide = css.slice(0, css.indexOf('@media (max-width: 640px)'));
+        expect(wide).toMatch(/--editor-min-field-width:\s*calc\(340px \+ 4rem \+ 2px\);/);
+        expect(wide).toMatch(/\.main-textarea-container\s*\{[^}]*min-width:\s*var\(--editor-min-field-width\);[^}]*\}/);
+        expect(wide).toMatch(/\.main-textarea-field\.MuiInputBase-root,\s*\.converted-text-field\.MuiInputBase-root\s*\{\s*min-width:\s*min\(var\(--editor-min-field-width\),\s*100%\);[^}]*\}/);
+    });
+
+    test('wide screens let the centre columns shrink so long lines scroll inside the frame', () =>
+    {
+        const wide = css.slice(0, css.indexOf('@media (max-width: 640px)'));
+        expect(wide).toMatch(/grid-template-columns:\s*2\.5rem minmax\(0,\s*auto\) minmax\(0,\s*auto\) 2\.5rem;/);
+        expect(wide).toMatch(/\.main-textarea-container\s*\{[^}]*justify-self:\s*stretch;[^}]*max-width:\s*100%;[^}]*\}/);
+        expect(wide).toMatch(/\.converted-text-container\s*\{[^}]*display:\s*block;[^}]*max-width:\s*100%;[^}]*\}/);
+    });
+
+    test('narrow screens clamp the field minimum to the frame so it never overflows', () =>
+    {
+        const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
+        expect(narrow).toMatch(/\.main-textarea-container\s*\{\s*min-width:\s*min\(var\(--editor-min-field-width\),\s*100%\);\s*\}/);
+    });
+
+    test('narrow screens overlay the colour symbol on the start of the primary field', () =>
+    {
+        const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
+        expect(narrow).toMatch(/\.editor-grid\s*\{[^}]*position:\s*relative;[^}]*\}/);
+        expect(narrow).toMatch(/\.editor-grid \.text-colour-dropdown\s*\{[^}]*grid-area:\s*textAreaMain;[^}]*\}/);
+        expect(narrow).toMatch(/\.editor-grid \.text-colour-dropdown\s*\{[^}]*position:\s*absolute;[^}]*\}/);
+        expect(narrow).toMatch(/\.editor-grid \.text-colour-dropdown\s*\{[^}]*left:\s*-14px;[^}]*\}/);
+    });
+
+    test('narrow screens show the space count at 12px', () =>
+    {
+        const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
+        expect(narrow).toMatch(/\.editor-bottom-actions \.space-info\s*\{[^}]*font-size:\s*12px;[^}]*\}/);
+        expect(narrow).not.toMatch(/font-size:\s*10px;/);
+    });
+
+    test('wide screens keep the colour symbol in its own column', () =>
+    {
+        expect(css).toMatch(/^\.text-colour-dropdown\s*\{\s*grid-area:\s*colourButton;\s*align-self:\s*start;\s*\}/m);
+    });
+
+    test('the measuring div is off screen, sized to its longest line and never wraps', () =>
+    {
+        expect(css).toMatch(/\.hidden-div\s*\{[^}]*position:\s*fixed;[^}]*right:\s*100%;[^}]*width:\s*max-content;[^}]*white-space:\s*pre;[^}]*\}/);
+    });
+
+    test('text fields draw one frame and scroll long lines inside the primary field', () =>
+    {
+        expect(css).toMatch(/\.text-field\.MuiInputBase-root\s*\{[^}]*border:\s*1px solid var\(--border\);[^}]*\}/);
+        expect(css).toMatch(/\.text-field\.MuiInputBase-root \.text-field-input\s*\{[^}]*border:\s*0;[^}]*overflow-x:\s*auto;[^}]*\}/);
+    });
+
+    test('the mirror has no border of its own and its container anchors it', () =>
+    {
+        expect(css).toMatch(/\.main-textarea-container\s*\{[^}]*position:\s*relative;[^}]*\}/);
+        expect(css).toMatch(/\.mirror-textarea\s*\{[^}]*border:\s*0 !important;[^}]*\}/);
+    });
+
+    test('the bottom row centres the prettify button on the same line as the space count', () =>
+    {
+        const prettify = css.match(/\.prettify-button\s*\{[^}]*\}/)?.[0] ?? '';
+        expect(prettify).toMatch(/align-self:\s*center;/);
+    });
+});
+
+//Checks the SpaceInfo colour styling
+describe('SpaceInfo colours', () =>
+{
+    test.each([
+        [false, '#008000'],
+        [true, '#75dd75'],
+    ])('the success colour matches the theme (dark mode: %s)', (darkMode, colour) =>
+    {
+        const {container} = render(<SpaceInfo lineWidth={60} totalWidth={TextUtils.FULL_LINE_WIDTH} darkMode={darkMode} />);
+        const [lineCount, charCount] = container.querySelectorAll('.cur-num');
+        expect(lineCount).toHaveStyle({color: colour});
+        expect(charCount).toHaveStyle({color: colour});
+    });
+
+    test.each([false, true])('an overflowing line is red in either theme (dark mode: %s)', (darkMode) =>
+    {
+        const {container} = render(<SpaceInfo lineWidth={300} totalWidth={TextUtils.FULL_LINE_WIDTH} darkMode={darkMode} />);
+        expect(container.querySelector('.cur-num')).toHaveStyle({color: '#ff0000'});
+    });
+
+    test('the success colour defaults to light mode when darkMode is omitted', () =>
+    {
+        const {container} = render(<SpaceInfo lineWidth={60} totalWidth={TextUtils.FULL_LINE_WIDTH} />);
+        expect(container.querySelector('.cur-num')).toHaveStyle({color: '#008000'});
+    });
+});
+
+//Checks the editor renders, measures its width and accepts typing
 describe('Editor is rendered and can be typed in', () =>
 {
     const initialText = 'Hello';
@@ -19,6 +176,47 @@ describe('Editor is rendered and can be typed in', () =>
         const {getByTestId} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
         const textarea = getByTestId('main-textarea');
         expect(textarea).toHaveValue(initialText);
+    });
+
+    test('a window resize remeasures the text width without changing the text or undo history', () =>
+    {
+        const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth').get;
+        let hiddenWidth = 640;
+        const widthSpy = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function ()
+        {
+            return this.classList.contains('hidden-div') ? hiddenWidth : originalOffsetWidth.call(this);
+        });
+
+        try
+        {
+            const editorRef = React.createRef();
+            const text = 'Hello';
+            render(<Editor ref={editorRef} text={text} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
+            expect(editorRef.current.state.textareaWidth).toBe(640);
+
+            hiddenWidth = 900;
+            act(() => fireEvent.resize(window));
+
+            expect(editorRef.current.state.textareaWidth).toBe(900);
+            expect(editorRef.current.textAreaRef.current).toHaveValue(text);
+            expect(editorRef.current.state.undoStack).toEqual([]);
+        }
+        finally
+        {
+            widthSpy.mockRestore();
+        }
+    });
+
+    test('caps the textarea at its container width so it scrolls instead of widening the page', () =>
+    {
+        const {getByTestId} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
+        expect(getByTestId('main-textarea').style.maxWidth).toBe('100%');
+    });
+
+    test('the game text area width is not clamped to the viewport in JavaScript', () =>
+    {
+        render(<Editor text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />);
+        expect(screen.getByTestId('main-textarea').style.minWidth).toBe('');
     });
 
     test.each([false, true])('measures initial editor width before input (translation: %s)', (isTranslation) =>
@@ -34,9 +232,9 @@ describe('Editor is rendered and can be typed in', () =>
             const editorRef = React.createRef();
             const text = 'A long initial line that needs a wider editor than the default width.';
             render(<Editor ref={editorRef} text={text} isTranslation={isTranslation} showTranslationBox={dummyFunc} test={true} />);
-            const textarea = editorRef.current.textAreaRef.current.ref.current;
+            const textarea = editorRef.current.textAreaRef.current;
 
-            expect(textarea).toHaveStyle({width: 'calc(640px + 2em)'});
+            expect(textarea.style.width).toMatch(/^calc\((640px \+ 2em|2em \+ 640px)\)$/);
             expect(textarea).toHaveValue(text);
             expect(editorRef.current.state.undoStack).toEqual([]);
             expect(editorRef.current.state.redoStack).toEqual([]);
@@ -87,6 +285,7 @@ describe('Editor is rendered and can be typed in', () =>
     });
 });
 
+//Checks where the cursor ends up after typing, pasting and deleting
 describe('Typing in editor moves the cursor where expected', () =>
 {
     //"|" is used to represent the cursor position
@@ -335,6 +534,7 @@ describe('Typing in editor moves the cursor where expected', () =>
     }
 });
 
+//Checks selection replacement, undo history and cursor state for each editor type
 describe.each([false, true])('Editor selection transactions (translation: %s)', (isTranslation) =>
 {
     /**
@@ -346,7 +546,7 @@ describe.each([false, true])('Editor selection transactions (translation: %s)', 
     {
         const editorRef = React.createRef();
         render(<Editor ref={editorRef} text={text} isTranslation={isTranslation} showTranslationBox={() => {}} test={true} />);
-        return {editorRef, textarea: editorRef.current.textAreaRef.current.ref.current, user: userEvent.setup()};
+        return {editorRef, textarea: editorRef.current.textAreaRef.current, user: userEvent.setup()};
     }
 
     /**
@@ -538,6 +738,7 @@ describe.each([false, true])('Editor selection transactions (translation: %s)', 
     });
 });
 
+//Checks that the mirror layer tracks scrolling, resizing and text changes
 describe('Editor mirror synchronization', () =>
 {
     let pendingFrames;
@@ -608,17 +809,22 @@ describe('Editor mirror synchronization', () =>
         const textarea = getByTestId('main-textarea');
         const mirror = container.querySelector('.mirror-textarea');
         const editorPage = container.querySelector('#editor-page');
-        Object.defineProperties(textarea, {
+        //Both boxes are viewport-relative, so scrolling the page moves them together
+        const page = {x: 0, y: 0};
+        Object.defineProperties(textarea,
+        {
             offsetHeight: {value: 162},
             offsetWidth: {value: 420},
-            offsetTop: {value: 100},
-            offsetLeft: {value: 80},
+            getBoundingClientRect: {value: () => ({top: 100 - page.y, left: 80 - page.x})},
         });
+        Object.defineProperty(mirror.parentElement, 'getBoundingClientRect', {value: () => ({top: 60 - page.y, left: 20 - page.x})});
         FlushMirrorFrames();
         const synchronize = vi.spyOn(editorRef.current, 'updateMirrorRefPosition');
         window.requestAnimationFrame.mockClear();
 
         fireEvent.scroll(textarea);
+        page.y = 24;
+        page.x = 12;
         editorPage.scrollTop = 24;
         editorPage.scrollLeft = 12;
         fireEvent.scroll(editorPage);
@@ -633,11 +839,30 @@ describe('Editor mirror synchronization', () =>
         expect(synchronize).toHaveBeenCalledTimes(1);
         expect(mirror.style.height).toBe('162px');
         expect(mirror.style.width).toBe('420px');
-        expect(mirror.style.top).toBe('76px');
-        expect(mirror.style.left).toBe('68px');
+        expect(mirror.style.top).toBe('40px');
+        expect(mirror.style.left).toBe('60px');
         expect(mirror.scrollTop).toBe(192);
         expect(mirror.scrollLeft).toBe(36);
         expect(pendingFrames.size).toBe(0);
+    });
+
+    test('copies textarea scroll on both axes to the mirror before the frame flushes', () =>
+    {
+        const editorRef = React.createRef();
+        const {getByTestId, container} = render(<Editor ref={editorRef} text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />);
+        const textarea = getByTestId('main-textarea');
+        const mirror = container.querySelector('.mirror-textarea');
+        FlushMirrorFrames();
+        const synchronize = vi.spyOn(editorRef.current, 'updateMirrorRefPosition');
+
+        textarea.scrollTop = 192;
+        textarea.scrollLeft = 36;
+        fireEvent.scroll(textarea);
+
+        expect(mirror.scrollTop).toBe(192);
+        expect(mirror.scrollLeft).toBe(36);
+        expect(synchronize).not.toHaveBeenCalled();
+        expect(pendingFrames.size).toBe(1);
     });
 
     test('does not rewrite unchanged mirror geometry or scroll offsets', () =>
@@ -688,7 +913,12 @@ describe('Editor mirror synchronization', () =>
         FlushMirrorFrames();
         window.requestAnimationFrame.mockClear();
 
-        textareas.forEach((textarea, index) => Object.defineProperty(textarea, 'offsetLeft', {value: 40 + index * 500}));
+        //Each field sits 40px into its own container, and the second editor is 500px further right
+        textareas.forEach((textarea, index) =>
+        {
+            Object.defineProperty(textarea, 'getBoundingClientRect', {value: () => ({top: 0, left: 60 + index * 500})});
+            Object.defineProperty(mirrors[index].parentElement, 'getBoundingClientRect', {value: () => ({top: 0, left: 20})});
+        });
         act(() => observers.forEach((observer) =>
         {
             observer.callback();
@@ -762,14 +992,8 @@ describe('Editor mirror synchronization', () =>
         const {getByTestId, container} = render(<Editor ref={editorRef} text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />);
         const textarea = getByTestId('main-textarea');
         const mirror = container.querySelector('.mirror-textarea');
-        Object.defineProperties(textarea, {
-            clientHeight: {value: 160},
-            offsetHeight: {value: 162},
-            offsetWidth: {value: 420},
-            offsetTop: {value: 40},
-            offsetLeft: {value: 24},
-            scrollHeight: {value: 800},
-        });
+        StubTextareaLayout(textarea);
+        Object.defineProperty(textarea, 'getBoundingClientRect', {value: () => ({top: 40, left: 24})});
         textarea.scrollTop = 192;
         textarea.scrollLeft = 36;
         fireEvent.scroll(textarea);
@@ -806,12 +1030,7 @@ describe('Editor mirror synchronization', () =>
         const {getByTestId, container} = render(<Editor ref={editorRef} text="" isTranslation={isTranslation} showTranslationBox={() => {}} test={true} />);
         const textarea = getByTestId(isTranslation ? 'translated-textarea' : 'main-textarea');
         const mirror = container.querySelector('.mirror-textarea');
-        Object.defineProperties(textarea, {
-            clientHeight: {value: 160},
-            offsetHeight: {value: 162},
-            offsetWidth: {value: 420},
-            scrollHeight: {value: 800},
-        });
+        StubTextareaLayout(textarea);
         textarea.style.lineHeight = '32px';
         const text = Array(20).fill('Hello').join('\n');
 
@@ -832,12 +1051,7 @@ describe('Editor mirror synchronization', () =>
             const {getByTestId, container, unmount} = render(<Editor ref={editorRef} text="Hello" isTranslation={isTranslation} showTranslationBox={() => {}} test={true} />);
             const textarea = getByTestId(isTranslation ? 'translated-textarea' : 'main-textarea');
             const mirror = container.querySelector('.mirror-textarea');
-            Object.defineProperties(textarea, {
-                clientHeight: {value: 160},
-                offsetHeight: {value: 162},
-                offsetWidth: {value: 420},
-                scrollHeight: {value: 800},
-            });
+            StubTextareaLayout(textarea);
             act(() => editorRef.current.setTextState('Hello\nworld', 11, 11, false));
             const synchronizeFrame = requestFrame.mock.calls.at(-1)[0];
             textarea.scrollTop = 224;
@@ -863,6 +1077,7 @@ describe('Editor mirror synchronization', () =>
     });
 });
 
+//Checks cached derivations are reused and width commits keep the cursor and mirror in sync
 describe('Editor latest derivations', () =>
 {
     afterEach(() => vi.restoreAllMocks());
@@ -894,14 +1109,14 @@ describe('Editor latest derivations', () =>
         rerender(<Editor ref={editorRef} {...props} darkMode={true} />);
         const darkHtml = editor.getMirrorHtml();
         expect(darkHtml).not.toBe(html);
-        expect(darkHtml.__html).toContain('color: forestgreen');
+        expect(darkHtml.__html).toContain('color: #75dd75');
         expect(editor.createDivText()).toBe(nodes);
         expect(parse).toHaveBeenCalledTimes(1);
         expect(replace).not.toHaveBeenCalled();
 
         act(() => editor.setTextState('🔴Changed', 3, 3, false));
         expect(editor.getMirrorHtml()).not.toBe(darkHtml);
-        expect(editor.getMirrorHtml().__html).toContain('color: indianred');
+        expect(editor.getMirrorHtml().__html).toContain('color: #d06666');
         expect(editor.createDivText()).not.toBe(nodes);
         expect(parse).toHaveBeenCalledTimes(2);
         act(() => editor.setTextState(props.text, 0, 0, false));
@@ -965,12 +1180,42 @@ describe('Editor latest derivations', () =>
         expect(container.querySelector('.mirror-textarea').querySelectorAll('span').length).toBeLessThan(pastedExpected.length / 4);
     });
 
+    test.each([false, true])('finishes cursor and mirror synchronization after the final width commit (width changes: %s)', (widthChanges) =>
+    {
+        const editorRef = React.createRef();
+        const {getByTestId} = render(<Editor ref={editorRef} text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />);
+        const editor = editorRef.current;
+        const textarea = getByTestId('main-textarea');
+        const width = editor.state.textareaWidth + (widthChanges ? 240 : 0);
+        Object.defineProperty(editor.hiddenDivRef.current, 'offsetWidth', {value: width});
+        const commits = vi.spyOn(editor, 'setState');
+        const finished = [];
+        const synchronize = editor.synchronizeMirror.bind(editor);
+        vi.spyOn(editor, 'synchronizeMirror').mockImplementation(() =>
+        {
+            finished.push({width: editor.state.textareaWidth, cursor: textarea.selectionStart});
+            synchronize();
+        });
+
+        act(() => editor.setTextState('Changed text', 3, 3, false));
+
+        const widthCommits = commits.mock.calls.filter(([state]) => state.textareaWidth !== undefined);
+        expect(widthCommits).toHaveLength(widthChanges ? 1 : 0);
+        expect(finished.at(-1)).toEqual({width, cursor: 3});
+        expect(textarea.selectionEnd).toBe(3);
+    });
+});
+
+//Checks the converted text copy button and its clipboard feedback
+describe('ConvertedText copy button', () =>
+{
+    afterEach(() => vi.restoreAllMocks());
+
     test('shares the latest conversion between render and copy without retaining historical inputs', async () =>
     {
         const convertedRef = React.createRef();
         const writeText = vi.fn().mockResolvedValue(undefined);
-        const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
-        Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText}});
+        const restoreClipboard = StubClipboard({writeText});
         try
         {
             const replace = vi.spyOn(TextUtils, 'ReplaceWithMacros');
@@ -1003,35 +1248,129 @@ describe('Editor latest derivations', () =>
         }
         finally
         {
-            if (originalClipboard)
-                Object.defineProperty(navigator, 'clipboard', originalClipboard);
-            else
-                delete navigator.clipboard;
+            restoreClipboard();
         }
     });
 
-    test.each([false, true])('finishes cursor and mirror synchronization after the final width commit (width changes: %s)', (widthChanges) =>
+    test('copy button sits in the end adornment of the converted field and is not absolutely positioned', () =>
     {
-        const editorRef = React.createRef();
-        const {getByTestId} = render(<Editor ref={editorRef} text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />);
-        const editor = editorRef.current;
-        const textarea = getByTestId('main-textarea');
-        const width = editor.state.textareaWidth + (widthChanges ? 240 : 0);
-        Object.defineProperty(editor.hiddenDivRef.current, 'offsetWidth', {value: width});
-        const commits = vi.spyOn(editor, 'setState');
-        const finished = [];
-        const synchronize = editor.synchronizeMirror.bind(editor);
-        vi.spyOn(editor, 'synchronizeMirror').mockImplementation(() =>
+        const {container} = render(<NotificationProvider><ConvertedText text="🟢Pokemon" /></NotificationProvider>);
+        const button = screen.getByRole('button', {name: 'Copy converted text'});
+        expect(container.querySelector('.MuiInputAdornment-root')).toContainElement(button);
+        expect(getComputedStyle(button).position).not.toBe('absolute');
+    });
+
+    test('copy button copies the converted text and confirms with a status notification', async () =>
+    {
+        const text = '🟢Pokemon\nHello';
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        const restoreClipboard = StubClipboard({writeText});
+        try
         {
-            finished.push({width: editor.state.textareaWidth, cursor: textarea.selectionStart});
-            synchronize();
+            render(<NotificationProvider><ConvertedText text={text} /></NotificationProvider>);
+            fireEvent.click(screen.getByRole('button', {name: 'Copy converted text'}));
+
+            expect(writeText).toHaveBeenCalledWith(CreateIngameText(text));
+            expect(await screen.findByRole('status')).toHaveTextContent('Copied text to clipboard!');
+        }
+        finally
+        {
+            restoreClipboard();
+        }
+    });
+
+    test('empty conversion shows an error notification and does not touch the clipboard', async () =>
+    {
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        const restoreClipboard = StubClipboard({writeText});
+        try
+        {
+            const {container} = render(<NotificationProvider><ConvertedText text="" /></NotificationProvider>);
+            fireEvent.click(container.querySelector('textarea'));
+
+            expect(writeText).not.toHaveBeenCalled();
+            expect(await screen.findByRole('alert')).toHaveTextContent('No text to copy!');
+        }
+        finally
+        {
+            restoreClipboard();
+        }
+    });
+
+    test('unavailable clipboard API shows an error notification', async () =>
+    {
+        const restoreClipboard = StubClipboard(undefined);
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try
+        {
+            render(<NotificationProvider><ConvertedText text="🟢Pokemon" /></NotificationProvider>);
+            fireEvent.click(screen.getByRole('button', {name: 'Copy converted text'}));
+
+            expect(consoleError).toHaveBeenCalledWith('Clipboard API not supported');
+            expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't copy text to clipboard!");
+        }
+        finally
+        {
+            consoleError.mockRestore();
+            restoreClipboard();
+        }
+    });
+
+    test('rejected clipboard write shows an error notification', async () =>
+    {
+        const writeText = vi.fn().mockRejectedValue(new Error('Permission denied'));
+        const restoreClipboard = StubClipboard({writeText});
+        const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+        try
+        {
+            const {container} = render(<NotificationProvider><ConvertedText text="🟢Pokemon" /></NotificationProvider>);
+            fireEvent.click(container.querySelector('textarea'));
+
+            expect(writeText).toHaveBeenCalledTimes(1);
+            expect(await screen.findByRole('alert')).toHaveTextContent("Couldn't copy text to clipboard!");
+            expect(consoleError).toHaveBeenCalledWith(expect.stringContaining('Permission denied'));
+        }
+        finally
+        {
+            consoleError.mockRestore();
+            restoreClipboard();
+        }
+    });
+});
+
+//Checks the toast stack limit and dismissal
+describe('Notifications', () =>
+{
+    test('notifications stack at most three toasts and a single toast can be dismissed', async () =>
+    {
+        let notify;
+        let dismissNotification;
+        render(
+            <NotificationProvider>
+                <NotificationContext.Consumer>
+                    {(value) =>
+                    {
+                        notify = value.notify;
+                        dismissNotification = value.dismissNotification;
+                        return null;
+                    }}
+                </NotificationContext.Consumer>
+            </NotificationProvider>
+        );
+
+        const ids = [];
+        act(() =>
+        {
+            for (let i = 1; i <= 4; ++i)
+                ids.push(notify({message: `Toast ${i}`, severity: 'success'}));
         });
 
-        act(() => editor.setTextState('Changed text', 3, 3, false));
+        expect(await screen.findAllByRole('status')).toHaveLength(3);
 
-        const widthCommits = commits.mock.calls.filter(([state]) => state.textareaWidth !== undefined);
-        expect(widthCommits).toHaveLength(widthChanges ? 1 : 0);
-        expect(finished.at(-1)).toEqual({width, cursor: 3});
-        expect(textarea.selectionEnd).toBe(3);
+        act(() => dismissNotification(ids[0]));
+        //jsdom has no CSS animations, so the exit animation's end is signalled by hand
+        fireEvent.animationEnd(screen.getByText('Toast 1').closest('.Toastify__toast'));
+        await waitFor(() => expect(screen.queryByText('Toast 1')).not.toBeInTheDocument());
+        expect(await screen.findByText('Toast 4')).toBeInTheDocument();
     });
 });

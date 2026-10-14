@@ -8,6 +8,15 @@ export default defineConfig(
         publicDir: "public",
         base: "/Unbound-Text/",
         plugins: [react()],
+        server:
+        {
+            //Forwards browser console messages to the terminal to help debugging
+            forwardConsole:
+            {
+                unhandledErrors: true,
+                logLevels: ['warn', 'error'],
+            },
+        },
         test: defineTestConfig(
             {
                 globals: true,

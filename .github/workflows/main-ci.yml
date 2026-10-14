@@ -36,18 +36,18 @@ jobs:
       GITHUB_PAT: ${{ secrets.ACTIONS_PAT }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Configure Git
         uses: ./.github/actions/configure_bot_git
 
-      - name: Merge master into ${{ env.DEPLOY_BRANCH }}
+      - name: Rebase master onto ${{ env.DEPLOY_BRANCH }}
         run: |
           git fetch origin
           git checkout ${{ env.DEPLOY_BRANCH }}
-          git merge origin/master --no-edit
+          git rebase origin/master
 
       - name: Push updated branch
         run: git push origin ${{ env.DEPLOY_BRANCH }} --force
@@ -62,21 +62,12 @@ jobs:
     steps:
     # Checkout the code
     - name: Checkout Repository
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
       with:
         fetch-depth: 0
 
     ## Setup dependencies ##
-    - name: Setup Node.js with Yarn caching
-      uses: actions/setup-node@v4
-      with:
-        node-version: "22.x"
-        cache: yarn
-        cache-dependency-path: yarn.lock
-
-    # Install dependencies
-    - name: Install dependencies
-      run: yarn install
+    - uses: ./.github/actions/setup
 
     # Build the app ##
     - name: Build app

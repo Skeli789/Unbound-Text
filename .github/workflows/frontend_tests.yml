@@ -7,6 +7,8 @@ on:
     paths:
       - ".github/workflows/frontend_tests.yml"
       - "src/**"
+      - "index.html"
+      - "vite.config.js"
       - "package.json"
       - "yarn.lock"
   workflow_dispatch:
@@ -24,19 +26,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       ## Setup dependencies ##
-      - name: Setup Node.js with Yarn caching
-        uses: actions/setup-node@v4
-        with:
-          node-version: "22.x"
-          cache: yarn
-          cache-dependency-path: yarn.lock
-
-      - name: Install dependencies
-        run: yarn install
+      - uses: ./.github/actions/setup
 
       ## Tests ##
       - name: Run tests
-        run: yarn test
+        run: yarn test --run
