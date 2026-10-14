@@ -29,8 +29,9 @@
     "vitest": "^5.0.4"
   },
   "scripts": {
-    "start": "vite --port 3000 --strictPort",
-    "build": "vite build --outDir build",
+    "start-client": "vite --port 3000 --strictPort",
+    "start": "cd server && yarn start",
+    "build": "vite build --outDir build && (cd server && yarn install)",
     "serve": "vite preview --outDir build --port 3000 --strictPort",
     "test": "vitest"
   }
