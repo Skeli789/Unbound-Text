@@ -37,9 +37,11 @@ export class QuickButtons extends Component
                 <QuickButton text="🔴" ariaLabel="Red" tooltip="Red" className="quick-button-symbol" func={this.addTextAtSelectionStart}/>
                 <QuickButton text="🟢" ariaLabel="Green" tooltip="Green" className="quick-button-symbol" func={this.addTextAtSelectionStart}/>
                 {/* <QuickButton text="🟠" ariaLabel="Orange" tooltip="Orange" className="quick-button-symbol" func={this.addTextAtSelectionStart}/> */}
-                <QuickButton text="[PLAYER]" tooltip="Player's Name" func={this.addTextAtSelectionStart}/>
-                <QuickButton text="[RIVAL]" tooltip="Rival's Name" func={this.addTextAtSelectionStart}/>
-                <QuickButton text="[PAUSE][]" tooltip="Pause XX Frames (Hex)" func={this.addTextAtSelectionStart}/>
+                <Box className="quick-button-tags">
+                    <QuickButton text="[PLAYER]" tooltip="Player's Name" func={this.addTextAtSelectionStart}/>
+                    <QuickButton text="[RIVAL]" tooltip="Rival's Name" func={this.addTextAtSelectionStart}/>
+                    <QuickButton text="[PAUSE][]" tooltip="Pause XX Frames (Hex)" func={this.addTextAtSelectionStart}/>
+                </Box>
             </Box>
         )
     }

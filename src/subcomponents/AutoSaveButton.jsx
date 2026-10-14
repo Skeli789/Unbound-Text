@@ -58,11 +58,11 @@ export class AutoSaveButton extends Component
     render()
     {
         const on = this.state.on;
-        const tooltip = on ? "AutoSave is On" : "AutoSave is Off";
+        const tooltip = on ? "Auto Save is On" : "Auto Save is Off";
         const icon = <SaveIcon sx={{opacity: on ? 1 : 0.5, color: on ? ON_COLOUR : "inherit"}} />;
 
         return (
-            <SettingToggleButton id="autosave-button" ariaLabel="Toggle AutoSave" pressed={on}
+            <SettingToggleButton id="autosave-button" ariaLabel="Toggle Auto Save" pressed={on}
                                  icon={icon} label={this.props.label} tooltip={tooltip}
                                  sx={CONTROL_BUTTON_SX}
                                  onClick={this.toggleAutoSave.bind(this)} />

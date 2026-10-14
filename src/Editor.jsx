@@ -707,13 +707,15 @@ export class Editor extends Component
                 {/*Converted Text*/}
                 <ConvertedText text={text} textAreaStyle={textAreaStyle} id={convertedId} />
 
-                {/*Prettifier, lock, undo and space details share one row; the grid places each control in its column on wide screens*/}
+                {/*Lock, prettifier, undo and space details share one row; the grid places each control in its column on wide screens*/}
                 <div className="editor-bottom-actions">
-                    <PrettifyButton text={text} setPrettifiedText={this.setPrettifiedText.bind(this)} idPrefix={idPrefix}/>
+                    <div className="editor-format-actions">
+                        {/*Lock Final Line Button*/}
+                        <LockFinalLineButton isFinalLineLocked={this.state.lockFinalLine}
+                                             lockFinalLine={this.lockFinalLine.bind(this)} />
 
-                    {/*Lock Final Line Button*/}
-                    <LockFinalLineButton isFinalLineLocked={this.state.lockFinalLine}
-                                         lockFinalLine={this.lockFinalLine.bind(this)} />
+                        <PrettifyButton text={text} setPrettifiedText={this.setPrettifiedText.bind(this)} idPrefix={idPrefix}/>
+                    </div>
 
                     {/*Undo & Redo Buttons*/}
                     <UndoRedoButtons undoStack={this.state.undoStack}

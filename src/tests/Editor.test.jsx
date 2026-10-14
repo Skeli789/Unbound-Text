@@ -62,13 +62,47 @@ describe('Editor layout stylesheet', () =>
         expect(narrow).toMatch(/\.main-textarea-container,\s*\.converted-text-container\s*\{\s*justify-self:\s*stretch;\s*\}/);
     });
 
+    test('game text scales with available page width using matching line height and proportional spacing', () =>
+    {
+        const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
+        expect(css).toMatch(/\.editor-page\s*\{[^}]*container-type:\s*inline-size;[^}]*\}/);
+        expect(css).toMatch(/\.fr-text\s*\{[^}]*font-size:\s*clamp\(\d+(?:\.\d+)?px,\s*\d+(?:\.\d+)?cqi,\s*2rem\) !important;[^}]*line-height:\s*1 !important;[^}]*word-spacing:\s*0\.25em !important;[^}]*letter-spacing:\s*-0\.01785714em !important;[^}]*\}/);
+        expect(narrow).not.toMatch(/\.fr-text\s*\{/);
+    });
+
+    test('translation buttons can shrink on narrow screens while retaining their desktop minimum', () =>
+    {
+        const breakpoint = css.indexOf('@media (max-width: 640px)');
+        expect(css.slice(0, breakpoint)).toMatch(/\.translate-toolbar \.translate-button\s*\{\s*min-width:\s*160px;\s*\}/);
+        expect(css.slice(breakpoint)).toMatch(/\.translate-toolbar \.translate-button\s*\{\s*min-width:\s*0;\s*\}/);
+    });
+
+    test('text insertion tags wrap as one non-wrapping group', () =>
+    {
+        expect(css).toMatch(/\.quick-button-tags\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*nowrap;[^}]*gap:\s*0\.375rem;[^}]*\}/);
+    });
+
     test('narrow screens place every control in one non-wrapping row beneath the field', () =>
     {
         const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
         expect(narrow).toMatch(/"quickButtons"\s*"textAreaMain"\s*"textAreaSub"\s*"bottomActions"\s*"translator";/);
-        expect(narrow).toMatch(/\.editor-bottom-actions\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*nowrap;[^}]*\}/);
+        expect(narrow).toMatch(/\.editor-bottom-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto minmax\(0,\s*1fr\);[^}]*\}/);
         expect(narrow).toMatch(/\.editor-bottom-actions\s*\{[^}]*justify-self:\s*stretch;[^}]*\}/);
-        expect(narrow).toMatch(/\.undo-redo-buttons\s*\{\s*flex-direction:\s*row;/);
+        expect(narrow).toMatch(/\.undo-redo-buttons\s*\{[^}]*grid-column:\s*2;[^}]*justify-self:\s*center;[^}]*flex-direction:\s*row;/);
+    });
+
+    test('narrow screens keep the action buttons together and push the space count to the right', () =>
+    {
+        const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
+        expect(narrow).toMatch(/\.editor-format-actions\s*\{[^}]*display:\s*flex;[^}]*gap:\s*4px;[^}]*\}/);
+        expect(narrow).toMatch(/\.editor-bottom-actions \.space-info\s*\{[^}]*grid-column:\s*3;[^}]*justify-self:\s*end;[^}]*\}/);
+        expect(narrow).toMatch(/\.editor-bottom-actions \.space-info\s*\{[^}]*padding:\s*4px 0;[^}]*\}/);
+    });
+
+    test('narrow screens align editors near the top of the page', () =>
+    {
+        const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
+        expect(narrow).toMatch(/\.editor-page\s*\{[^}]*align-content:\s*flex-start;[^}]*\}/);
     });
 
     test('wide screens keep a fixed minimum width for the text fields', () =>
@@ -176,6 +210,23 @@ describe('Editor is rendered and can be typed in', () =>
         const {getByTestId} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
         const textarea = getByTestId('main-textarea');
         expect(textarea).toHaveValue(initialText);
+    });
+
+    test('keeps all three text insertion tags in one group separate from the colours', () =>
+    {
+        const {container} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
+        const group = container.querySelector('.quick-button-tags');
+        expect(Array.from(group.querySelectorAll('button'), button => button.textContent)).toEqual(['[PLAYER]', '[RIVAL]', '[PAUSE]']);
+        expect(group.querySelector('.quick-button-symbol')).toBeNull();
+        expect(container.querySelectorAll('.quick-buttons > .quick-button-symbol')).toHaveLength(4);
+    });
+
+    test.each([false, true])('places lock immediately before prettify in the narrow-screen action row (translation: %s)', (isTranslation) =>
+    {
+        const {container} = render(<Editor text={initialText} isTranslation={isTranslation} showTranslationBox={dummyFunc} test={true} />);
+        const actions = container.querySelector('.editor-bottom-actions .editor-format-actions');
+        expect(actions.firstElementChild).toHaveClass('lock-buttons');
+        expect(actions.firstElementChild.nextElementSibling).toHaveClass('prettify-button');
     });
 
     test('a window resize remeasures the text width without changing the text or undo history', () =>

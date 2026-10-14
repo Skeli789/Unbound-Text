@@ -89,8 +89,8 @@ export function Header({darkMode, toggleParentDarkMode})
                                      anchorOrigin={{vertical: "bottom", horizontal: "right"}}
                                      transformOrigin={{vertical: "top", horizontal: "right"}}>
                                 <Stack className="settings-popover" role="group" aria-label="Settings">
-                                    <AutoSaveButton label="AutoSave" />
-                                    <DarkModeButton label="Dark mode" darkMode={darkMode}
+                                    <AutoSaveButton label="Auto Save" />
+                                    <DarkModeButton label={darkMode ? "Light Mode" : "Dark Mode"} darkMode={darkMode}
                                                     toggleParentDarkMode={toggleParentDarkMode} />
                                 </Stack>
                             </Popover>

@@ -205,9 +205,9 @@ describe("settings placement", () =>
         const header = container.querySelector(".header");
         const footer = container.querySelector(".footer");
 
-        expect(within(header).getByRole("button", {name: "Toggle AutoSave"})).toBeInTheDocument();
+        expect(within(header).getByRole("button", {name: "Toggle Auto Save"})).toBeInTheDocument();
         expect(within(header).getByRole("button", {name: "Toggle Dark Mode"})).toBeInTheDocument();
-        expect(within(footer).queryByRole("button", {name: "Toggle AutoSave"})).toBeNull();
+        expect(within(footer).queryByRole("button", {name: "Toggle Auto Save"})).toBeNull();
         expect(within(footer).queryByRole("button", {name: "Toggle Dark Mode"})).toBeNull();
         expect(screen.queryByRole("button", {name: "Open settings"})).toBeNull();
     });
@@ -217,12 +217,12 @@ describe("settings placement", () =>
         StubMediaQueries({[COMPACT_QUERY]: true});
         render(<App />);
 
-        expect(screen.queryByRole("button", {name: "Toggle AutoSave"})).toBeNull();
+        expect(screen.queryByRole("button", {name: "Toggle Auto Save"})).toBeNull();
         expect(screen.queryByRole("button", {name: "Toggle Dark Mode"})).toBeNull();
 
         fireEvent.click(screen.getByRole("button", {name: "Open settings"}));
         const group = screen.getByRole("group", {name: "Settings"});
-        expect(within(group).getByRole("button", {name: "Toggle AutoSave"})).toBeInTheDocument();
+        expect(within(group).getByRole("button", {name: "Toggle Auto Save"})).toBeInTheDocument();
 
         fireEvent.click(within(group).getByRole("button", {name: "Toggle Dark Mode"}));
         expect(localStorage.getItem("darkMode")).toBe("true");
@@ -265,8 +265,8 @@ describe("settings placement", () =>
 
         act(() => setMedia(COMPACT_QUERY, false));
 
-        expect(container.querySelector(".header")).toContainElement(screen.getByRole("button", {name: "Toggle AutoSave"}));
-        expect(screen.getAllByRole("button", {name: "Toggle AutoSave"})).toHaveLength(1);
+        expect(container.querySelector(".header")).toContainElement(screen.getByRole("button", {name: "Toggle Auto Save"}));
+        expect(screen.getAllByRole("button", {name: "Toggle Auto Save"})).toHaveLength(1);
         expect(screen.queryByRole("button", {name: "Open settings"})).toBeNull();
     });
 
@@ -275,10 +275,10 @@ describe("settings placement", () =>
         StubMediaQueries({[COMPACT_QUERY]: true});
         render(<App />);
         fireEvent.click(screen.getByRole("button", {name: "Open settings"}));
-        const row = within(screen.getByRole("group", {name: "Settings"})).getByRole("button", {name: "Toggle AutoSave"});
+        const row = within(screen.getByRole("group", {name: "Settings"})).getByRole("button", {name: "Toggle Auto Save"});
         expect(row).toHaveAttribute("aria-pressed", "true");
 
-        fireEvent.click(within(row).getByText("AutoSave"));
+        fireEvent.click(within(row).getByText("Auto Save"));
         expect(row).toHaveAttribute("aria-pressed", "false");
         fireEvent.click(row);
         expect(row).toHaveAttribute("aria-pressed", "true");
@@ -295,7 +295,7 @@ describe("settings placement", () =>
         await user.click(screen.getByRole("button", {name: "Open settings"}));
         const row = within(screen.getByRole("group", {name: "Settings"})).getByRole("button", {name: "Toggle Dark Mode"});
 
-        await user.click(within(row).getByText("Dark mode"));
+        await user.click(within(row).getByText("Dark Mode"));
         expect(localStorage.getItem("darkMode")).toBe("true");
         expect(row).toHaveAttribute("aria-pressed", "true");
 
@@ -314,14 +314,14 @@ describe("settings placement", () =>
         render(<App />);
         fireEvent.click(screen.getByRole("button", {name: "Open settings"}));
         const group = screen.getByRole("group", {name: "Settings"});
-        fireEvent.click(within(group).getByRole("button", {name: "Toggle AutoSave"}));
+        fireEvent.click(within(group).getByRole("button", {name: "Toggle Auto Save"}));
         fireEvent.click(within(group).getByRole("button", {name: "Toggle Dark Mode"}));
 
         act(() => setMedia(COMPACT_QUERY, false));
 
         expect(localStorage.getItem("autosaveEnabled")).toBe("false");
         expect(localStorage.getItem("darkMode")).toBe("true");
-        expect(screen.getAllByRole("button", {name: "Toggle AutoSave"})).toHaveLength(1);
+        expect(screen.getAllByRole("button", {name: "Toggle Auto Save"})).toHaveLength(1);
         expect(screen.getAllByRole("button", {name: "Toggle Dark Mode"})).toHaveLength(1);
     });
 });

@@ -481,7 +481,7 @@ export class TranslationButton extends Component
                         <Button variant="contained" color="primary" id="translate-button" data-testid="translate-button"
                                 aria-busy={isLoading} aria-describedby={statusId} disabled={isLoading}
                                 startIcon={isLoading ? <CircularProgress size={16} color="inherit" aria-label="Translation in progress" sx={{color: "text.primary"}} /> : null}
-                                sx={{minWidth: 160}}
+                                className="translate-button"
                                 onClick={this.translateText.bind(this)}>
                             {isLoading ? "Translating..." : "Translate"}
                         </Button>

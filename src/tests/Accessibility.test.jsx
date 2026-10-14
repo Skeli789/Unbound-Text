@@ -271,7 +271,7 @@ describe('Toggle buttons expose their state', () =>
     {
         render(<AutoSaveButton />);
 
-        const button = screen.getByRole('button', {name: 'Toggle AutoSave'});
+        const button = screen.getByRole('button', {name: 'Toggle Auto Save'});
         expect(button).toHaveAttribute('aria-pressed', 'true');
         fireEvent.click(button);
         expect(button).toHaveAttribute('aria-pressed', 'false');
@@ -288,7 +288,7 @@ describe('Toggle buttons expose their state', () =>
             </>
         );
 
-        const autoSave = screen.getByRole('button', {name: 'Toggle AutoSave'});
+        const autoSave = screen.getByRole('button', {name: 'Toggle Auto Save'});
         expect(autoSave).toHaveTextContent('AutoSave');
         expect(autoSave).toHaveAttribute('aria-pressed', 'true');
         expect(autoSave.querySelector('button')).toBeNull();
@@ -312,7 +312,7 @@ describe('Toggle buttons expose their state', () =>
             </>
         );
 
-        for (const name of ['Toggle AutoSave', 'Toggle Dark Mode'])
+        for (const name of ['Toggle Auto Save', 'Toggle Dark Mode'])
         {
             const row = screen.getByRole('button', {name});
             fireEvent.mouseOver(row);
@@ -325,17 +325,17 @@ describe('Toggle buttons expose their state', () =>
     {
         render(<AutoSaveButton />);
 
-        const button = screen.getByRole('button', {name: 'Toggle AutoSave'});
-        expect(button).toHaveAttribute('title', 'AutoSave is On');
+        const button = screen.getByRole('button', {name: 'Toggle Auto Save'});
+        expect(button).toHaveAttribute('title', 'Auto Save is On');
         fireEvent.mouseOver(button);
-        expect(await screen.findByRole('tooltip')).toHaveTextContent('AutoSave is On');
+        expect(await screen.findByRole('tooltip')).toHaveTextContent('Auto Save is On');
     });
 
     test.each([false, true])('autosave icon is green only while it is turned on and the button has no blue background (dark mode: %s)', (darkMode) =>
     {
         render(<AppThemeProvider darkMode={darkMode}><AutoSaveButton /></AppThemeProvider>);
 
-        const button = screen.getByRole('button', {name: 'Toggle AutoSave'});
+        const button = screen.getByRole('button', {name: 'Toggle Auto Save'});
         const icon = button.querySelector('svg');
         const onColour = '#66bb6a'; // AutoSaveButton uses the same on colour in both themes
         expect(['', 'transparent', 'rgba(0, 0, 0, 0)']).toContain(getComputedStyle(button).backgroundColor);
