@@ -61,8 +61,19 @@ describe("App shell height", () =>
         const appCss = readFileSync(join(process.cwd(), "src", "styles", "App.css"), "utf8");
         expect(indexCss).toMatch(/\bhtml\s*\{[^}]*height:\s*100%/);
         expect(indexCss).toMatch(/\bbody\s*\{[^}]*height:\s*100%/);
-        expect(appCss).toMatch(/\.app\s*\{[^}]*height:\s*100dvh/);
-        expect(appCss).toMatch(/#root\s*\{\s*height:\s*100%/);
+        expect(appCss).toMatch(/\.app,\s*#root\s*\{\s*height:\s*100%/);
+    });
+
+    test("the app scrolls and the editor does not shrink, allowing the footer below the viewport", () =>
+    {
+        const appCss = readFileSync(join(process.cwd(), "src", "styles", "App.css"), "utf8");
+        const editorCss = readFileSync(join(process.cwd(), "src", "styles", "Editor.css"), "utf8");
+        const editorPage = editorCss.match(/\.editor-page\s*\{([^}]*)\}/)[1];
+
+        expect(appCss).toMatch(/\.app\s*\{[^}]*overflow-y:\s*auto/);
+        expect(editorPage).toMatch(/flex-grow:\s*1/);
+        expect(editorPage).toMatch(/flex-shrink:\s*0/);
+        expect(editorPage).not.toMatch(/overflow(?:-y)?:\s*(auto|scroll|hidden)/);
     });
 });
 
