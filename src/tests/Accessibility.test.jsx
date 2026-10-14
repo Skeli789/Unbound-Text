@@ -1,6 +1,7 @@
 import React from 'react';
-import {render, screen, fireEvent, waitFor, within} from '@testing-library/react';
+import {act, render, screen, fireEvent, waitFor, within} from '@testing-library/react';
 import {vi} from 'vitest';
+import userEvent from '@testing-library/user-event';
 
 import Editor from '../Editor';
 import AutoSaveButton from '../subcomponents/AutoSaveButton';
@@ -61,11 +62,70 @@ describe('QuickButtons', () =>
 //Checks undo and redo availability and their highlight state
 describe('UndoRedoButtons', () =>
 {
-    test('disables undo and redo when there is nothing to restore', () =>
+    afterEach(() =>
     {
-        render(<UndoRedoButtons undoStack={[]} redoStack={[]} undo={vi.fn()} redo={vi.fn()} />);
-        expect(screen.getByRole('button', {name: 'Undo'})).toBeDisabled();
-        expect(screen.getByRole('button', {name: 'Redo'})).toBeDisabled();
+        vi.unstubAllGlobals();
+    });
+
+    test.each([['Undo', false], ['Redo', true]])('%s tooltip follows the narrow layout breakpoint (initially narrow: %s)', async (action, isCompact) =>
+    {
+        const mediaQuery = new EventTarget();
+        mediaQuery.matches = isCompact;
+        const removeListener = vi.spyOn(mediaQuery, 'removeEventListener');
+        vi.stubGlobal('matchMedia', vi.fn(() => mediaQuery));
+        const {unmount} = render(<UndoRedoButtons undoStack={['previous']} redoStack={['next']} undo={vi.fn()} redo={vi.fn()} />);
+        expect(window.matchMedia).toHaveBeenCalledWith('(max-width: 640px)');
+
+        const anchor = screen.getByRole('button', {name: action}).parentElement;
+        await userEvent.hover(anchor);
+        await screen.findByRole('tooltip');
+        expect(within(screen.getByRole('tooltip')).getByText(action)).toHaveClass(
+            isCompact ? 'MuiTooltip-tooltipPlacementTop' : 'MuiTooltip-tooltipPlacementRight');
+
+        act(() =>
+        {
+            mediaQuery.matches = !isCompact;
+            const event = new Event('change');
+            event.matches = !isCompact;
+            mediaQuery.dispatchEvent(event);
+        });
+        await waitFor(() => expect(within(screen.getByRole('tooltip')).getByText(action)).toHaveClass(
+            isCompact ? 'MuiTooltip-tooltipPlacementRight' : 'MuiTooltip-tooltipPlacementTop'));
+        unmount();
+        expect(removeListener).toHaveBeenCalledWith('change', expect.any(Function));
+    });
+
+    test('tracks the visible viewport above the keyboard and removes its listeners', () =>
+    {
+        const viewport = new EventTarget();
+        viewport.height = window.innerHeight - 250;
+        viewport.offsetTop = 30;
+        const removeListener = vi.spyOn(viewport, 'removeEventListener');
+        vi.stubGlobal('visualViewport', viewport);
+
+        const {container, unmount} = render(<UndoRedoButtons undoStack={[]} redoStack={[]} undo={vi.fn()} redo={vi.fn()} />);
+        const controls = container.querySelector('.undo-redo-buttons');
+        expect(controls.style.getPropertyValue('--undo-redo-bottom-offset')).toBe('220px');
+
+        viewport.offsetTop = 80;
+        viewport.dispatchEvent(new Event('scroll'));
+        expect(controls.style.getPropertyValue('--undo-redo-bottom-offset')).toBe('170px');
+
+        viewport.height = window.innerHeight;
+        viewport.dispatchEvent(new Event('resize'));
+        expect(controls.style.getPropertyValue('--undo-redo-bottom-offset')).toBe('0px');
+
+        unmount();
+        expect(removeListener).toHaveBeenCalledWith('resize', expect.any(Function));
+        expect(removeListener).toHaveBeenCalledWith('scroll', expect.any(Function));
+    });
+
+    test('hides undo, redo and their container when there is nothing to restore', () =>
+    {
+        const {container} = render(<UndoRedoButtons undoStack={[]} redoStack={[]} undo={vi.fn()} redo={vi.fn()} />);
+        expect(screen.queryByRole('button', {name: 'Undo'})).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', {name: 'Redo'})).not.toBeInTheDocument();
+        expect(container.querySelector('.undo-redo-buttons')).toHaveAttribute('hidden');
     });
 
     test('enables undo once there is history and calls it on click', () =>
@@ -79,11 +139,78 @@ describe('UndoRedoButtons', () =>
         expect(undo).toHaveBeenCalledTimes(1);
     });
 
-    test('enabled undo and redo show the blue highlight and disabled ones do not', () =>
+    test('shows both buttons when either action is available and disables unavailable actions', () =>
     {
-        render(<UndoRedoButtons undoStack={['previous']} redoStack={[]} undo={vi.fn()} redo={vi.fn()} />);
+        const callbacks = {undo: vi.fn(), redo: vi.fn()};
+        const {rerender, container} = render(<UndoRedoButtons undoStack={['previous']} redoStack={[]} {...callbacks} />);
+        expect(screen.getByRole('button', {name: 'Undo'})).toBeEnabled();
         expect(screen.getByRole('button', {name: 'Undo'})).toHaveStyle({backgroundColor: '#1976d2'});
+        expect(screen.getByRole('button', {name: 'Redo'})).toBeDisabled();
         expect(screen.getByRole('button', {name: 'Redo'})).not.toHaveStyle({backgroundColor: '#1976d2'});
+        fireEvent.click(screen.getByRole('button', {name: 'Redo'}));
+        expect(callbacks.redo).not.toHaveBeenCalled();
+        expect(container.querySelector('.undo-redo-buttons')).not.toHaveAttribute('hidden');
+
+        rerender(<UndoRedoButtons undoStack={[]} redoStack={['next']} {...callbacks} />);
+        expect(screen.getByRole('button', {name: 'Undo'})).toBeDisabled();
+        fireEvent.click(screen.getByRole('button', {name: 'Undo'}));
+        expect(callbacks.undo).not.toHaveBeenCalled();
+        expect(screen.getByRole('button', {name: 'Redo'})).toBeEnabled();
+        fireEvent.click(screen.getByRole('button', {name: 'Redo'}));
+        expect(callbacks.redo).toHaveBeenCalledTimes(1);
+
+        rerender(<UndoRedoButtons undoStack={[]} redoStack={[]} {...callbacks} />);
+        expect(container.querySelector('.undo-redo-buttons')).toHaveAttribute('hidden');
+        expect(screen.queryByRole('button', {name: 'Undo'})).not.toBeInTheDocument();
+        expect(screen.queryByRole('button', {name: 'Redo'})).not.toBeInTheDocument();
+    });
+
+    test.each(['Undo', 'Redo'])('highlights available %s and leaves the other button neutral', (action) =>
+    {
+        render(<UndoRedoButtons undoStack={action === 'Undo' ? ['previous'] : []}
+                                redoStack={action === 'Redo' ? ['next'] : []}
+                                undo={vi.fn()} redo={vi.fn()} />);
+        expect(screen.getByRole('button', {name: action})).toHaveStyle({backgroundColor: '#1976d2'});
+        const unavailable = action === 'Undo' ? 'Redo' : 'Undo';
+        expect(screen.getByRole('button', {name: unavailable})).toBeDisabled();
+        expect(screen.getByRole('button', {name: unavailable})).not.toHaveStyle({backgroundColor: '#1976d2'});
+    });
+
+    test.each(['Undo', 'Redo'])('pressing %s retains textarea focus', async (action) =>
+    {
+        const callback = vi.fn();
+        render(<>
+            <textarea aria-label="Focused editor" />
+            <UndoRedoButtons undoStack={['previous']} redoStack={['next']} undo={callback} redo={callback} />
+        </>);
+        const textarea = screen.getByRole('textbox');
+        textarea.focus();
+        await userEvent.click(screen.getByRole('button', {name: action}));
+        expect(textarea).toHaveFocus();
+        expect(callback).toHaveBeenCalledTimes(1);
+    });
+
+    test('clears the visible footer and updates on scrolling and footer resizing', () =>
+    {
+        const {container, unmount} = render(<>
+            <footer className="footer" />
+            <UndoRedoButtons undoStack={['previous']} redoStack={[]} undo={vi.fn()} redo={vi.fn()} />
+        </>);
+        const controls = container.querySelector('.undo-redo-buttons');
+        const footer = container.querySelector('.footer');
+        const footerRect = vi.spyOn(footer, 'getBoundingClientRect');
+        footerRect.mockReturnValue({top: window.innerHeight - 48, bottom: window.innerHeight});
+        fireEvent.scroll(document);
+        expect(controls.style.getPropertyValue('--undo-redo-bottom-offset')).toBe('48px');
+
+        footerRect.mockReturnValue({top: window.innerHeight - 72, bottom: window.innerHeight});
+        fireEvent(window, new Event('resize'));
+        expect(controls.style.getPropertyValue('--undo-redo-bottom-offset')).toBe('72px');
+
+        footerRect.mockReturnValue({top: window.innerHeight + 10, bottom: window.innerHeight + 58});
+        fireEvent.scroll(container);
+        expect(controls.style.getPropertyValue('--undo-redo-bottom-offset')).toBe('0px');
+        unmount();
     });
 });
 

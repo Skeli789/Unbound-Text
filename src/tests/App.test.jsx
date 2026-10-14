@@ -75,6 +75,18 @@ describe("App shell height", () =>
         expect(editorPage).toMatch(/flex-shrink:\s*0/);
         expect(editorPage).not.toMatch(/overflow(?:-y)?:\s*(auto|scroll|hidden)/);
     });
+
+    test("only a single editor floats undo and redo at the bottom right on narrow screens", () =>
+    {
+        const editorCss = readFileSync(join(process.cwd(), "src", "styles", "Editor.css"), "utf8");
+        const narrowCss = editorCss.slice(editorCss.indexOf("@media (max-width: 640px)"));
+        const floatingButtons = narrowCss.match(/\.editor-page\s*>\s*\.editor-grid:only-child\s+\.undo-redo-buttons\s*\{([^}]*)\}/)[1];
+
+        expect(floatingButtons).toMatch(/position:\s*fixed/);
+        expect(floatingButtons).toMatch(/right:\s*max\([^;]*safe-area-inset-right/);
+        expect(floatingButtons).toMatch(/bottom:\s*calc\(var\(--undo-redo-bottom-offset,\s*0px\)\s*\+\s*max\([^;]*safe-area-inset-bottom/);
+        expect(editorCss.match(/\.undo-redo-buttons\s*\{([^}]*)\}/)[1]).not.toMatch(/position:\s*fixed/);
+    });
 });
 
 //Checks dark mode choice between the saved value and the system colour scheme

@@ -309,7 +309,11 @@ button, svg
     grid-area: undoButtons;
 }
 
-/* Disabled undo and redo icons use the muted text colour so they stay readable */
+.undo-redo-buttons[hidden]
+{
+    display: none;
+}
+
 .undo-redo-buttons .MuiIconButton-root.Mui-disabled
 {
     color: var(--muted);
@@ -403,6 +407,26 @@ button, svg
         width: 28px;
         height: 28px;
         padding: 4px;
+    }
+
+    .editor-page > .editor-grid:only-child .undo-redo-buttons
+    {
+        position: fixed;
+        right: max(0.75rem, env(safe-area-inset-right));
+        bottom: calc(var(--undo-redo-bottom-offset, 0px) + max(0.75rem, env(safe-area-inset-bottom)));
+        z-index: 101;
+        gap: 0.25rem;
+        padding: 0.25rem;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--surface);
+        box-shadow: 0 2px 8px rgb(0 0 0 / 20%);
+    }
+
+    .editor-page > .editor-grid:only-child .undo-redo-buttons .MuiIconButton-root
+    {
+        width: 40px;
+        height: 40px;
     }
 
     .editor-bottom-actions .space-info
