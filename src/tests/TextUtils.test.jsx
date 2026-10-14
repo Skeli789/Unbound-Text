@@ -883,41 +883,61 @@ describe('Test ParseColouredTextToHtml', () =>
     {
         const text = "Hello World";
         const result = ParseColouredTextToHtml(text, false);
-        expect(result).toBe('<span style="color: inherit">H</span><span style="color: inherit">e</span><span style="color: inherit">l</span><span style="color: inherit">l</span><span style="color: inherit">o</span><span style="color: inherit"> </span><span style="color: inherit">W</span><span style="color: inherit">o</span><span style="color: inherit">r</span><span style="color: inherit">l</span><span style="color: inherit">d</span>');
+        expect(result).toBe('<span style="color: inherit">Hello World</span>');
     });
 
     test('handles text with colour symbols in light mode', () =>
     {
         const text = "🟢Hello🔵World";
         const result = ParseColouredTextToHtml(text, false);
-        expect(result).toBe('<span style="color: green">🟢</span><span style="color: green">H</span><span style="color: green">e</span><span style="color: green">l</span><span style="color: green">l</span><span style="color: green">o</span><span style="color: blue">🔵</span><span style="color: blue">W</span><span style="color: blue">o</span><span style="color: blue">r</span><span style="color: blue">l</span><span style="color: blue">d</span>');
+        expect(result).toBe('<span style="color: green">🟢Hello</span><span style="color: blue">🔵World</span>');
     });
 
     test('handles text with colour symbols in dark mode', () =>
     {
         const text = "H🟢ello🔵World";
         const result = ParseColouredTextToHtml(text, true);
-        expect(result).toBe('<span style="color: inherit">H</span><span style="color: forestgreen">🟢</span><span style="color: forestgreen">e</span><span style="color: forestgreen">l</span><span style="color: forestgreen">l</span><span style="color: forestgreen">o</span><span style="color: mediumblue">🔵</span><span style="color: mediumblue">W</span><span style="color: mediumblue">o</span><span style="color: mediumblue">r</span><span style="color: mediumblue">l</span><span style="color: mediumblue">d</span>');
+        expect(result).toBe('<span style="color: inherit">H</span><span style="color: forestgreen">🟢ello</span><span style="color: mediumblue">🔵World</span>');
     });
 
     test('handles text with newlines', () =>
     {
         const text = "Hello\nWorld";
         const result = ParseColouredTextToHtml(text, false);
-        expect(result).toBe('<span style="color: inherit">H</span><span style="color: inherit">e</span><span style="color: inherit">l</span><span style="color: inherit">l</span><span style="color: inherit">o</span><br/><span style="color: inherit">W</span><span style="color: inherit">o</span><span style="color: inherit">r</span><span style="color: inherit">l</span><span style="color: inherit">d</span>');
+        expect(result).toBe('<span style="color: inherit">Hello</span><br/><span style="color: inherit">World</span>');
     });
 
     test('handles text ending with a newline', () =>
     {
         const text = "Hello\n";
         const result = ParseColouredTextToHtml(text, false);
-        expect(result).toBe('<span style="color: inherit">H</span><span style="color: inherit">e</span><span style="color: inherit">l</span><span style="color: inherit">l</span><span style="color: inherit">o</span><br/><span style="color: inherit">&nbsp;</span>');
+        expect(result).toBe('<span style="color: inherit">Hello</span><br/><span style="color: inherit">&nbsp;</span>');
     });
 
     test('escapes HTML special characters', () =>
     {
         const text = "<Hello & World>";
         const result = ParseColouredTextToHtml(text, false);
-        expect(result).toBe('<span style="color: inherit">&lt;</span><span style="color: inherit">H</span><span style="color: inherit">e</span><span style="color: inherit">l</span><span style="color: inherit">l</span><span style="color: inherit">o</span><span style="color: inherit"> </span><span style="color: inherit">&amp;</span><span style="color: inherit"> </span><span style="color: inherit">W</span><span style="color: inherit">o</span><span style="color: inherit">r</span><span style="color: inherit">l</span><span style="color: inherit">d</span><span style="color: inherit">&gt;</span>');
+        expect(result).toBe('<span style="color: inherit">&lt;Hello &amp; World&gt;</span>');
+    });
+
+    test.each([false, true])('preserves Unicode, escaping, colours across blank lines and trailing placeholders (dark: %s)', (darkMode) =>
+    {
+        const result = ParseColouredTextToHtml('🟢😀<&\n\né🟢\n', darkMode);
+        const colour = darkMode ? 'forestgreen' : 'green';
+        expect(result).toBe(`<span style="color: ${colour}">🟢😀&lt;&amp;</span><br/><br/><span style="color: ${colour}">é🟢</span><br/><span style="color: inherit">&nbsp;</span>`);
+        expect(ParseColouredTextToHtml('', darkMode)).toBe('');
+        expect(ParseColouredTextToHtml('\n', darkMode)).toBe('<br/><span style="color: inherit">&nbsp;</span>');
+    });
+
+    test('span count scales with colour runs rather than character count', () =>
+    {
+        const text = 'Plain '.repeat(1000) + '🟢Green🟢'.repeat(1000) + '🔴Red⚫Black🟠Orange';
+        const html = ParseColouredTextToHtml(text, false);
+        expect(html.match(/<span /g)).toHaveLength(5);
+        const mirror = document.createElement('div');
+        mirror.innerHTML = html;
+        expect(mirror.textContent).toBe(text);
+        expect(Array.from(mirror.children, (span) => span.getAttribute('style'))).toEqual(['color: inherit', 'color: green', 'color: red', 'color: black', 'color: orange']);
     });
 });

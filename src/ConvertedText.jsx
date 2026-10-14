@@ -39,6 +39,20 @@ export class ConvertedText extends Component
     {
         super(props);
         this.state = {};
+        this.conversionCache = null; //Share only the latest conversion between rendering and copying
+    }
+
+    /**
+     * Gets compiler output for the current text, reusing only the latest conversion.
+     * @returns {string} The converted text for the latest props.
+     */
+    getConvertedText()
+    {
+        const {text} = this.props;
+        if (!this.conversionCache || this.conversionCache.text !== text)
+            this.conversionCache = {text, convertedText: CreateIngameText(text)};
+
+        return this.conversionCache.convertedText;
     }
 
     /**
@@ -48,7 +62,7 @@ export class ConvertedText extends Component
     {
         let toastTheme = this.props.darkMode ? "dark" : "colored";
         const toastOptions = {...BASE_TOAST_OPTIONS, theme: toastTheme};
-        const ingameText = CreateIngameText(this.props.text);
+        const ingameText = this.getConvertedText();
 
         if (ingameText === "") //Don't copy empty text
         {
@@ -88,7 +102,7 @@ export class ConvertedText extends Component
                 id="converted-text"
                 rows={1}
                 style={this.props.textAreaStyle}
-                value={CreateIngameText(this.props.text)}
+                value={this.getConvertedText()}
                 onClick={this.copyConvertedText.bind(this)}
             />
         );

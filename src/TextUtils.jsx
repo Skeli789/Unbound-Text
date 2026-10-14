@@ -732,7 +732,7 @@ function EscapeHtml(str)
 }
 
 /**
- * Actually colours text with colour symbols in it.
+ * Colours contiguous runs of text while keeping colour symbols visible.
  * @param {string} text - The text to colour.
  * @param {boolean} darkModeEnabled - Whether dark mode is enabled or not.
  * @returns {string} - The HTML string with the colours applied.
@@ -745,20 +745,30 @@ export function ParseColouredTextToHtml(text, darkModeEnabled)
 
     //Convert the text to HTML
     let currColour = "inherit"; //By default, use whatever colour came before
-    let html = chars.map((char) =>
+    let html = "";
+    let run = "";
+    for (let char of chars)
     {
         //Handle colour symbols
-        if (colourMap[char])
-            currColour = colourMap[char]; //Set the current colour to the new one until another one is found
+        const nextColour = colourMap[char] || currColour; //Set the current colour to the new one until another one is found
+        if (char === "\n" || nextColour !== currColour)
+        {
+            if (run !== "")
+                html += `<span style="color: ${currColour}">${EscapeHtml(run)}</span>`;
+            run = "";
+        }
 
         //Handle new lines
+        currColour = nextColour;
         if (char === "\n")
-            return '<br/>'; // Handle line breaks separately
+            html += '<br/>'; // Handle line breaks separately
+        else
+            run += char;
+    }
 
-        //Handle other characters
-        const escaped = EscapeHtml(char);
-        return `<span style="color: ${currColour}">${escaped}</span>`;
-    }).join("");
+    //Handle other characters
+    if (run !== "")
+        html += `<span style="color: ${currColour}">${EscapeHtml(run)}</span>`;
 
     //If the html ends with a <br/> we need to modify it so it actually adds a new line
     if (html.endsWith("<br/>"))

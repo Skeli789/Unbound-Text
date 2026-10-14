@@ -63,33 +63,35 @@ export class Editor extends Component
         {
             this.props.showTranslationBox(FormatStringForDisplay(FormatStringForDisplay(translatedText, this.state.lockFinalLine), this.state.lockFinalLine));
         }
-        this.updateMirrorRefPosition = this.updateMirrorRefPosition.bind(this);
-        this.updateMirrorRefPositionInterval = null; //Interval to update the mirror ref's position
+        this.scheduleMirrorSync = this.scheduleMirrorSync.bind(this);
+        this.editorPage = null;
+        this.mirrorResizeObserver = null;
         this.mirrorSyncFrame = null; //Pending frame to synchronize the mirror after layout
         this.mounted = false; //Prevent mirror updates after the editor is removed
+        this.mirrorHtmlCache = null; //Keep only the latest derived content for this editor
+        this.measurementCache = null; //Latest measurement nodes; CSS still controls their font metrics
     }
 
     /**
      * Runs after the component is created.
      */
-    async componentDidMount()
+    componentDidMount()
     {
         this.mounted = true;
+        this.editorPage = this.mirrorRef.current?.closest('#editor-page');
         this.synchronizeMirror();
 
-        //Update the mirror ref's position to match the textarea's position
-        this.updateMirrorRefPositionInterval = setInterval(() => this.updateMirrorRefPosition(), 1); //Wait for the textarea to be created
+        //Track scrolling and layout changes without polling
+        window.addEventListener("resize", this.scheduleMirrorSync);
+        this.editorPage?.addEventListener("scroll", this.scheduleMirrorSync);
 
-        //Add event listeners to update the mirror ref's position on scroll and resize
-        window.addEventListener("resize", this.updateMirrorRefPosition);
-        
-        if (!this.props.test || document.getElementById("editor-page") != null) //The editor page doesn't exist in the test environment
+        if (typeof window.ResizeObserver === "function")
         {
-            while (this.mounted && document.getElementById("editor-page") == null)
-                await new Promise(resolve => setTimeout(resolve, 100)); //Wait for the editor page to be created
-
-            if (this.mounted)
-                document.getElementById("editor-page").addEventListener("scroll", this.updateMirrorRefPosition); //Update the mirror ref's position on scroll
+            this.mirrorResizeObserver = new window.ResizeObserver(this.scheduleMirrorSync);
+            this.mirrorResizeObserver.observe(this.textAreaRef.current.ref.current);
+            this.mirrorResizeObserver.observe(this.mirrorRef.current.closest('.editor-grid'));
+            if (this.editorPage)
+                this.mirrorResizeObserver.observe(this.editorPage);
         }
     }
 
@@ -112,9 +114,16 @@ export class Editor extends Component
         //Synchronize with the current layout
         this.updateMirrorRefPosition();
 
-        //Replace any pending synchronization with one for the latest layout
-        if (this.mirrorSyncFrame != null)
-            window.cancelAnimationFrame(this.mirrorSyncFrame);
+        this.scheduleMirrorSync();
+    }
+
+    /**
+     * Coalesces layout events into one frame using the latest textarea geometry and scroll offsets.
+     */
+    scheduleMirrorSync()
+    {
+        if (!this.mounted || this.mirrorSyncFrame != null)
+            return;
 
         this.mirrorSyncFrame = window.requestAnimationFrame(() =>
         {
@@ -133,40 +142,43 @@ export class Editor extends Component
         //Cancel the pending mirror synchronization
         if (this.mirrorSyncFrame != null)
             window.cancelAnimationFrame(this.mirrorSyncFrame);
+        this.mirrorSyncFrame = null;
 
-        //Clear the interval to update the mirror ref's position
-        clearInterval(this.updateMirrorRefPositionInterval);
-
-        //Remove the event listener from the textarea to update the mirror ref's position on scroll and resize
-        window.removeEventListener("resize", this.updateMirrorRefPosition);
-        const editorPage = document.getElementById("editor-page");
-        if (editorPage)
-            editorPage.removeEventListener("scroll", this.updateMirrorRefPosition);
+        //Release the original listener target and layout observations
+        window.removeEventListener("resize", this.scheduleMirrorSync);
+        this.editorPage?.removeEventListener("scroll", this.scheduleMirrorSync);
+        this.mirrorResizeObserver?.disconnect();
+        this.editorPage = null;
     }
 
     /**
-    * Updates the mirror's size, position, and scroll offsets to match the textarea.
+     * Reads textarea geometry before updating changed mirror dimensions, position, and scroll offsets.
      */
     updateMirrorRefPosition()
     {
         //Find the textarea and mirror before updating their layout
-        const editorPage = document.getElementById("editor-page");
+        const editorPage = this.editorPage;
         const textarea = this.textAreaRef.current?.ref.current;
         const mirror = this.mirrorRef.current;
         if (!this.mounted || !textarea || !mirror)
             return;
 
         //Update the mirror ref's position to match the textarea's position
-        let scrollTop = (editorPage) ? editorPage.scrollTop : 0;
-        let scrollLeft = (editorPage) ? editorPage.scrollLeft : 0;
-        mirror.style.height = `${textarea.offsetHeight}px`;
-        mirror.style.width = `${textarea.offsetWidth}px`;
-        mirror.style.top = `${textarea.offsetTop - scrollTop}px`;
-        mirror.style.left = `${textarea.offsetLeft - scrollLeft}px`;
+        const height = `${textarea.offsetHeight}px`;
+        const width = `${textarea.offsetWidth}px`;
+        const top = `${textarea.offsetTop - (editorPage?.scrollTop || 0)}px`;
+        const left = `${textarea.offsetLeft - (editorPage?.scrollLeft || 0)}px`;
+        const scrollTop = textarea.scrollTop;
+        const scrollLeft = textarea.scrollLeft;
+
+        if (mirror.style.height !== height) mirror.style.height = height;
+        if (mirror.style.width !== width) mirror.style.width = width;
+        if (mirror.style.top !== top) mirror.style.top = top;
+        if (mirror.style.left !== left) mirror.style.left = left;
 
         //Synchronize scrolling after resizing, which can clamp the mirror's scroll offsets
-        mirror.scrollTop = textarea.scrollTop;
-        mirror.scrollLeft = textarea.scrollLeft;
+        if (mirror.scrollTop !== scrollTop) mirror.scrollTop = scrollTop;
+        if (mirror.scrollLeft !== scrollLeft) mirror.scrollLeft = scrollLeft;
     }
 
     /**
@@ -240,16 +252,20 @@ export class Editor extends Component
             && !this.props.test) //Don't auto save in the test environment
                 AutoSaveText(newText); //Auto save the text for future visits
 
-            this.setState
-            ({
-                textareaWidth: this.hiddenDivRef.current.offsetWidth,
-            }, () =>
-            {   
+            //Restore the caret and mirror after the final text/width commit
+            const synchronizeSelection = () =>
+            {
                 if (selectionStart >= 0)
                     SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, this.props.isTranslation);
 
                 this.synchronizeMirror();
-            });
+            };
+
+            const textareaWidth = this.hiddenDivRef.current.offsetWidth;
+            if (textareaWidth !== this.state.textareaWidth)
+                this.setState({textareaWidth}, synchronizeSelection);
+            else
+                synchronizeSelection();
         });
     }
 
@@ -381,11 +397,11 @@ export class Editor extends Component
     }
 
     /**
-    * Handles textarea scrolling by synchronizing the mirror with the new scroll offsets.
+     * Schedules mirror synchronization after textarea scrolling.
      */
     handleScroll()
     {
-        this.synchronizeMirror();
+        this.scheduleMirrorSync();
     }
 
     /**
@@ -610,11 +626,28 @@ export class Editor extends Component
     }
 
     /**
-     * Creates a div with the text to be displayed in the hidden div.
+     * Gets the latest highlighting result, rebuilding only when text or theme changes.
+     * @returns {{__html: string}} The HTML wrapper shared by unchanged renders.
+     */
+    getMirrorHtml()
+    {
+        const {text} = this.state;
+        const {darkMode} = this.props;
+        if (!this.mirrorHtmlCache || this.mirrorHtmlCache.text !== text || this.mirrorHtmlCache.darkMode !== darkMode)
+            this.mirrorHtmlCache = {text, darkMode, html: {__html: ParseColouredTextToHtml(text, darkMode)}};
+
+        return this.mirrorHtmlCache.html;
+    }
+
+    /**
+     * Gets measurement nodes for the latest text; inherited CSS font changes still apply.
      * @returns {Array} The array of div elements with the text to be displayed.
      */
     createDivText()
     {
+        if (this.measurementCache && this.measurementCache.text === this.state.text)
+            return this.measurementCache.elements;
+
         let result = [];
         let lines = this.state.text.split("\n");
         let key = 0;
@@ -622,6 +655,7 @@ export class Editor extends Component
         for (let line of lines)
             result.push(<span key={key++}><p>{line}</p><br/></span>);
 
+        this.measurementCache = {text: this.state.text, elements: result};
         return result;
     }
 
@@ -649,7 +683,7 @@ export class Editor extends Component
                         className="fr-text mirror-textarea"
                         ref={this.mirrorRef}
                         style={{...textAreaStyle, height: textareaHeight, color: GetDisplayColour(this.state.textColour, darkMode)}} //Force the height to be the same as the textarea
-                        dangerouslySetInnerHTML={{ __html: ParseColouredTextToHtml(text, darkMode)}}
+                        dangerouslySetInnerHTML={this.getMirrorHtml()}
                     />
 
                     {/*Actual textarea where the user types*/}

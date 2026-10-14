@@ -3,7 +3,9 @@ import {render, fireEvent, act} from '@testing-library/react';
 import {userEvent} from '@testing-library/user-event';
 import {vi} from 'vitest';
 
+import ConvertedText, {CreateIngameText} from '../ConvertedText';
 import Editor from '../Editor';
+import * as TextUtils from '../TextUtils';
 
 
 describe('Editor is rendered and can be typed in', () =>
@@ -262,6 +264,187 @@ describe('Typing in editor moves the cursor where expected', () =>
 
 describe('Editor mirror synchronization', () =>
 {
+    let pendingFrames;
+    let nextFrame;
+
+    beforeEach(() =>
+    {
+        pendingFrames = new Map();
+        nextFrame = 0;
+        vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) =>
+        {
+            pendingFrames.set(++nextFrame, callback);
+            return nextFrame;
+        });
+        vi.spyOn(window, 'cancelAnimationFrame').mockImplementation((frame) => pendingFrames.delete(frame));
+    });
+
+    afterEach(() =>
+    {
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+    });
+
+    /**
+     * Runs only the currently pending frames so recurring scheduling remains visible to tests.
+     */
+    function FlushMirrorFrames()
+    {
+        const callbacks = Array.from(pendingFrames.values());
+        pendingFrames.clear();
+        act(() => callbacks.forEach((callback) => callback()));
+    }
+
+    test.each([false, true])('does no recurring mirror work while idle (test: %s)', (testMode) =>
+    {
+        vi.useFakeTimers({toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval']});
+        try
+        {
+            const editorRef = React.createRef();
+            const {unmount} = render(<Editor ref={editorRef} text="Hello" isTranslation={false} showTranslationBox={() => {}} test={testMode} />);
+            const synchronize = vi.spyOn(editorRef.current, 'updateMirrorRefPosition');
+            FlushMirrorFrames();
+            synchronize.mockClear();
+            window.requestAnimationFrame.mockClear();
+
+            act(() => vi.advanceTimersByTime(1000));
+
+            expect(synchronize).not.toHaveBeenCalled();
+            expect(window.requestAnimationFrame).not.toHaveBeenCalled();
+            expect(pendingFrames.size).toBe(0);
+            expect(vi.getTimerCount()).toBe(0);
+            unmount();
+        }
+        finally
+        {
+            vi.useRealTimers();
+        }
+    });
+
+    test('coalesces textarea scroll, page scroll, and window resize using the latest geometry', () =>
+    {
+        const editorRef = React.createRef();
+        const {getByTestId, container} = render(
+            <div id="editor-page">
+                <Editor ref={editorRef} text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />
+            </div>
+        );
+        const textarea = getByTestId('main-textarea');
+        const mirror = container.querySelector('.mirror-textarea');
+        const editorPage = container.querySelector('#editor-page');
+        Object.defineProperties(textarea, {
+            offsetHeight: {value: 162},
+            offsetWidth: {value: 420},
+            offsetTop: {value: 100},
+            offsetLeft: {value: 80},
+        });
+        FlushMirrorFrames();
+        const synchronize = vi.spyOn(editorRef.current, 'updateMirrorRefPosition');
+        window.requestAnimationFrame.mockClear();
+
+        fireEvent.scroll(textarea);
+        editorPage.scrollTop = 24;
+        editorPage.scrollLeft = 12;
+        fireEvent.scroll(editorPage);
+        fireEvent.resize(window);
+        textarea.scrollTop = 192;
+        textarea.scrollLeft = 36;
+        fireEvent.scroll(textarea);
+
+        expect(window.requestAnimationFrame).toHaveBeenCalledTimes(1);
+        expect(synchronize).not.toHaveBeenCalled();
+        FlushMirrorFrames();
+        expect(synchronize).toHaveBeenCalledTimes(1);
+        expect(mirror.style.height).toBe('162px');
+        expect(mirror.style.width).toBe('420px');
+        expect(mirror.style.top).toBe('76px');
+        expect(mirror.style.left).toBe('68px');
+        expect(mirror.scrollTop).toBe(192);
+        expect(mirror.scrollLeft).toBe(36);
+        expect(pendingFrames.size).toBe(0);
+    });
+
+    test('does not rewrite unchanged mirror geometry or scroll offsets', () =>
+    {
+        const editorRef = React.createRef();
+        const {container} = render(<Editor ref={editorRef} text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />);
+        FlushMirrorFrames();
+        const mirror = container.querySelector('.mirror-textarea');
+        const styleWrites = ['height', 'width', 'top', 'left'].map((property) => vi.spyOn(mirror.style, property, 'set'));
+        const scrollWrite = vi.fn();
+        Object.defineProperties(mirror, {
+            scrollTop: {get: () => 0, set: scrollWrite, configurable: true},
+            scrollLeft: {get: () => 0, set: scrollWrite, configurable: true},
+        });
+
+        act(() => editorRef.current.synchronizeMirror());
+        FlushMirrorFrames();
+
+        styleWrites.forEach((write) => expect(write).not.toHaveBeenCalled());
+        expect(scrollWrite).not.toHaveBeenCalled();
+    });
+
+    test('observes both editors and shared layout, then releases original targets on unmount', () =>
+    {
+        const observers = [];
+        vi.stubGlobal('ResizeObserver', vi.fn(function(callback)
+        {
+            this.callback = callback;
+            this.observe = vi.fn();
+            this.disconnect = vi.fn();
+            observers.push(this);
+        }));
+        const {getByTestId, container, unmount} = render(
+            <div id="editor-page">
+                <Editor text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />
+                <Editor text="Translation" isTranslation={true} showTranslationBox={() => {}} test={true} />
+            </div>
+        );
+        const editorPage = container.querySelector('#editor-page');
+        const textareas = [getByTestId('main-textarea'), getByTestId('translated-textarea')];
+        const mirrors = container.querySelectorAll('.mirror-textarea');
+        observers.forEach((observer, index) =>
+        {
+            expect(observer.observe).toHaveBeenCalledWith(textareas[index]);
+            expect(observer.observe).toHaveBeenCalledWith(textareas[index].closest('.editor-grid'));
+            expect(observer.observe).toHaveBeenCalledWith(editorPage);
+        });
+        FlushMirrorFrames();
+        window.requestAnimationFrame.mockClear();
+
+        textareas.forEach((textarea, index) => Object.defineProperty(textarea, 'offsetLeft', {value: 40 + index * 500}));
+        act(() => observers.forEach((observer) =>
+        {
+            observer.callback();
+            observer.callback();
+        }));
+        expect(window.requestAnimationFrame).toHaveBeenCalledTimes(2);
+        FlushMirrorFrames();
+        expect(mirrors[0].style.left).toBe('40px');
+        expect(mirrors[1].style.left).toBe('540px');
+
+        //Keep the original target even if its ID changes before cleanup
+        const removePageListener = vi.spyOn(editorPage, 'removeEventListener');
+        const removeWindowListener = vi.spyOn(window, 'removeEventListener');
+        editorPage.id = 'removed-editor-page';
+        act(() => observers.forEach((observer) => observer.callback()));
+        const staleCallbacks = Array.from(pendingFrames.values());
+        const pendingIds = Array.from(pendingFrames.keys());
+        unmount();
+
+        expect(removePageListener).toHaveBeenCalledTimes(2);
+        observers.forEach((observer) => expect(observer.disconnect).toHaveBeenCalledTimes(1));
+        pendingIds.forEach((frame) => expect(window.cancelAnimationFrame).toHaveBeenCalledWith(frame));
+        expect(removeWindowListener).toHaveBeenCalledWith('resize', expect.any(Function));
+        window.requestAnimationFrame.mockClear();
+        expect(() => staleCallbacks.forEach((callback) => callback())).not.toThrow();
+        expect(() => observers.forEach((observer) => observer.callback())).not.toThrow();
+        fireEvent.scroll(editorPage);
+        fireEvent.resize(window);
+        expect(window.requestAnimationFrame).not.toHaveBeenCalled();
+        expect(pendingFrames.size).toBe(0);
+    });
+
     test('restores mirror scroll after pasting a colour macro over selected text', async () =>
     {
         const {getByTestId, container} = render(<Editor text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />);
@@ -314,6 +497,7 @@ describe('Editor mirror synchronization', () =>
         textarea.scrollTop = 192;
         textarea.scrollLeft = 36;
         fireEvent.scroll(textarea);
+        FlushMirrorFrames();
         expect(mirror.scrollTop).toBe(192);
         expect(mirror.scrollLeft).toBe(36);
 
@@ -362,15 +546,15 @@ describe('Editor mirror synchronization', () =>
         expect(mirror.scrollTop).toBe(576);
     });
 
-    test('recovers delayed browser scrolling on the next frame and cancels it on unmount', () =>
+    test.each([false, true])('recovers delayed scrolling and cancels the frame on unmount (translation: %s)', (isTranslation) =>
     {
         const requestFrame = vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(42);
         const cancelFrame = vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
         try
         {
             const editorRef = React.createRef();
-            const {getByTestId, container, unmount} = render(<Editor ref={editorRef} text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />);
-            const textarea = getByTestId('main-textarea');
+            const {getByTestId, container, unmount} = render(<Editor ref={editorRef} text="Hello" isTranslation={isTranslation} showTranslationBox={() => {}} test={true} />);
+            const textarea = getByTestId(isTranslation ? 'translated-textarea' : 'main-textarea');
             const mirror = container.querySelector('.mirror-textarea');
             Object.defineProperties(textarea, {
                 clientHeight: {value: 160},
@@ -400,5 +584,177 @@ describe('Editor mirror synchronization', () =>
             requestFrame.mockRestore();
             cancelFrame.mockRestore();
         }
+    });
+});
+
+describe('Editor latest derivations', () =>
+{
+    afterEach(() => vi.restoreAllMocks());
+
+    test('reuses highlighting and measurement across selection updates and invalidates only their inputs', () =>
+    {
+        const parse = vi.spyOn(TextUtils, 'ParseColouredTextToHtml');
+        const replace = vi.spyOn(TextUtils, 'ReplaceWithMacros');
+        const editorRef = React.createRef();
+        const props = {text: '🟢Hello\nworld', isTranslation: false, showTranslationBox: () => {}, test: true};
+        const {getByTestId, container, rerender} = render(<Editor ref={editorRef} {...props} darkMode={false} />);
+        const editor = editorRef.current;
+        const html = editor.getMirrorHtml();
+        const nodes = editor.createDivText();
+        const measurementNode = container.querySelector('.hidden-div').firstChild;
+        const textarea = getByTestId('main-textarea');
+        parse.mockClear();
+        replace.mockClear();
+
+        textarea.setSelectionRange(2, 5);
+        fireEvent.keyUp(textarea);
+        fireEvent.click(textarea);
+        expect(editor.getMirrorHtml()).toBe(html);
+        expect(editor.createDivText()).toBe(nodes);
+        expect(container.querySelector('.hidden-div').firstChild).toBe(measurementNode);
+        expect(parse).not.toHaveBeenCalled();
+        expect(replace).not.toHaveBeenCalled();
+
+        rerender(<Editor ref={editorRef} {...props} darkMode={true} />);
+        const darkHtml = editor.getMirrorHtml();
+        expect(darkHtml).not.toBe(html);
+        expect(darkHtml.__html).toContain('color: forestgreen');
+        expect(editor.createDivText()).toBe(nodes);
+        expect(parse).toHaveBeenCalledTimes(1);
+        expect(replace).not.toHaveBeenCalled();
+
+        act(() => editor.setTextState('🔴Changed', 3, 3, false));
+        expect(editor.getMirrorHtml()).not.toBe(darkHtml);
+        expect(editor.getMirrorHtml().__html).toContain('color: indianred');
+        expect(editor.createDivText()).not.toBe(nodes);
+        expect(parse).toHaveBeenCalledTimes(2);
+        act(() => editor.setTextState(props.text, 0, 0, false));
+        expect(editor.getMirrorHtml()).not.toBe(darkHtml);
+        expect(editor.createDivText()).not.toBe(nodes);
+        expect(parse).toHaveBeenCalledTimes(3);
+    });
+
+    test.each(['start', 'middle', 'end'])('keeps a repeated broken-source document formatted and its cursor consistent at the %s', async (position) =>
+    {
+        const source = [
+            "describe('Editor mirror",
+            "synchronization', () => {",
+            "test('restores mirror scroll after",
+            'pasting a colour macro over',
+            "selected text', async () => {",
+            'const {getByTestId, container} =',
+            'render(<Editor text="Hello"',
+            'isTranslation={false}',
+            'showTranslationBox={() => {}}',
+            'test={true} />); const textarea =',
+            "getByTestId('main-textarea');",
+            '});',
+            '});',
+        ].join('\n');
+        const documentText = Array(8).fill(source).join('\n\n');
+        const editorRef = React.createRef();
+        const {getByTestId, container} = render(<Editor ref={editorRef} text="" isTranslation={false} showTranslationBox={() => {}} test={true} />);
+        const textarea = getByTestId('main-textarea');
+        await userEvent.click(textarea);
+        await userEvent.paste(documentText);
+        const baseline = textarea.value;
+        expect(baseline).toContain('describe');
+        expect(baseline.split('\n\n')).toHaveLength(8);
+        expect(textarea.selectionStart).toBe(baseline.length);
+        const cursor = position === 'start' ? 0 : position === 'end' ? baseline.length : baseline.indexOf('describe', baseline.length / 2);
+        expect(cursor).toBeGreaterThanOrEqual(0);
+        textarea.setSelectionRange(cursor, cursor);
+        fireEvent.keyUp(textarea);
+
+        await userEvent.keyboard('Q');
+        const typed = baseline.substring(0, cursor) + 'Q' + baseline.substring(cursor);
+        const typedExpected = TextUtils.FormatStringForDisplay(TextUtils.FormatStringForDisplay(typed, false, TextUtils.DetermineTextChangeType(baseline, typed)), false);
+        expect(textarea).toHaveValue(typedExpected);
+        expect(textarea.value[textarea.selectionStart - 1]).toBe('Q');
+        expect(textarea.selectionEnd).toBe(textarea.selectionStart);
+
+        await userEvent.keyboard('{Backspace}');
+        expect(textarea).toHaveValue(baseline);
+        expect(textarea.selectionStart).toBe(cursor);
+        expect(textarea.selectionEnd).toBe(cursor);
+
+        await userEvent.paste('Paste');
+        const pasted = baseline.substring(0, cursor) + 'Paste' + baseline.substring(cursor);
+        const pastedExpected = TextUtils.FormatStringForDisplay(TextUtils.FormatStringForDisplay(pasted, false, TextUtils.DetermineTextChangeType(baseline, pasted)), false);
+        expect(textarea).toHaveValue(pastedExpected);
+        expect(textarea.value.substring(textarea.selectionStart - 5, textarea.selectionStart)).toBe('Paste');
+        expect(textarea.selectionEnd).toBe(textarea.selectionStart);
+        expect(container.querySelector('.converted-text')).toHaveValue(CreateIngameText(pastedExpected));
+        expect(editorRef.current.getMirrorHtml().__html).toBe(TextUtils.ParseColouredTextToHtml(pastedExpected, undefined));
+        expect(container.querySelector('.mirror-textarea').querySelectorAll('span').length).toBeLessThan(pastedExpected.length / 4);
+    });
+
+    test('shares the latest conversion between render and copy without retaining historical inputs', async () =>
+    {
+        const convertedRef = React.createRef();
+        const writeText = vi.fn().mockResolvedValue(undefined);
+        const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+        Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText}});
+        try
+        {
+            const replace = vi.spyOn(TextUtils, 'ReplaceWithMacros');
+            const {container, rerender} = render(<ConvertedText ref={convertedRef} text="🟢Pokemon\nHello" darkMode={false} />);
+            const converted = convertedRef.current;
+            const cache = converted.conversionCache;
+            replace.mockClear();
+            rerender(<ConvertedText ref={convertedRef} text="🟢Pokemon\nHello" darkMode={true} />);
+            fireEvent.click(container.querySelector('textarea'));
+            expect(converted.conversionCache).toBe(cache);
+            expect(replace).not.toHaveBeenCalled();
+            expect(writeText).toHaveBeenLastCalledWith(cache.convertedText);
+
+            const text = '🔴Latest & <text>\n\n😀';
+            rerender(<ConvertedText ref={convertedRef} text={text} darkMode={true} />);
+            const latestCache = converted.conversionCache;
+            expect(latestCache).not.toBe(cache);
+            expect(replace).toHaveBeenCalledTimes(2);
+            replace.mockClear();
+            fireEvent.click(container.querySelector('textarea'));
+            expect(replace).not.toHaveBeenCalled();
+            expect(writeText).toHaveBeenLastCalledWith(CreateIngameText(text));
+            expect(container.querySelector('textarea')).toHaveValue(CreateIngameText(text));
+            rerender(<ConvertedText ref={convertedRef} text="🟢Pokemon\nHello" darkMode={true} />);
+            expect(converted.conversionCache).not.toBe(cache);
+            rerender(<ConvertedText ref={convertedRef} text="" darkMode={true} />);
+            fireEvent.click(container.querySelector('textarea'));
+            expect(writeText).toHaveBeenCalledTimes(2);
+            await act(async () => {});
+        }
+        finally
+        {
+            if (originalClipboard)
+                Object.defineProperty(navigator, 'clipboard', originalClipboard);
+            else
+                delete navigator.clipboard;
+        }
+    });
+
+    test.each([100, 240])('finishes cursor and mirror synchronization after the final width commit (%s)', (width) =>
+    {
+        const editorRef = React.createRef();
+        const {getByTestId} = render(<Editor ref={editorRef} text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />);
+        const editor = editorRef.current;
+        const textarea = getByTestId('main-textarea');
+        Object.defineProperty(editor.hiddenDivRef.current, 'offsetWidth', {value: width});
+        const commits = vi.spyOn(editor, 'setState');
+        const finished = [];
+        const synchronize = editor.synchronizeMirror.bind(editor);
+        vi.spyOn(editor, 'synchronizeMirror').mockImplementation(() =>
+        {
+            finished.push({width: editor.state.textareaWidth, cursor: textarea.selectionStart});
+            synchronize();
+        });
+
+        act(() => editor.setTextState('Changed text', 3, 3, false));
+
+        const widthCommits = commits.mock.calls.filter(([state]) => state.textareaWidth !== undefined);
+        expect(widthCommits).toHaveLength(width === 100 ? 0 : 1);
+        expect(finished.at(-1)).toEqual({width, cursor: 3});
+        expect(textarea.selectionEnd).toBe(3);
     });
 });
