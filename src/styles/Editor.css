@@ -96,6 +96,8 @@
 .mirror-textarea
 {
     position: absolute; /* Attach to the textarea */
+    box-sizing: border-box;
+    overflow: hidden;
     text-align: left;
     border-color: transparent !important;
     pointer-events: none; /* So clicks go through */

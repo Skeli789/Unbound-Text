@@ -65,6 +65,8 @@ export class Editor extends Component
         }
         this.updateMirrorRefPosition = this.updateMirrorRefPosition.bind(this);
         this.updateMirrorRefPositionInterval = null; //Interval to update the mirror ref's position
+        this.mirrorSyncFrame = null; //Pending frame to synchronize the mirror after layout
+        this.mounted = false; //Prevent mirror updates after the editor is removed
     }
 
     /**
@@ -72,6 +74,9 @@ export class Editor extends Component
      */
     async componentDidMount()
     {
+        this.mounted = true;
+        this.synchronizeMirror();
+
         //Update the mirror ref's position to match the textarea's position
         this.updateMirrorRefPositionInterval = setInterval(() => this.updateMirrorRefPosition(), 1); //Wait for the textarea to be created
 
@@ -80,10 +85,42 @@ export class Editor extends Component
         
         if (!this.props.test || document.getElementById("editor-page") != null) //The editor page doesn't exist in the test environment
         {
-            while (document.getElementById("editor-page") == null)
+            while (this.mounted && document.getElementById("editor-page") == null)
                 await new Promise(resolve => setTimeout(resolve, 100)); //Wait for the editor page to be created
-            document.getElementById("editor-page").addEventListener("scroll", this.updateMirrorRefPosition); //Update the mirror ref's position on scroll
+
+            if (this.mounted)
+                document.getElementById("editor-page").addEventListener("scroll", this.updateMirrorRefPosition); //Update the mirror ref's position on scroll
         }
+    }
+
+    /**
+     * Synchronizes the mirror after the editor's content or layout changes.
+     */
+    componentDidUpdate()
+    {
+        this.synchronizeMirror();
+    }
+
+    /**
+     * Synchronizes the mirror immediately and again on the next frame to account for browser scrolling after layout.
+     */
+    synchronizeMirror()
+    {
+        if (!this.mounted)
+            return;
+
+        //Synchronize with the current layout
+        this.updateMirrorRefPosition();
+
+        //Replace any pending synchronization with one for the latest layout
+        if (this.mirrorSyncFrame != null)
+            window.cancelAnimationFrame(this.mirrorSyncFrame);
+
+        this.mirrorSyncFrame = window.requestAnimationFrame(() =>
+        {
+            this.mirrorSyncFrame = null;
+            this.updateMirrorRefPosition();
+        });
     }
 
     /**
@@ -91,37 +128,45 @@ export class Editor extends Component
      */
     componentWillUnmount()
     {
+        this.mounted = false;
+
+        //Cancel the pending mirror synchronization
+        if (this.mirrorSyncFrame != null)
+            window.cancelAnimationFrame(this.mirrorSyncFrame);
+
         //Clear the interval to update the mirror ref's position
         clearInterval(this.updateMirrorRefPositionInterval);
 
         //Remove the event listener from the textarea to update the mirror ref's position on scroll and resize
         window.removeEventListener("resize", this.updateMirrorRefPosition);
-        if (!this.props.test || document.getElementById("editor-page") != null) //The editor page doesn't exist in the test environment
-            document.getElementById("editor-page").removeEventListener("scroll", this.updateMirrorRefPosition);
+        const editorPage = document.getElementById("editor-page");
+        if (editorPage)
+            editorPage.removeEventListener("scroll", this.updateMirrorRefPosition);
     }
 
     /**
-     * Updates the position of the mirror ref to match the textarea's position.
+    * Updates the mirror's size, position, and scroll offsets to match the textarea.
      */
-    async updateMirrorRefPosition()
+    updateMirrorRefPosition()
     {
-        //Wait for the editor page to be created
-        let editorPage = document.getElementById("editor-page");
-        if (!this.props.test || document.getElementById("editor-page") != null) //The editor page doesn't exist in the test environment
-        {
-            while (editorPage == null)
-            {
-                await new Promise(resolve => setTimeout(resolve, 100));
-                editorPage = document.getElementById("editor-page"); //Wait for the editor page to be created
-            }
-        }
+        //Find the textarea and mirror before updating their layout
+        const editorPage = document.getElementById("editor-page");
+        const textarea = this.textAreaRef.current?.ref.current;
+        const mirror = this.mirrorRef.current;
+        if (!this.mounted || !textarea || !mirror)
+            return;
 
         //Update the mirror ref's position to match the textarea's position
         let scrollTop = (editorPage) ? editorPage.scrollTop : 0;
         let scrollLeft = (editorPage) ? editorPage.scrollLeft : 0;
-        this.mirrorRef.current.style.height = `${this.textAreaRef.current.ref.current.clientHeight}px`; //Set the mirror ref's height to start at the same height as the textarea
-        this.mirrorRef.current.style.top = `${this.textAreaRef.current.ref.current.offsetTop - scrollTop}px`;
-        this.mirrorRef.current.style.left = `${this.textAreaRef.current.ref.current.offsetLeft - scrollLeft}px`;
+        mirror.style.height = `${textarea.offsetHeight}px`;
+        mirror.style.width = `${textarea.offsetWidth}px`;
+        mirror.style.top = `${textarea.offsetTop - scrollTop}px`;
+        mirror.style.left = `${textarea.offsetLeft - scrollLeft}px`;
+
+        //Synchronize scrolling after resizing, which can clamp the mirror's scroll offsets
+        mirror.scrollTop = textarea.scrollTop;
+        mirror.scrollLeft = textarea.scrollLeft;
     }
 
     /**
@@ -200,11 +245,11 @@ export class Editor extends Component
                 textareaWidth: this.hiddenDivRef.current.offsetWidth,
             }, () =>
             {   
-                this.updateMirrorRefPosition();
-            });
+                if (selectionStart >= 0)
+                    SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, this.props.isTranslation);
 
-            if (selectionStart >= 0)
-                SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, this.props.isTranslation);
+                this.synchronizeMirror();
+            });
         });
     }
 
@@ -230,6 +275,7 @@ export class Editor extends Component
         if (typeOfTextChangeAfterFormat.type === TextChange.NO_CHANGE)
         {
             SetTextareaCursorPos(this.state.prevCursorPosition, this.state.prevSelectionEnd, false, this.props.isTranslation);
+            this.synchronizeMirror();
             return formattedText; //No change
         }
     
@@ -335,14 +381,11 @@ export class Editor extends Component
     }
 
     /**
-     * Handles the scroll event for the textarea.
-     * @param {Object} event - The scroll event.
+    * Handles textarea scrolling by synchronizing the mirror with the new scroll offsets.
      */
-    handleScroll(e)
+    handleScroll()
     {
-        //Keep mirror in sync
-        this.mirrorRef.current.scrollTop = e.target.scrollTop;
-        this.mirrorRef.current.scrollLeft = e.target.scrollLeft;
+        this.synchronizeMirror();
     }
 
     /**
@@ -591,7 +634,7 @@ export class Editor extends Component
         const {text, textareaWidth} = this.state;
         const {darkMode, isTranslation} = this.props;
         const textAreaStyle = {width: `calc(${textareaWidth}px + 2em)`, minWidth: "calc(340px + 2em)", maxWidth: "99vw", whiteSpace: "pre"};
-        const textareaHeight = (this.textAreaRef.current) ? this.textAreaRef.current.ref.current.clientHeight : 0; //Get the height of the textarea to set the height of the mirror div
+        const textareaHeight = this.textAreaRef.current?.ref.current?.offsetHeight || 0;
 
         return (
             <div className="editor-grid" id={(!isTranslation) ? "editor-grid" : "editor-grid-translate"}>
@@ -684,9 +727,9 @@ function SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, is
 {
     //Find the textarea element
     const textArea = document.getElementById(GetTextAreaId(isTranslationBox));
-    const viewTop = textArea.scrollTop;
     if (!textArea)
         return;
+    const viewTop = textArea.scrollTop;
 
     //Set the cursor position
     textArea.setSelectionRange(selectionStart, selectionEnd);
