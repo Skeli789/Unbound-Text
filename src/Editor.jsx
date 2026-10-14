@@ -79,6 +79,11 @@ export class Editor extends Component
     {
         this.mounted = true;
         this.editorPage = this.mirrorRef.current?.closest('#editor-page');
+
+        //Adjust the width of the textarea in case longer text was autosaved
+        const textareaWidth = this.hiddenDivRef.current.offsetWidth;
+        if (textareaWidth !== this.state.textareaWidth)
+            this.setState({textareaWidth});
         this.synchronizeMirror();
 
         //Track scrolling and layout changes without polling

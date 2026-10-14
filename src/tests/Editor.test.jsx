@@ -20,6 +20,34 @@ describe('Editor is rendered and can be typed in', () =>
         expect(textarea).toHaveValue(initialText);
     });
 
+    test.each([false, true])('measures initial editor width before input (translation: %s)', (isTranslation) =>
+    {
+        const originalOffsetWidth = Object.getOwnPropertyDescriptor(HTMLElement.prototype, 'offsetWidth').get;
+        const widthSpy = vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function ()
+        {
+            return this.classList.contains('hidden-div') ? 640 : originalOffsetWidth.call(this);
+        });
+
+        try
+        {
+            const editorRef = React.createRef();
+            const text = 'A long initial line that needs a wider editor than the default width.';
+            render(<Editor ref={editorRef} text={text} isTranslation={isTranslation} showTranslationBox={dummyFunc} test={true} />);
+            const textarea = editorRef.current.textAreaRef.current.ref.current;
+
+            expect(textarea).toHaveStyle({width: 'calc(640px + 2em)'});
+            expect(textarea).toHaveValue(text);
+            expect(editorRef.current.state.undoStack).toEqual([]);
+            expect(editorRef.current.state.redoStack).toEqual([]);
+            expect(editorRef.current.state.cursorPosition).toBe(0);
+            expect(editorRef.current.state.selectionEnd).toBe(0);
+        }
+        finally
+        {
+            widthSpy.mockRestore();
+        }
+    });
+
     test('updates text on user input', async () =>
     {
         const {getByTestId} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
@@ -734,12 +762,13 @@ describe('Editor latest derivations', () =>
         }
     });
 
-    test.each([100, 240])('finishes cursor and mirror synchronization after the final width commit (%s)', (width) =>
+    test.each([false, true])('finishes cursor and mirror synchronization after the final width commit (width changes: %s)', (widthChanges) =>
     {
         const editorRef = React.createRef();
         const {getByTestId} = render(<Editor ref={editorRef} text="Hello" isTranslation={false} showTranslationBox={() => {}} test={true} />);
         const editor = editorRef.current;
         const textarea = getByTestId('main-textarea');
+        const width = editor.state.textareaWidth + (widthChanges ? 240 : 0);
         Object.defineProperty(editor.hiddenDivRef.current, 'offsetWidth', {value: width});
         const commits = vi.spyOn(editor, 'setState');
         const finished = [];
@@ -753,7 +782,7 @@ describe('Editor latest derivations', () =>
         act(() => editor.setTextState('Changed text', 3, 3, false));
 
         const widthCommits = commits.mock.calls.filter(([state]) => state.textareaWidth !== undefined);
-        expect(widthCommits).toHaveLength(width === 100 ? 0 : 1);
+        expect(widthCommits).toHaveLength(widthChanges ? 1 : 0);
         expect(finished.at(-1)).toEqual({width, cursor: 3});
         expect(textarea.selectionEnd).toBe(3);
     });
