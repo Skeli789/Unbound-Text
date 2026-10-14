@@ -3,9 +3,69 @@ import {
     FindIndexOfLineEnd, FindIndexOfLineStart, GetCharacterWidth, GetDisplayColour, GetLineTotalWidth,
     GetMacroWidth, GetNextLetterIndex, GetStringWidth, IsColour, IsPause, IsPunctuation,
     LineHasCharAfterIndex, LineHasCharAfterIndexBeforeOtherChar, ReplaceMacros, ReplaceWithMacros,
-    TextChange, DetermineTextChangeType, ParseColouredTextToHtml,
+    TextChange, DetermineTextChangeType, ParseColouredTextToHtml, FormatStringForDisplay, FormatStringForDisplayWithSelection,
     SEMI_LINE_WIDTH, FULL_LINE_WIDTH,
 } from '../TextUtils';
+
+//Tests for formatter selection provenance
+describe('FormatStringForDisplayWithSelection', () =>
+{
+    test.each([
+        ['[RED] aZ', 7, 8, '🔴 aZ', 4, 5],
+        ['[RED] aa [BLUE]', 7, 8, '🔴 aa 🔵', 4, 5],
+        ['  [RED] aa [BLUE]', 0, 10, '🔴 aa 🔵', 0, 5],
+        ['aa   bb   cc', 5, 10, 'aa  bb  cc', 4, 8],
+        ['A\\nB', 3, 4, 'A\nB', 2, 3],
+        ['A\\pnB', 4, 5, 'A\n\nB', 3, 4],
+        ['a”b', 2, 3, 'a\\"b', 3, 4],
+        ['🔴 [RED] aa [BLUE]', 9, 11, '🔴 🔴 aa 🔵', 6, 8],
+        ['[red_FR] aa [blue_EM]', 9, 10, '🔴 aa 🔵', 3, 4],
+        ['A\n  \n  B', 4, 5, 'A\n\nB', 2, 3],
+        ['A'.repeat(36), 35, 36, 'A'.repeat(34) + '\nAA', 36, 37],
+        ['A\n\n\n\n\nB', 6, 7, 'A\n\n\n\nB', 5, 6],
+    ])('maps explicit spans in %s', (raw, start, end, text, mappedStart, mappedEnd) =>
+    {
+        expect(FormatStringForDisplayWithSelection(raw, false, start, end)).toEqual(
+            {text, selectionStart: mappedStart, selectionEnd: mappedEnd});
+        expect(FormatStringForDisplay(raw, false)).toBe(text);
+    });
+
+    test('keeps the caret inside an automatically completed bracket after an astral symbol', () =>
+    {
+        expect(FormatStringForDisplayWithSelection('🔴 [', false, 4, 4,
+            {type: TextChange.SINGLE_INSERT, inserted: '[', start: 3})).toEqual(
+            {text: '🔴 []', selectionStart: 4, selectionEnd: 4});
+    });
+
+    test('composes both existing formatter passes for lowercase external macro suffixes', () =>
+    {
+        const first = FormatStringForDisplayWithSelection('[red_fr] aa [blue_em]', false, 9, 10);
+        expect(first.text).toBe('[RED_FR] aa [BLUE_EM]');
+        const second = FormatStringForDisplayWithSelection(first.text, false, first.selectionStart, first.selectionEnd);
+        expect(second).toEqual({text: '🔴 aa 🔵', selectionStart: 3, selectionEnd: 4});
+    });
+
+    test('clamps removed locked-line text and trailing newlines', () =>
+    {
+        const raw = 'A'.repeat(40) + '\n\n';
+        expect(FormatStringForDisplayWithSelection(raw, true, 35, raw.length)).toEqual(
+            {text: 'A'.repeat(34), selectionStart: 34, selectionEnd: 34});
+    });
+
+    test.each(['aa   aa   aa', '  [RED] aa [BLUE] aa', 'A'.repeat(36) + '\n\n  aa', 'A\n\n\n\n\n  B', 'a”b\\pn[GREEN]'])
+        ('maps every boundary monotonically without exceeding the output in %s', (raw) =>
+    {
+        let previous = 0;
+        for (let index = 0; index <= raw.length; ++index)
+        {
+            const result = FormatStringForDisplayWithSelection(raw, false, index, index);
+            expect(result.selectionStart).toBeGreaterThanOrEqual(previous);
+            expect(result.selectionStart).toBeLessThanOrEqual(result.text.length);
+            expect(result.selectionEnd).toBe(result.selectionStart);
+            previous = result.selectionStart;
+        }
+    });
+});
 
 //Tests for ReplaceMacros
 describe('ReplaceMacros', () =>

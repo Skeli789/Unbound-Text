@@ -7,10 +7,13 @@ import {TextArea} from 'semantic-ui-react';
 
 
 import ConvertedText from './ConvertedText';
+import {BuildValidatedFormatChange} from './EditContext';
+import {GetUndoTransition, GetRedoTransition, PushUndoEntry, UpdateLastUndoEntry} from './EditHistory';
 import SpaceInfo from './SpaceInfo';
+import {GetTextAreaId, NO_SELECTION_DIRECTION, ReadTextareaSelection, SetTextareaCursorPos} from './TextareaUtils';
 import {SEMI_LINE_WIDTH, FULL_LINE_WIDTH, GetDisplayColour, GetStringWidth, FindIndexOfLineEnd, FindIndexOfLineStart,
-        DoesLineHaveScrollAfterIt, FormatStringForDisplay, TextChange, DetermineTextChangeType,
-        IsInsertTextChange, ParseColouredTextToHtml} from "./TextUtils";
+        DoesLineHaveScrollAfterIt, FormatStringForDisplay, FormatStringForDisplayWithSelection, TextChange, DetermineTextChangeType,
+        ParseColouredTextToHtml} from "./TextUtils";
 
 import {AutoSaveText} from './subcomponents/AutoSaveButton';
 import {CurrentTextColourButton, GetPreviouslyUsedTextColour} from './subcomponents/CurrentTextColourButton';
@@ -43,11 +46,9 @@ export class Editor extends Component
         {
             text: props.text || "",
             textColour: GetPreviouslyUsedTextColour() || "black",
-            firstLineWidth: 0,
             cursorPosition: 0,
             selectionEnd: 0,
-            prevCursorPosition: 0,
-            prevSelectionEnd: 0,
+            selectionDirection: NO_SELECTION_DIRECTION,
             textareaWidth: 100,
             undoStack: [],
             appliedUndoStack: [],
@@ -70,6 +71,11 @@ export class Editor extends Component
         this.mounted = false; //Prevent mirror updates after the editor is removed
         this.mirrorHtmlCache = null; //Keep only the latest derived content for this editor
         this.measurementCache = null; //Latest measurement nodes; CSS still controls their font metrics
+        this.selectionSnapshot = {selectionStart: 0, selectionEnd: 0, selectionDirection: NO_SELECTION_DIRECTION}; //Last committed selection
+        this.pendingEdit = null; //Pre-input text and selection captured by beforeinput
+        this.compositionContext = null; //Pre-composition text and selection while an IME is composing
+        this.completedComposition = null; //Composed value whose trailing input event should be skipped
+        this.captureBeforeInput = this.captureBeforeInput.bind(this);
     }
 
     /**
@@ -87,6 +93,7 @@ export class Editor extends Component
         this.synchronizeMirror();
 
         //Track scrolling and layout changes without polling
+        this.textAreaRef.current.ref.current.addEventListener("beforeinput", this.captureBeforeInput);
         window.addEventListener("resize", this.scheduleMirrorSync);
         this.editorPage?.addEventListener("scroll", this.scheduleMirrorSync);
 
@@ -143,6 +150,7 @@ export class Editor extends Component
     componentWillUnmount()
     {
         this.mounted = false;
+        this.textAreaRef.current?.ref.current?.removeEventListener("beforeinput", this.captureBeforeInput);
 
         //Cancel the pending mirror synchronization
         if (this.mirrorSyncFrame != null)
@@ -192,6 +200,10 @@ export class Editor extends Component
      */
     onKeyDown(event)
     {
+        if (this.compositionContext || event.nativeEvent?.isComposing)
+            return; //Let the IME handle its own keys
+
+        //Handle shortcuts
         if (event.keyCode === 90 && event.ctrlKey) //Ctrl + Z
         {
             event.preventDefault();
@@ -245,14 +257,25 @@ export class Editor extends Component
      * @param {number} selectionStart - The starting position of the selection/cursor position.
      * @param {number} selectionEnd - The ending position of the selection.
      * @param {boolean} autoAdjustScroll - Whether to automatically adjust the scroll position after the text change.
+     * @param {string} [selectionDirection=NO_SELECTION_DIRECTION] - Native selection direction to restore.
      */
-    setTextState(newText, selectionStart, selectionEnd, autoAdjustScroll)
+    setTextState(newText, selectionStart, selectionEnd, autoAdjustScroll, selectionDirection=NO_SELECTION_DIRECTION)
     {
+        //Clamp the selection to the new text
+        selectionStart = Math.max(0, Math.min(selectionStart, newText.length));
+        selectionEnd = Math.max(selectionStart, Math.min(selectionEnd, newText.length));
+        this.selectionSnapshot = {selectionStart, selectionEnd, selectionDirection};
+
+        //Commit the text and selection together
         this.setState
         ({
             text: newText,
+            cursorPosition: selectionStart,
+            selectionEnd,
+            selectionDirection,
         }, () =>
         {
+            //Save the text
             if (!this.props.isTranslation //Don't save the translated text
             && !this.props.test) //Don't auto save in the test environment
                 AutoSaveText(newText); //Auto save the text for future visits
@@ -261,11 +284,12 @@ export class Editor extends Component
             const synchronizeSelection = () =>
             {
                 if (selectionStart >= 0)
-                    SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, this.props.isTranslation);
+                    SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, this.props.isTranslation, selectionDirection);
 
                 this.synchronizeMirror();
             };
 
+            //Resize the textarea before restoring the selection
             const textareaWidth = this.hiddenDivRef.current.offsetWidth;
             if (textareaWidth !== this.state.textareaWidth)
                 this.setState({textareaWidth}, synchronizeSelection);
@@ -278,72 +302,52 @@ export class Editor extends Component
      * Sets the new text in the editor and formats it.
      * @param {string} newText - The new text to be set.
      * @param {boolean} autoAdjustScroll - Whether to automatically adjust the scroll position after the text change.
+     * @param {Object|null} [context=null] - Immutable old text, prior selection, and raw post-edit selection.
      * @returns {string} The formatted text.
      */
-    setNewText(newText, autoAdjustScroll)
+    setNewText(newText, autoAdjustScroll, context=null)
     {
-        //Format the new text
-        const oldText = this.state.text;
-        const lockFinalLine = this.state.lockFinalLine;
+        //Determine what was edited
+        context = context || {...this.getEditContext(), selectionStart: this.state.cursorPosition,
+            selectionEnd: this.state.selectionEnd, selectionDirection: this.state.selectionDirection};
+        const oldText = context.text;
+        const prior = context.priorSelection;
         const typeOfTextChange = DetermineTextChangeType(oldText, newText);
-        let cursorPos = this.getNewCursorPosition(newText, typeOfTextChange);
-        let formattedText = FormatStringForDisplay(newText, lockFinalLine, typeOfTextChange);
-        if (formattedText !== newText) //Format again if the first format changed the text
-            formattedText = FormatStringForDisplay(formattedText, lockFinalLine); //Format twice to fix copy-paste errors
+        const range = context.editRange || {start: prior.selectionStart, end: prior.selectionEnd};
+        const formatChange = BuildValidatedFormatChange(typeOfTextChange, oldText, newText, range);
 
-        //If nothing changed, prevent the cursor from moving
-        const typeOfTextChangeAfterFormat = DetermineTextChangeType(oldText, formattedText);
-        if (typeOfTextChangeAfterFormat.type === TextChange.NO_CHANGE)
+        //Format the new text and map the selection through it
+        const lockFinalLine = this.state.lockFinalLine;
+        let result = FormatStringForDisplayWithSelection(newText, lockFinalLine, context.selectionStart, context.selectionEnd, formatChange);
+        if (result.text !== newText)
+            result = FormatStringForDisplayWithSelection(result.text, lockFinalLine, result.selectionStart, result.selectionEnd);
+        const formattedText = result.text;
+
+        //If formatting undid the edit, keep the mapped selection so typing ] before ] moves past it
+        if (oldText === formattedText)
         {
-            SetTextareaCursorPos(this.state.prevCursorPosition, this.state.prevSelectionEnd, false, this.props.isTranslation);
-            this.synchronizeMirror();
+            const selection = newText === oldText ? context : {...result, selectionDirection: context.selectionDirection};
+            this.setTextState(formattedText, selection.selectionStart, selection.selectionEnd, false, selection.selectionDirection);
             return formattedText; //No change
         }
-    
-        //Add the old text to the undo stack
-        let undoToAdd = null;
-        if (this.state.undoStack.length === 0 //No undo stack yet
-        || (typeOfTextChange.type === TextChange.SINGLE_INSERT && typeOfTextChange.inserted.match(/^\s*$/)) //Only between words
-        || (typeOfTextChange.type !== TextChange.SINGLE_INSERT))
-            undoToAdd = {text: oldText, selectionStart: this.state.prevCursorPosition, selectionEnd: this.state.prevSelectionEnd};
 
-        //If the formatted text is different from the new text, update the cursor position twice
-        if (formattedText !== newText
-        && !(typeOfTextChange.type === TextChange.SINGLE_INSERT
-            && typeOfTextChange.inserted === "["
-            && typeOfTextChangeAfterFormat.type === TextChange.MULTI_INSERT
-            && typeOfTextChangeAfterFormat.inserted === "[]"
-        )) //Unless the user opened a bracket, don't update the cursor position so they stay inside the brackets
+        //Commit the formatted text
+        this.setTextState(formattedText, result.selectionStart, result.selectionEnd, autoAdjustScroll, context.selectionDirection);
+
+        //Add the old text to the undo stack, or extend the last entry while typing a word
+        const shouldAddUndo = this.state.undoStack.length === 0 //No undo stack yet
+        || (typeOfTextChange.type === TextChange.SINGLE_INSERT && /^\s*$/.test(typeOfTextChange.inserted)) //Only between words
+        || (typeOfTextChange.type !== TextChange.SINGLE_INSERT);
+
+        if (shouldAddUndo)
         {
-            this.setNewCursorPosThenCallFunc(
-                cursorPos, cursorPos, //Set the cursor position after just making the text change
-                () =>
-                {
-                    //Change the cursor position after formatting the text
-                    cursorPos = this.getNewCursorPosition(formattedText, DetermineTextChangeType(newText, formattedText), typeOfTextChange); //Diff of formatting new text
-                    this.setTextState(formattedText, cursorPos, cursorPos, autoAdjustScroll);
-
-                    //Update the undo stack
-                    if (undoToAdd == null) //Not adding new text this change (optimization)
-                        this.updateLastUndoObject(cursorPos, cursorPos); //Update the last undo object with the new cursor positions so the redo will work properly
-                    else
-                        this.addTextToUndo(undoToAdd.text, undoToAdd.selectionStart, undoToAdd.selectionEnd, cursorPos, cursorPos); //Add the old text to the undo stack
-                },
-                newText, //Set the new text first so the cursor position is correct
-            );
+            const undoEntry = {text: oldText, selectionStart: prior.selectionStart, selectionEnd: prior.selectionEnd,
+                selectionStartForRedo: result.selectionStart, selectionEndForRedo: result.selectionEnd,
+                selectionDirection: prior.selectionDirection, selectionDirectionForRedo: context.selectionDirection};
+            this.setState({undoStack: PushUndoEntry(this.state.undoStack, undoEntry)});
         }
         else
-        {
-            //Change the cursor position
-            cursorPos = this.getNewCursorPosition(formattedText, typeOfTextChangeAfterFormat);
-            this.setTextState(formattedText, cursorPos, cursorPos, autoAdjustScroll);
-
-            //Update the undo stack
-            if (undoToAdd == null) //Not adding new text this change (optimization)
-                this.updateLastUndoObject(cursorPos, cursorPos); //Update the last undo object with the new cursor positions so the redo will work properly
-            else
-                this.addTextToUndo(undoToAdd.text, undoToAdd.selectionStart, undoToAdd.selectionEnd, cursorPos, cursorPos); //Add the old text to the undo stack
-        }
+            this.setState({undoStack: UpdateLastUndoEntry(this.state.undoStack, result.selectionStart, result.selectionEnd, context.selectionDirection)});
 
         this.setState({redoStack: []}); //Nothing to redo anymore
         return formattedText;
@@ -355,41 +359,85 @@ export class Editor extends Component
      */
     handleTextChange(event)
     {
-        const newText = event.target.value;
-        if (newText === this.state.text)
-            return; //No change
+        //Ignore the same native event arriving through both onInput and onChange
+        if (this.lastInputEvent === event.nativeEvent)
+            return;
 
-        this.setNewCursorPosThenCallFunc(
-            event.target.selectionStart,
-            event.target.selectionEnd,
-            () => {this.setNewText(newText, false)}
-        );
+        this.lastInputEvent = event.nativeEvent;
+        const newText = event.target.value;
+        const selection = ReadTextareaSelection(event.target);
+
+        //Keep the raw text unformatted while an IME is composing
+        if (this.compositionContext)
+        {
+            this.selectionSnapshot = selection;
+            this.setState({text: newText, cursorPosition: selection.selectionStart, selectionEnd: selection.selectionEnd,
+                selectionDirection: selection.selectionDirection});
+            return;
+        }
+
+        //Skip the trailing input event of a composition that was already formatted
+        if (this.completedComposition != null && (this.completedComposition === newText || newText === this.state.text))
+        {
+            this.completedComposition = null;
+            this.pendingEdit = null;
+            if (newText !== this.state.text)
+                this.setTextState(this.state.text, this.state.cursorPosition, this.state.selectionEnd, false, this.state.selectionDirection);
+            return;
+        }
+
+        //Format the edit using the pre-input selection when available
+        this.completedComposition = null;
+        const context = {...(this.pendingEdit || this.getEditContext()), ...selection,
+            inputType: event.nativeEvent?.inputType};
+        this.pendingEdit = null;
+        this.setNewText(newText, false, context);
     }
 
     /**
-     * Sets the new cursor position in the textarea and calls a function if provided.
-     * @param {number} selectionStart - The new starting position of the selection/cursor position.
-     * @param {number} selectionEnd - The new ending position of the selection.
-     * @param {Function} func - The function to be called after setting the cursor position (optional).
-     * @param {string} text - The new text to be set (optional).
+     * Captures immutable text and prior selection for a raw edit.
+     * @returns {Object} The edit's original text and selection.
      */
-    setNewCursorPosThenCallFunc(selectionStart, selectionEnd, func=null, text=null)
+    getEditContext()
     {
-        if (func == null)
-            func = () => {}; //Do nothing after if no function is passed
+        return {text: this.state.text, priorSelection: {...this.selectionSnapshot}};
+    }
 
-        let stateUpdate =
-        {
-            cursorPosition: selectionStart,
-            selectionEnd: selectionEnd,
-            prevCursorPosition: this.state.cursorPosition,
-            prevSelectionEnd: this.state.selectionEnd,
-        };
+    /**
+     * Captures the native pre-input range before the browser mutates the value.
+     * @param {InputEvent} event - The native beforeinput event.
+     */
+    captureBeforeInput(event)
+    {
+        if (!this.compositionContext)
+            this.pendingEdit = {text: this.state.text, priorSelection: ReadTextareaSelection(event.target), inputType: event.inputType};
+    }
 
-        if (text != null)
-            stateUpdate.text = text;
+    /**
+     * Begins an IME transaction without formatting its intermediate values.
+     * @param {Object} event - The composition event.
+     */
+    handleCompositionStart(event)
+    {
+        this.compositionContext = {text: this.state.text, priorSelection: ReadTextareaSelection(event.target)};
+        this.pendingEdit = null;
+        this.completedComposition = null;
+    }
 
-        this.setState(stateUpdate, func);
+    /**
+     * Formats a completed IME transaction once and records its original selection.
+     * @param {Object} event - The composition event.
+     */
+    handleCompositionEnd(event)
+    {
+        if (!this.compositionContext)
+            return;
+
+        //Format the composed text once
+        const context = {...this.compositionContext, ...ReadTextareaSelection(event.target)};
+        this.compositionContext = null;
+        this.completedComposition = event.target.value;
+        this.setNewText(event.target.value, false, context);
     }
 
     /**
@@ -398,7 +446,14 @@ export class Editor extends Component
      */
     handleCursorChange(event)
     {
-        this.setNewCursorPosThenCallFunc(event.target.selectionStart, event.target.selectionEnd);
+        if (event.target.value !== this.state.text)
+            return; //Text is mid-edit, so handleTextChange will commit the selection
+
+        //Store the new selection
+        const selection = ReadTextareaSelection(event.target);
+        this.selectionSnapshot = selection;
+        this.setState({cursorPosition: selection.selectionStart, selectionEnd: selection.selectionEnd,
+            selectionDirection: selection.selectionDirection});
     }
 
     /**
@@ -421,6 +476,7 @@ export class Editor extends Component
 
         //Create the new text
         const oldText = this.state.text;
+        const priorSelection = ReadTextareaSelection(textarea);
         const textBefore = oldText.substring(0, textarea.selectionStart);
         const textAfter = oldText.substring(textarea.selectionStart, oldText.length);
         let newText = textBefore + textToAdd + textAfter;
@@ -430,14 +486,10 @@ export class Editor extends Component
         if (textToAdd.endsWith("[]"))
             newCursorPos -= 1; //Start inside square brackets    
 
-        //Set the new cursor position and then format the text
-        this.setNewCursorPosThenCallFunc(
-            newCursorPos, newCursorPos,
-            () =>
-            {
-                this.setNewText(newText, true); //Set the new text and move the cursor to the end of the new text
-            }
-        );
+        //Format the text with the cursor after the inserted text
+        this.setNewText(newText, true, {text: oldText, priorSelection,
+            editRange: {start: priorSelection.selectionStart, end: priorSelection.selectionStart},
+            selectionStart: newCursorPos, selectionEnd: newCursorPos, selectionDirection: NO_SELECTION_DIRECTION});
     }
 
     /**
@@ -446,12 +498,18 @@ export class Editor extends Component
      */
     setPrettifiedText(finalText)
     {
+        //Place the cursor at the end of the prettified text
+        const textarea = this.textAreaRef.current.ref.current;
+        const context = {text: this.state.text, priorSelection: ReadTextareaSelection(textarea),
+            selectionStart: finalText.length, selectionEnd: finalText.length, selectionDirection: NO_SELECTION_DIRECTION};
+
+        //Format and set the prettified text
         this.setState({lockFinalLine: false}, () => //So it doesn't interfere with the prettifer
         {
             let newText = FormatStringForDisplay(finalText, this.state.lockFinalLine).trim();
             newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses
             newText = newText.replace("\n… ", "\n…"); //Remove whitespace after line start ellipses - intentional duplicate
-            this.setNewText(newText, false);
+            this.setNewText(newText, false, context);
         });
     }
 
@@ -465,146 +523,20 @@ export class Editor extends Component
     }
 
     /**
-     * Gets the new cursor position based on the text change.
-     * @param {string} newText - The new text after the change.
-     * @param {Object} typeOfTextChange - The type of text change that occurred.
-     * @param {Object} prevTypeOfTextChange - The previous type of text change before the formatting (optional).
-     * @returns {number} The new cursor position.
-     */
-    getNewCursorPosition(newText, typeOfTextChange, prevTypeOfTextChange=null)
-    {
-        let cursorPos;
-        let oldText = this.state.text;
-        oldText = oldText.replaceAll("\n", " ");
-        newText = newText.replaceAll("\n", " ");
-
-        //console.log("Type of text change: ", typeOfTextChange.type);
-        cursorPos = this.state.cursorPosition; //Where cursor moved to natureally
-        switch (typeOfTextChange.type)
-        {
-            case TextChange.NO_CHANGE:
-                cursorPos = this.state.prevCursorPosition; //No change, keep cursor in place
-                break;
-            case TextChange.SINGLE_INSERT:
-                if (this.state.cursorPosition > typeOfTextChange.start //The new character was inserted behind the cursor
-                && this.state.prevCursorPosition === this.state.cursorPosition) //Cursor wasn't moved yet because of this change
-                {
-                    //So move the cursor one right to account for the new character
-                    cursorPos = this.state.cursorPosition + 1;
-                    break;
-                }
-                //Fallthrough
-            case TextChange.SINGLE_DELETE:
-            case TextChange.MULTI_INSERT:
-            case TextChange.SINGLE_REPLACE:
-                //Move cursor to where it naturally would have moved to
-                break;
-            case TextChange.MULTI_DELETE:
-                //Move cursor back the number of characters deleted
-                cursorPos = this.state.prevSelectionEnd - typeOfTextChange.deleted.length; //Move cursor to the left of the deleted character
-                break;
-            case TextChange.MULTI_REPLACE_SINGLE:
-            case TextChange.SINGLE_REPLACE_MULTI:
-            case TextChange.MULTI_REPLACE_MULTI:
-                //Replacement text
-                let newTypeOfTextChange = DetermineTextChangeType(oldText, newText); //Single the \n's are ignored, this will determine which actual changes were made if text was shoved to a new line
-                let {start, end, oldEnd} = newTypeOfTextChange;
-
-                //console.log("New type of text change: ", newTypeOfTextChange.type);
-                //Check if the only replacements were changing whitespace/newlines
-                if (newTypeOfTextChange.type !== TextChange.MULTI_REPLACE_SINGLE
-                && newTypeOfTextChange.type !== TextChange.SINGLE_REPLACE_MULTI
-                && newTypeOfTextChange.type !== TextChange.MULTI_REPLACE_MULTI)
-                {
-                    if (prevTypeOfTextChange != null //E.g. inserting a new character at the end of the line caused text to move over so the single insert is the previous one
-                    && IsInsertTextChange(prevTypeOfTextChange.type))
-                    {
-                        //Basically check if a whitespace got deleted and adjust the cursor position accordingly
-                        if (newTypeOfTextChange.type === TextChange.SINGLE_DELETE && start < this.state.cursorPosition)
-                            cursorPos = this.state.prevCursorPosition - 1; //Move cursor to the left of the deleted character
-                        else //Otherwise, just move the cursor manually if need be
-                            cursorPos = this.getNewCursorPosition(newText, newTypeOfTextChange, typeOfTextChange);
-                    }
-
-                    return cursorPos;
-                }
-
-                //Check if the cursor is inside the replacement text
-                //console.log("Cursor position: ", this.state.cursorPosition, "Start: ", start, "End: ", end);
-                if (this.state.cursorPosition < start || this.state.cursorPosition > oldEnd) //Cursor outside the replacement zone
-                    return this.state.cursorPosition; //Text that was replaced was after where the cursor was
-                else //Cursor is inside or after the replacement zone
-                    cursorPos = end; //Move cursor to the end of the replacement text
-                break;
-            default:
-                console.warn("Unknown type of text change: ", typeOfTextChange.type);
-        }
-
-        return cursorPos;
-    }
-
-    /**
-     * Adds text to the undo stack.
-     * @param {string} text - The text to revert to after undoing.
-     * @param {number} selectionStart - The starting position of the selection/cursor position to revert to.
-     * @param {number} selectionEnd - The ending position of the selection to revert to.
-     * @param {number} selectionStartForRedo - The starting position of the selection/cursor position when redoing this undo.
-     * @param {number} selectionEndForRedo - The ending position of the selection when redoing this undo.
-     */
-    addTextToUndo(text, selectionStart, selectionEnd, selectionStartForRedo, selectionEndForRedo)
-    {
-        let undoStack = this.state.undoStack.slice(); //Copy to avoid mutating state directly
-        undoStack.push({text, selectionStart, selectionEnd, selectionStartForRedo, selectionEndForRedo});
-        this.setState({undoStack: undoStack});
-    }
-
-    /**
-     * Updates the last undo object in the undo stack with the new selection start and end for redo.
-     * @param {number} selectionStartForRedo - The starting position of the selection/cursor position when redoing this undo.
-     * @param {number} selectionEndForRedo - The ending position of the selection when redoing this undo.
-     */
-    updateLastUndoObject(selectionStartForRedo, selectionEndForRedo)
-    {
-        let undoStack = this.state.undoStack.slice(); //Copy to avoid mutating state directly
-        let lastUndoApplied = undoStack[undoStack.length - 1]; //Get the last undo object
-        lastUndoApplied.selectionStartForRedo = selectionStartForRedo; //Update the selection start for redo
-        lastUndoApplied.selectionEndForRedo = selectionEndForRedo; //Update the selection end for redo
-        this.setState({undoStack: undoStack});
-    }
-
-    /**
-     * Adds text to the redo stack.
-     * @param {string} text - The text to revert to after redoing.
-     * @param {number} selectionStart - The starting position of the selection/cursor position to revert to.
-     * @param {number} selectionEnd - The ending position of the selection to revert to.
-     */
-    addTextToRedo(text, selectionStart, selectionEnd)
-    {
-        let redoStack = this.state.redoStack.slice(); //Copy to avoid mutating state directly
-        redoStack.push({text, selectionStart, selectionEnd});
-        this.setState({redoStack: redoStack});
-    }
-
-    /**
      * Undoes the last change made in the editor.
      */
     undoLastChange()
     {
-        let undoStack = this.state.undoStack.slice(); //Copy to avoid mutating state directly
+        const transition = GetUndoTransition(this.state, this.state.text);
+        if (transition == null)
+            return; //Nothing to undo
 
-        if (undoStack.length > 0)
-        {
-            let appliedUndoStack = this.state.appliedUndoStack.slice(); //Copy to avoid mutating state directly
-            let undoApplied = undoStack.pop(); //Remove the last change from the undo stack
-            appliedUndoStack.push(undoApplied); //Save the undone change in case a redo there is an undo after a redo
+        //Update the history
+        this.setState(transition.history);
 
-            //Update Redo State
-            this.addTextToRedo(this.state.text, undoApplied.selectionStartForRedo, undoApplied.selectionEndForRedo);
-
-            //Actually perform undo
-            this.setState({undoStack: undoStack, appliedUndoStack: appliedUndoStack});
-            this.setTextState(undoApplied.text, undoApplied.selectionStart, undoApplied.selectionEnd, true);
-        }
+        //Restore the previous text and selection
+        const {text, selectionStart, selectionEnd, selectionDirection} = transition.restore;
+        this.setTextState(text, selectionStart, selectionEnd, true, selectionDirection);
     }
 
     /**
@@ -612,22 +544,16 @@ export class Editor extends Component
      */
     redoLastChange()
     {
-        let redoStack = this.state.redoStack.slice(); //Copy to avoid mutating state directly
+        const transition = GetRedoTransition(this.state);
+        if (transition == null)
+            return; //Nothing to redo
 
-        if (redoStack.length > 0)
-        {
-            let redoApplied = redoStack.pop(); //Remove the last change from the redo stack
+        //Update the history
+        this.setState(transition.history);
 
-            //Update Undo State
-            let appliedUndoStack = this.state.appliedUndoStack.slice(); //Copy to avoid mutating state directly
-            let lastUndoApplied = appliedUndoStack.pop(); //Remove the last change from the previous undo stack
-            this.addTextToUndo(lastUndoApplied.text, lastUndoApplied.selectionStart, lastUndoApplied.selectionEnd, //Add the previous undo back to the undo stack
-                               lastUndoApplied.selectionStartForRedo, lastUndoApplied.selectionEndForRedo);
-
-            //Actually perform redo
-            this.setState({redoStack: redoStack, appliedUndoStack: appliedUndoStack});
-            this.setTextState(redoApplied.text, redoApplied.selectionStart, redoApplied.selectionEnd, true);
-        }
+        //Restore the redone text and selection
+        const {text, selectionStart, selectionEnd, selectionDirection} = transition.restore;
+        this.setTextState(text, selectionStart, selectionEnd, true, selectionDirection);
     }
 
     /**
@@ -701,6 +627,10 @@ export class Editor extends Component
                         style={textAreaStyle}
                         value={text}
                         onChange={(e) => this.handleTextChange(e)}
+                        onInput={(e) => this.handleTextChange(e)}
+                        onSelect={(e) => this.handleCursorChange(e)}
+                        onCompositionStart={(e) => this.handleCompositionStart(e)}
+                        onCompositionEnd={(e) => this.handleCompositionEnd(e)}
                         onClick={(e) => this.handleCursorChange(e)}
                         onKeyDown={(e) => this.onKeyDown(e)}
                         onKeyUp={(e) => this.handleCursorChange(e)}
@@ -740,64 +670,6 @@ export class Editor extends Component
             </div>
         )
     }
-}
-
-/**
- * Gets the ID of the textarea based on whether it is a translation box or not.
- * @param {boolean} isTranslationBox - Whether the textarea is for translated text.
- * @returns {string} The ID of the textarea.
- */
-function GetTextAreaId(isTranslationBox)
-{
-    if (isTranslationBox)
-        return "translated-textarea";
-    else
-        return "main-textarea";
-}
-
-/**
- * Updates the cursor position in the textarea and adjusts the scroll if needed.
- * @param {number} selectionStart - The starting position of the selection/cursor position.
- * @param {number} selectionEnd - The ending position of the selection.
- * @param {boolean} autoAdjustScroll - Whether to automatically adjust the scroll position after the text change.
- * @param {boolean} isTranslationBox - Whether the textarea is for translated text.
- */
-function SetTextareaCursorPos(selectionStart, selectionEnd, autoAdjustScroll, isTranslationBox)
-{
-    //Find the textarea element
-    const textArea = document.getElementById(GetTextAreaId(isTranslationBox));
-    if (!textArea)
-        return;
-    const viewTop = textArea.scrollTop;
-
-    //Set the cursor position
-    textArea.setSelectionRange(selectionStart, selectionEnd);
-    textArea.focus(); //Focus only after setting the selection range to avoid scroll jump
-
-    //Adjust scroll if needed
-    if (!autoAdjustScroll)
-        return;
-
-    //Count how many actual lines (\n) precede the cursor
-    const lineHeight = parseInt(window.getComputedStyle(textArea).lineHeight, 10);
-    const beforeCursor = textArea.value.slice(0, selectionStart);
-    const cursorLine = beforeCursor.split('\n').length;
-
-    //Compute pixel offset of that line
-    const cursorOffsetPx = cursorLine * lineHeight;
-
-    //Current visible window in px
-    const viewBottom = viewTop + textArea.clientHeight;
-
-    //If already fully in view, do nothing
-    if (cursorOffsetPx >= viewTop && (cursorOffsetPx + lineHeight) <= viewBottom)
-        return;
-
-    //Otherwise, center the cursor line and clamp it to the scrollable area
-    let newScrollTop = cursorOffsetPx - (textArea.clientHeight / 2) + (lineHeight / 2);
-    const maxScroll = textArea.scrollHeight - textArea.clientHeight;
-    newScrollTop = Math.max(0, Math.min(newScrollTop, maxScroll));
-    textArea.scrollTop = newScrollTop;
 }
 
 export default Editor;

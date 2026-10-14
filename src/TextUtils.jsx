@@ -41,6 +41,13 @@ export const OTHER_REPLACEMENT_MACROS =
     "B_BUTTON": "🅱",
 };
 
+const NORMALIZATION_REPLACEMENTS =
+[
+    ["\\pn", "\n\n"], ["\\n", "\n"], ["\\p", "\n\n"], ["\\l", "\n"],
+    ["[.]", "…"], ["...", "…"], ["…]", "…"], ["[[", "["], ["]]", "]"], ["\\e", "é"],
+    ["‘", "'"], ["’", "'"], ["“", '"'], ["”", '\\"'], ["—", "-"], ["–", "-"], ["_FR]", "]"], ["_EM]", "]"],
+];
+
 /**
  * Replaces macros in the given text with their corresponding values from the provided object.
  * @param {string} text - The text containing macros to replace.
@@ -67,6 +74,23 @@ export function ReplaceWithMacros(text, obj)
         text = text.replaceAll(obj[key], `[${key}]`);
 
     return text;
+}
+
+/**
+ * Replaces display macros for colours and other symbols, remapping boundaries through each replacement.
+ * @param {string} text - Wrapped text containing display macros.
+ * @param {number[]} boundaries - Map from normalized boundaries to positions in the wrapped text.
+ * @returns {{text: string, boundaries: number[]}} - The display text and the remapped boundaries.
+ */
+function ReplaceDisplayMacros(text, boundaries)
+{
+    for (const obj of [COLOURS, OTHER_REPLACEMENT_MACROS])
+    {
+        for (const key of Object.keys(obj))
+            ({text, boundaries} = ReplaceWithBoundaries(text, boundaries, `[${key}]`, obj[key]));
+    }
+
+    return {text, boundaries};
 }
 
 /**
@@ -438,21 +462,85 @@ export function LineHasCharAfterIndexBeforeOtherChar(line, index, char, otherCha
  */
 export function FormatStringForDisplay(text, finalLineLocked, textChange={})
 {
+    return FormatStringForDisplayWithSelection(text, finalLineLocked, 0, 0, textChange).text;
+}
+
+/**
+ * Replaces every match of a pattern and remaps boundary positions through the replacement in one pass.
+ * @param {string} text - Text to edit.
+ * @param {number[]} boundaries - Non-decreasing positions in the text to remap.
+ * @param {string|RegExp} pattern - Literal text or a global expression to replace.
+ * @param {string} replacement - Replacement text.
+ * @returns {{text: string, boundaries: number[]}} - The edited text and the remapped boundaries.
+ */
+function ReplaceWithBoundaries(text, boundaries, pattern, replacement)
+{
+    const matchPattern = typeof pattern === "string"
+        ? new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "g")
+        : pattern;
+    const edits = Array.from(text.matchAll(matchPattern), (match) => ({start: match.index, end: match.index + match[0].length}));
+
+    //Build the edited text
+    let editedText = "";
+    let cursor = 0;
+    for (const edit of edits)
+    {
+        editedText += text.slice(cursor, edit.start) + replacement;
+        cursor = edit.end;
+    }
+    editedText += text.slice(cursor);
+
+    //Remap boundaries in ascending order, accumulating the length change of completed edits
+    let editIndex = 0;
+    let delta = 0;
+    const remapped = boundaries.map((position) =>
+    {
+        while (editIndex < edits.length && position >= edits[editIndex].end)
+        {
+            delta += replacement.length - (edits[editIndex].end - edits[editIndex].start);
+            editIndex++;
+        }
+
+        if (editIndex < edits.length && position > edits[editIndex].start)
+            return edits[editIndex].start + delta + replacement.length; //Inside a replaced span
+        return position + delta;
+    });
+
+    return {text: editedText, boundaries: remapped};
+}
+
+/**
+ * Applies the explicit normalization edits to raw text and remaps raw boundaries through them.
+ * @param {string} text - Raw textarea text.
+ * @param {number[]} boundaries - Map from raw boundaries to their current positions.
+ * @param {boolean} finalLineLocked - Whether the final line is locked.
+ * @returns {{text: string, boundaries: number[]}} - The normalized text and the remapped boundaries.
+ */
+function NormalizeSource(text, boundaries, finalLineLocked)
+{
+    //Replace certain text strings
+    for (const [pattern, replacement] of NORMALIZATION_REPLACEMENTS)
+        ({text, boundaries} = ReplaceWithBoundaries(text, boundaries, pattern, replacement));
+
+    if (finalLineLocked)
+        ({text, boundaries} = ReplaceWithBoundaries(text, boundaries, /\n+$/g, "")); //Remove blank line at the end
+
+    return {text, boundaries};
+}
+
+/**
+ * Wraps normalized text into display lines while tracking the source span of every piece.
+ * @param {string} text - Normalized text to wrap.
+ * @param {boolean} finalLineLocked - Whether the final line is locked.
+ * @param {Object} textChange - Validated edit information for bracket completion.
+ * @param {number|undefined} bracketStart - Normalized boundary where the inserted bracket starts.
+ * @returns {Array<Array<Object>>} - The wrapped lines of pieces.
+ */
+function WrapLines(text, finalLineLocked, textChange, bracketStart)
+{
     let width = 0;
     let finalLines = [];
     let addedLine = false;
-
-    //Replace certain text strings
-    text = text.replaceAll("\\pn", "\n\n").replaceAll("\\n", "\n").replaceAll("\\p", "\n\n").replaceAll("\\l", "\n"); //Enable copy-paste - first is from HexManiac
-    text = text.replaceAll("[.]", "…").replaceAll("...", "…").replaceAll("…]", "…"); //Remove accidental extra square bracket
-    text = text.replaceAll("[[", "[").replaceAll("]]", "]"); //Remove accidental extra square bracket
-    text = text.replaceAll("\\e", "é");
-    text = text.replaceAll("‘", "'").replaceAll("’", "'").replaceAll("“", '"').replaceAll("”", '\\"'); //Replace smart quotes with normal ones
-    text = text.replaceAll("—", "-").replaceAll("–", "-"); //Replace long dashes with normal ones
-    text = text.replaceAll("_FR]", "]").replaceAll("_EM]", "]"); //XSE Colour Endings
-
-    if (finalLineLocked)
-        text = text.replace(/\n*$/, "") //Remove blank line at the end
 
     //Go through each line
     let charsProcessed = 0;
@@ -465,6 +553,7 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
         let currWord = [];
         let lastWordStartIndex = 0;
         let line = originalLine.trimStart(); //Remove leading whitespace
+        let sourceOffset = charsProcessed + originalLine.length - line.length;
         line = Array.from(line);
 
         if (addedLine) //A new line was addded before that didn't exist in the original text
@@ -475,10 +564,10 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
                 let prevAddedLine = finalLines.pop();
                 finalLine = finalLine.concat(prevAddedLine)
 
-                if (finalLine.at(-1) !== " ") //Doesn't already have an extra whitespace at the end
-                    finalLine = finalLine.concat(" ");
+                if (finalLine.at(-1)?.text !== " ") //Doesn't already have an extra whitespace at the end
+                    finalLine = finalLine.concat({text: " ", start: finalLine.at(-1)?.end ?? sourceOffset, end: sourceOffset});
 
-                width = GetStringWidth(prevAddedLine);
+                width = GetStringWidth(prevAddedLine.map((piece) => piece.text).join(""));
                 lastWordStartIndex = 1; //Because the word won't really start at the 0 index
             }
 
@@ -493,7 +582,10 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
         && lines[i - 1].length === 0
         && lines[i - 2].length === 0
         && lines[i - 3].length === 0) //Three blank lines in a row
-           continue; //Skip this line
+        {
+            charsProcessed += originalLine.length + 1;
+            continue; //Skip this line
+        }
 
         //Get the allowed width for this line
         let totalWidth = GetLineTotalWidth(lines, i, finalLineLocked);
@@ -501,6 +593,9 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
         //Go through each character in the line
         for (let [j, letter] of line.entries())
         {
+            const start = sourceOffset;
+            sourceOffset += letter.length;
+            const piece = {text: letter, start, end: sourceOffset};
             if (letter === " " && j - 2 >= 0 && line[j - 1] === " " && line[j - 2] === " ") //Three whitespaces in a row
                 continue; //Don't allow
             else if (letter === "[") //Start of macro
@@ -515,10 +610,13 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
 
                 //Add a closing brace if there isn't one on the line yet and only if the user just added the [
                 if (!LineHasCharAfterIndex(line, j, "]")
-                && textChange.type === TextChange.SINGLE_INSERT
+                && (textChange.type === TextChange.SINGLE_INSERT || textChange.validatedBracket)
                 && textChange.inserted === "[" //Only add if the user just added it
-                && j + charsProcessed >= textChange.start) //Only add if the user just added it
+                && start === bracketStart) //Only add if the user just added it
+                {
                     letter += "]"; //Automatically add closing brace
+                    piece.caretLength = 1;
+                }
             }
             else if (inMacro)
             {
@@ -545,21 +643,22 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
                     width += GetCharacterWidth(letter, nextChar);
             }
 
+            piece.text = letter;
             if (letter === " ") //Whitespace
             {
-                finalLine = finalLine.concat(currWord).concat(" ");
+                finalLine = finalLine.concat(currWord).concat(piece);
                 lastWordStartIndex = j + 1;
                 currWord = []; //Reset
             }
             else if (letter === "-") //Dash
             {
                 //Allow splitting dashes onto multiple lines
-                finalLine = finalLine.concat(currWord).concat("-");
+                finalLine = finalLine.concat(currWord).concat(piece);
                 lastWordStartIndex = j + 1;
                 currWord = []; //Reset
             }
             else
-                currWord.push(letter);
+                currWord.push(piece);
 
             if (width > totalWidth) //Exceeded the space on this line
             {
@@ -575,24 +674,24 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
                     //Split word onto multiple lines
                     currWord.length -= 1; //Remove character just added
                     finalLines.push(currWord);
-                    finalLine = [letter]; //Reset the current line with letter just shoved down
+                    finalLine = [piece]; //Reset the current line with letter just shoved down
                     width = 0; //Reset width entirely
                     currWord = [];
                     addedLine = true;
                 }
                 else /*if (line[lastWordStartIndex - 1] === " ")*/ //Whitespace before last word start
                 {
-                    while (finalLine.at(-1) === " ")
+                    while (finalLine.at(-1)?.text === " ")
                         finalLine.length -= 1; //Remove the trailing whitespace
 
                     finalLines.push(finalLine);
 
-                    if (currWord.join("") !== " ")
+                    if (currWord.map((part) => part.text).join("") !== " ")
                         finalLine = currWord; //Push over the word currently being worked on
                     else
                         finalLine = []; //Don't push over a trailing whitespace
 
-                    width = GetStringWidth(finalLine);
+                    width = GetStringWidth(finalLine.map((part) => part.text).join(""));
                     currWord = []; //Reset
                     lastWordStartIndex = 0;
                     addedLine = true;
@@ -601,14 +700,89 @@ export function FormatStringForDisplay(text, finalLineLocked, textChange={})
         }
 
         finalLine = finalLine.concat(currWord);
+        finalLine.sourceEnd = charsProcessed + originalLine.length;
         finalLines.push(finalLine);
         charsProcessed += originalLine.length + 1; //+1 for the \n that was removed
     }
 
-    let finalText = finalLines.map((line) => line.join("")).join("\n");
-    finalText = ReplaceMacros(finalText, COLOURS); //Do last to allow either capitalization
-    finalText = ReplaceMacros(finalText, OTHER_REPLACEMENT_MACROS); //Do last to allow either capitalization
-    return finalText;
+    return finalLines;
+}
+
+/**
+ * Maps normalized source spans through wrapping and builds the wrapped text.
+ * @param {Array<Array<Object>>} finalLines - The wrapped lines of pieces with their source spans.
+ * @param {number} normalizedLength - Length of the normalized source text.
+ * @returns {{text: string, wrappedBoundaries: number[]}} - The wrapped text and a map from normalized boundaries to wrapped offsets.
+ */
+function MapWrappedBoundaries(finalLines, normalizedLength)
+{
+    //Flatten lines into pieces, giving each separator the source gap it replaces
+    const pieces = [];
+    let previousEnd = 0;
+    for (const [index, line] of finalLines.entries())
+    {
+        if (index > 0)
+        {
+            const nextStart = line[0]?.start ?? line.sourceEnd;
+            pieces.push({text: "\n", start: previousEnd, end: Math.min(nextStart, normalizedLength)});
+        }
+
+        pieces.push(...line);
+        previousEnd = line.at(-1)?.end ?? line.sourceEnd;
+    }
+
+    //Map each normalized boundary to its wrapped output offset
+    let outputOffset = 0;
+    let sourceBoundary = 0;
+    const wrappedBoundaries = [];
+    for (const piece of pieces)
+    {
+        while (sourceBoundary <= piece.start)
+            wrappedBoundaries[sourceBoundary++] = outputOffset;
+        for (let boundary = piece.start + 1; boundary <= piece.end; ++boundary)
+            wrappedBoundaries[boundary] = outputOffset + (piece.caretLength ??
+                (piece.end - piece.start === piece.text.length ? boundary - piece.start : piece.text.length));
+        sourceBoundary = Math.max(sourceBoundary, piece.end + 1);
+        outputOffset += piece.text.length;
+
+        if (piece.start === piece.end) //Inserted piece, so boundaries at it land after it
+            wrappedBoundaries[piece.start] = outputOffset;
+    }
+
+    //Map boundaries after the last piece to the end
+    while (sourceBoundary <= normalizedLength)
+        wrappedBoundaries[sourceBoundary++] = outputOffset;
+
+    return {text: pieces.map((piece) => piece.text).join(""), wrappedBoundaries};
+}
+
+/**
+ * Formats text and maps UTF-16 selection boundaries through the same formatting rules.
+ * @param {string} text - Raw textarea text.
+ * @param {boolean} finalLineLocked - Whether the final line is locked.
+ * @param {number} selectionStart - Raw UTF-16 selection start, clamped to the input length.
+ * @param {number} selectionEnd - Raw UTF-16 selection end, clamped to the input length.
+ * @param {Object} [textChange={}] - Validated edit information for bracket completion.
+ * @returns {{text: string, selectionStart: number, selectionEnd: number}} Formatted text and mapped UTF-16 endpoints.
+ */
+export function FormatStringForDisplayWithSelection(text, finalLineLocked, selectionStart, selectionEnd, textChange={})
+{
+    //Normalize the raw text
+    const identity = Array.from({length: text.length + 1}, (_, index) => index);
+    const normalized = NormalizeSource(text, identity, finalLineLocked);
+
+    //Wrap the lines
+    const bracketStart = normalized.boundaries[textChange.start];
+    const finalLines = WrapLines(normalized.text, finalLineLocked, textChange, bracketStart);
+    const wrapped = MapWrappedBoundaries(finalLines, normalized.text.length);
+    const wrappedBoundaries = normalized.boundaries.map((position) => wrapped.wrappedBoundaries[position]);
+
+    //Replace the display macros
+    const {text: displayText, boundaries} = ReplaceDisplayMacros(wrapped.text, wrappedBoundaries);
+
+    //Map the selection
+    const MapBoundary = (position) => boundaries[Math.max(0, Math.min(position, boundaries.length - 1))];
+    return {text: displayText, selectionStart: MapBoundary(selectionStart), selectionEnd: MapBoundary(selectionEnd)};
 }
 
 /**

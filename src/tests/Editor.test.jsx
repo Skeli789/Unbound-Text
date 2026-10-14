@@ -5,6 +5,7 @@ import {vi} from 'vitest';
 
 import ConvertedText, {CreateIngameText} from '../ConvertedText';
 import Editor from '../Editor';
+import {NO_SELECTION_DIRECTION} from '../TextareaUtils';
 import * as TextUtils from '../TextUtils';
 
 
@@ -118,7 +119,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         {
             name: "Adding a colour stays at the end of the colour",
             default: "Hello… It's me, the |coolest,\nawesome!",
-            insert: "[[]GREEN", //The ] is added automatically
+            insert: "[[GREEN", //"[[" types "["; the ] is added automatically
             expected: "Hello… It's me, the 🟢|coolest,\nawesome!"
         },
         {
@@ -150,6 +151,24 @@ describe('Typing in editor moves the cursor where expected', () =>
             default: "Hello[.| one",
             insert: "]",
             expected: "Hello…| one",
+        },
+        {
+            name: "Typing ] before ] moves past it",
+            default: "Hello [|] one",
+            insert: "]",
+            expected: "Hello []| one",
+        },
+        {
+            name: "Typing ] before ] in a macro moves past it",
+            default: "Hello [PLAYER|] one",
+            insert: "]",
+            expected: "Hello [PLAYER]| one",
+        },
+        {
+            name: "Typing ] before ] completes the macro",
+            default: "Hello [RED| one",
+            insert: "]",
+            expected: "Hello 🔴| one",
         },
         {
             name: "Deleting one character from the end of the line",
@@ -184,8 +203,8 @@ describe('Typing in editor moves the cursor where expected', () =>
         {
             name: "Replace full macro with just [",
             default: "Hello, |[PLAYER]|",
-            insert: "[[]",
-            expected: "Hello, []|", //Technically, this is a bug, but it's not a big deal
+            insert: "[[",
+            expected: "Hello, [|]",
         },
         {
             name: "Replace text with the first character of the text",
@@ -228,16 +247,40 @@ describe('Typing in editor moves the cursor where expected', () =>
             default: "Hello, one two three four five |sixty\nseventy, eighty.",
             paste: "six seven eight nine ten twenty thirty forty ",
             expected: "Hello, one two three four five six\nseven eight nine ten twenty thirty\nforty |sixty seventy, eighty.",
+        },  
+        {
+            name: "Pasting a macro before a suffix preserves the native caret",
+            default: "|Z",
+            paste: "[RED] a",
+            expected: "🔴 a|Z",
         },
+        {
+            name: "Pasting repeated spaces next to a wrap boundary",
+            default: "A".repeat(33) + "|Z",
+            paste: "   ",
+            expected: "A".repeat(33) + "\n|Z",
+        },
+        {
+            name: "Pasting repeated newlines near a wrap boundary",
+            default: "A".repeat(32) + "|Z",
+            paste: "\n\n",
+            expected: "A".repeat(32) + "\n\n|Z",
+        },
+        ...["|aa", "a|a", "aa|"].flatMap((text) => ["a", "aa"].flatMap((insert) =>
+        [
+            {name: `Typing ${insert} into ${text}`, default: text, insert, expected: text.replace("|", insert + "|")},
+            {name: `Pasting ${insert} into ${text}`, default: text, paste: insert, expected: text.replace("|", insert + "|")},
+        ])),
     ];
 
     for (let data of testData)
     {
-        test(data.name, async () =>
+        test.each([false, true])(`${data.name} (translation: %s)`, async (isTranslation) =>
         {
             //Create the editor
-            const {getByTestId} = render(<Editor text="" isTranslation={false} showTranslationBox={() => {}}  test={true} />);
-            const textarea = getByTestId('main-textarea');
+            const editorRef = React.createRef();
+            const {getByTestId} = render(<Editor ref={editorRef} text="" isTranslation={isTranslation} showTranslationBox={() => {}} test={true} />);
+            const textarea = getByTestId(isTranslation ? 'translated-textarea' : 'main-textarea');
             fireEvent.focus(textarea);
 
             //Set the default text
@@ -286,8 +329,213 @@ describe('Typing in editor moves the cursor where expected', () =>
 
             expect(textarea.selectionStart).toBe(expectedCursorPos);
             expect(textarea.selectionEnd).toBe(expectedCursorPos);
+            expect(editorRef.current.state.cursorPosition).toBe(expectedCursorPos);
+            expect(editorRef.current.state.selectionEnd).toBe(expectedCursorPos);
         });
     }
+});
+
+describe.each([false, true])('Editor selection transactions (translation: %s)', (isTranslation) =>
+{
+    /**
+     * Renders an editor with access to its state and native textarea.
+     * @param {string} text - Initial text.
+     * @returns {Object} The editor ref, textarea, and native-input user.
+     */
+    function CreateEditor(text)
+    {
+        const editorRef = React.createRef();
+        render(<Editor ref={editorRef} text={text} isTranslation={isTranslation} showTranslationBox={() => {}} test={true} />);
+        return {editorRef, textarea: editorRef.current.textAreaRef.current.ref.current, user: userEvent.setup()};
+    }
+
+    /**
+     * Verifies that the DOM and committed editor state share the finalized selection.
+     * @param {Object} editor - The rendered editor fixture.
+     * @param {number} start - Expected selection start.
+     * @param {number} [end=start] - Expected selection end.
+     * @param {string} [direction=NO_SELECTION_DIRECTION] - Expected selection direction.
+     */
+    function ExpectSelection(editor, start, end=start, direction=NO_SELECTION_DIRECTION)
+    {
+        expect(editor.textarea.selectionStart).toBe(start);
+        expect(editor.textarea.selectionEnd).toBe(end);
+        expect(editor.textarea.selectionDirection).toBe(direction);
+        expect(editor.editorRef.current.state.cursorPosition).toBe(start);
+        expect(editor.editorRef.current.state.selectionEnd).toBe(end);
+        expect(editor.editorRef.current.state.selectionDirection).toBe(direction);
+    }
+
+    /**
+     * Sets a native selection and notifies the editor just as a selection event would.
+     * @param {Object} editor - The rendered editor fixture.
+     * @param {number} start - Selection start.
+     * @param {number} [end=start] - Selection end.
+     * @param {string} [direction=NO_SELECTION_DIRECTION] - Native selection direction.
+     */
+    function Select(editor, start, end=start, direction=NO_SELECTION_DIRECTION)
+    {
+        editor.textarea.focus();
+        editor.textarea.setSelectionRange(start, end, direction);
+        fireEvent.select(editor.textarea);
+    }
+
+    test('finalizes macro paste and consecutive input with synchronized undo/redo snapshots', async () =>
+    {
+        const editor = CreateEditor('Z');
+        await editor.user.click(editor.textarea);
+        Select(editor, 0);
+        await editor.user.paste('[RED] a');
+        expect(editor.textarea).toHaveValue('🔴 aZ');
+        ExpectSelection(editor, 4);
+        await editor.user.keyboard('b');
+        expect(editor.textarea).toHaveValue('🔴 abZ');
+        ExpectSelection(editor, 5);
+        act(() => editor.editorRef.current.undoLastChange());
+        expect(editor.textarea).toHaveValue('Z');
+        ExpectSelection(editor, 0);
+        act(() => editor.editorRef.current.redoLastChange());
+        expect(editor.textarea).toHaveValue('🔴 abZ');
+        ExpectSelection(editor, 5);
+    });
+
+    test('preserves backward selection for undo and inserts toolbar text without replacing it', () =>
+    {
+        const editor = CreateEditor('ABC');
+        Select(editor, 1, 3, 'backward');
+        act(() => editor.editorRef.current.addTextAtSelectionStart('[]'));
+        expect(editor.textarea).toHaveValue('A[]BC');
+        ExpectSelection(editor, 2);
+        expect(editor.textarea).toHaveFocus();
+        act(() => editor.editorRef.current.undoLastChange());
+        expect(editor.textarea).toHaveValue('ABC');
+        ExpectSelection(editor, 1, 3, 'backward');
+        act(() => editor.editorRef.current.redoLastChange());
+        ExpectSelection(editor, 2);
+    });
+
+    test('retains the collapsed native selection for same-value replacement without history', async () =>
+    {
+        const editor = CreateEditor('aaa');
+        await editor.user.click(editor.textarea);
+        Select(editor, 1, 2, 'backward');
+        await editor.user.paste('a');
+        expect(editor.textarea).toHaveValue('aaa');
+        ExpectSelection(editor, 2);
+        expect(editor.editorRef.current.state.undoStack).toEqual([]);
+    });
+
+    test('rejects overflow on a locked final line without moving selection or adding history', async () =>
+    {
+        const editor = CreateEditor('A'.repeat(34));
+        act(() => editor.editorRef.current.lockFinalLine(true));
+        await editor.user.click(editor.textarea);
+        Select(editor, 34);
+        await editor.user.paste('AAA\n\n');
+        expect(editor.textarea).toHaveValue('A'.repeat(34));
+        ExpectSelection(editor, 34);
+        expect(editor.editorRef.current.state.undoStack).toEqual([]);
+    });
+
+    test('truncates accepted locked-line input and stores clamped endpoints for redo', async () =>
+    {
+        const editor = CreateEditor('A'.repeat(32));
+        act(() => editor.editorRef.current.lockFinalLine(true));
+        await editor.user.click(editor.textarea);
+        Select(editor, 32);
+        await editor.user.paste('AAAAAA');
+        expect(editor.textarea).toHaveValue('A'.repeat(34));
+        ExpectSelection(editor, 34);
+        act(() => editor.editorRef.current.undoLastChange());
+        ExpectSelection(editor, 32);
+        act(() => editor.editorRef.current.redoLastChange());
+        ExpectSelection(editor, 34);
+    });
+
+    test('maps changes on both sides of a backward native selection', () =>
+    {
+        const editor = CreateEditor('Z');
+        Select(editor, 0);
+        fireEvent.input(editor.textarea, {target: {value: '  [RED] aaZ [BLUE]', selectionStart: 8, selectionEnd: 10, selectionDirection: 'backward'},
+            inputType: 'insertFromPaste'});
+        expect(editor.textarea).toHaveValue('🔴 aaZ 🔵');
+        ExpectSelection(editor, 3, 5, 'backward');
+        act(() => editor.editorRef.current.undoLastChange());
+        ExpectSelection(editor, 0);
+        act(() => editor.editorRef.current.redoLastChange());
+        ExpectSelection(editor, 3, 5, 'backward');
+    });
+
+    test('captures beforeinput selection even without a preceding selection notification', () =>
+    {
+        const editor = CreateEditor('ABC');
+        editor.textarea.setSelectionRange(1, 3, 'backward');
+        fireEvent(editor.textarea, new InputEvent('beforeinput', {bubbles: true, inputType: 'insertText', data: '['}));
+        fireEvent.input(editor.textarea, {target: {value: 'A[', selectionStart: 2, selectionEnd: 2}, inputType: 'insertText'});
+        expect(editor.textarea).toHaveValue('A[]');
+        ExpectSelection(editor, 2);
+        act(() => editor.editorRef.current.undoLastChange());
+        ExpectSelection(editor, 1, 3, 'backward');
+    });
+
+    test('restores selection after a real toolbar click and prettify undo', async () =>
+    {
+        const editor = CreateEditor('ABC');
+        await editor.user.click(editor.textarea);
+        Select(editor, 1, 3, 'backward');
+        const bracketButton = Array.from(editor.textarea.closest('.editor-grid').querySelectorAll('.quick-button'))
+            .find((button) => button.textContent === '[PAUSE]');
+        expect(bracketButton).toBeDefined();
+        await editor.user.click(bracketButton);
+        expect(editor.textarea).toHaveValue('A[PAUSE][]BC');
+        ExpectSelection(editor, 9);
+        Select(editor, 1, 4, 'backward');
+        act(() => editor.editorRef.current.setPrettifiedText('  [RED] nice  '));
+        expect(editor.textarea).toHaveValue('🔴 nice');
+        ExpectSelection(editor, 7);
+        act(() => editor.editorRef.current.undoLastChange());
+        expect(editor.textarea).toHaveValue('A[PAUSE][]BC');
+        ExpectSelection(editor, 1, 4, 'backward');
+    });
+
+    test('does not commit a duplicate composition input whose value is already formatted', () =>
+    {
+        const editor = CreateEditor('Z');
+        Select(editor, 0);
+        fireEvent.compositionStart(editor.textarea);
+        fireEvent.input(editor.textarea, {target: {value: '[RED] aZ', selectionStart: 7, selectionEnd: 7}, isComposing: true});
+        fireEvent.compositionEnd(editor.textarea);
+        const commit = vi.spyOn(editor.editorRef.current, 'setTextState');
+        fireEvent.input(editor.textarea, {target: {value: '🔴 aZ', selectionStart: 4, selectionEnd: 4}});
+        expect(commit).not.toHaveBeenCalled();
+        ExpectSelection(editor, 4);
+        expect(editor.editorRef.current.state.undoStack).toHaveLength(1);
+    });
+
+    test('keeps IME text raw until composition ends and ignores duplicate trailing input', () =>
+    {
+        const editor = CreateEditor('Z');
+        Select(editor, 0);
+        const restore = vi.spyOn(editor.textarea, 'setSelectionRange');
+        fireEvent.compositionStart(editor.textarea);
+        fireEvent.input(editor.textarea, {target: {value: '[RED] aZ', selectionStart: 7, selectionEnd: 7},
+            inputType: 'insertCompositionText', isComposing: true});
+        expect(editor.textarea).toHaveValue('[RED] aZ');
+        ExpectSelection(editor, 7);
+        expect(restore).not.toHaveBeenCalled();
+        expect(editor.editorRef.current.state.undoStack).toEqual([]);
+        fireEvent.compositionEnd(editor.textarea);
+        expect(editor.textarea).toHaveValue('🔴 aZ');
+        ExpectSelection(editor, 4);
+        fireEvent.input(editor.textarea, {target: {value: '[RED] aZ', selectionStart: 7, selectionEnd: 7}, inputType: 'insertText'});
+        expect(editor.textarea).toHaveValue('🔴 aZ');
+        ExpectSelection(editor, 4);
+        expect(editor.editorRef.current.state.undoStack).toHaveLength(1);
+        act(() => editor.editorRef.current.undoLastChange());
+        ExpectSelection(editor, 0);
+        act(() => editor.editorRef.current.redoLastChange());
+        ExpectSelection(editor, 4);
+    });
 });
 
 describe('Editor mirror synchronization', () =>
