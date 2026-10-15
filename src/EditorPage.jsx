@@ -5,7 +5,7 @@
 import React, {Component} from 'react'
 
 import Editor from "./Editor";
-import {GetAutoSavedText} from './subcomponents/AutoSaveButton';
+import {GetAutoSavedText, GetAutoSavedTrainerName} from './subcomponents/AutoSaveButton';
 
 import "./styles/Editor.css";
 
@@ -26,6 +26,7 @@ export class EditorPage extends Component
         {
             showingTranslationBox: false,
             translatedText: "",
+            translatedTrainerName: "",
             translationBoxKey: 1,
         };
     }
@@ -34,12 +35,13 @@ export class EditorPage extends Component
      * Displays the translation box with the translated text.
      * @param {string} translatedText - The translated text to be displayed.
      */
-    showTranslationBox(translatedText)
+    showTranslationBox(translatedText, translatedTrainerName)
     {
         this.setState
         ({
             showingTranslationBox: true,
             translatedText: translatedText,
+            translatedTrainerName: translatedTrainerName,
             translationBoxKey: this.state.translationBoxKey + 1, //Force rerender
         });
     }
@@ -52,11 +54,11 @@ export class EditorPage extends Component
     {
         return (
             <div className="editor-page" id="editor-page" data-testid="editor-page">
-                <Editor text={GetAutoSavedText()} isTranslation={false} showTranslationBox={this.showTranslationBox.bind(this)}
+                <Editor text={GetAutoSavedText()} trainerName={GetAutoSavedTrainerName()} isTranslation={false} showTranslationBox={this.showTranslationBox.bind(this)}
                         darkMode={this.props.darkMode} key={0}/>
                 {
                     this.state.showingTranslationBox &&
-                        <Editor text={this.state.translatedText} isTranslation={true} showTranslationBox={null}
+                        <Editor text={this.state.translatedText} trainerName={this.state.translatedTrainerName} isTranslation={true} showTranslationBox={null}
                                 darkMode={this.props.darkMode} key={this.state.translationBoxKey}/>
                 }
             </div>

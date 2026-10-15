@@ -32,7 +32,7 @@ export class QuickButton extends Component
      */
     render()
     {
-        const label = this.props.label ?? this.props.text.replaceAll("[]", "");
+        const label = this.props.label ?? this.props.text.replaceAll("[]", "").replaceAll("{}", "");
         const className = ["quick-button", this.props.className].filter(Boolean).join(" ");
 
         return (

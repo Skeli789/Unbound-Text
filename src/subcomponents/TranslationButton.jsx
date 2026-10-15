@@ -304,13 +304,13 @@ export class TranslationButton extends Component
         }
 
         //Create the text to be translated
-        let text = CreateIngameText(sourceText); //Start with the ingame text as a base
-        text = text.replaceAll("\\e", "é").replaceAll('\\"', '"').replaceAll("[.]", "…");
+    let text = CreateIngameText(sourceText).replace(/^@/, "").replace(/\/end$/, ""); //Allow wrapped or plain compiler input
+    text = text.replaceAll("\\e", "é").replaceAll('\\"', '"').replaceAll("{.}", "…");
         text = text.replaceAll(/([.!?…])\\n/g, "$1\n"); //\n's with a . ! ? or … before them
         text = text.replaceAll("\\n", " ").replaceAll("\\l", " ").replaceAll("\\p", "\n"); //
-        text = text.replaceAll("[PLAYER]", PLAYER_PLACEHOLDER).replaceAll("[RIVAL]", RIVAL_PLACEHOLDER);
-        text = text.replaceAll("[PAUSE][", "[PAUSE").replaceAll("[BUFFER][0", "[BUFFER0");
-        text = text.replaceAll("[", "<").replaceAll("]", ">"); //Prevent buffers from being removed by turning them into HTML tags
+    text = text.replaceAll("{PLAYER}", PLAYER_PLACEHOLDER).replaceAll("{RIVAL}", RIVAL_PLACEHOLDER);
+    text = text.replaceAll("{PAUSE}{", "{PAUSE").replaceAll("{BUFFER}{0", "{BUFFER0");
+    text = text.replaceAll("{", "<").replaceAll("}", ">"); //Prevent buffers from being removed by turning them into HTML tags
 
         //Translate the text in byte-limited pieces, one request at a time as to not overwhelm the server
         const controller = new AbortController();
@@ -406,10 +406,10 @@ export class TranslationButton extends Component
             if (translatedText === null)
                 throw new TranslationResponseError("The translation service returned the original text. Try again later.");
         }
-        translatedText = translatedText.replaceAll(PLAYER_PLACEHOLDER, "[PLAYER]").replaceAll(RIVAL_PLACEHOLDER, "[RIVAL]"); //Give Player and Rival their buffers back
+        translatedText = translatedText.replaceAll(PLAYER_PLACEHOLDER, "{PLAYER}").replaceAll(RIVAL_PLACEHOLDER, "{RIVAL}"); //Give Player and Rival their buffers back
         translatedText = translatedText.replaceAll(/<\/.*>/g, ""); //Remove closing tags added in
-        translatedText = translatedText.replaceAll("<pause", "<pause><").replaceAll("<buffer0", "<buffer><0"); //Restore newer buffers
-        translatedText = translatedText.replaceAll("<", "[").replaceAll(">", "]"); //Convert all buffers back
+        translatedText = translatedText.replaceAll(/<pause/gi, "<pause><").replaceAll(/<buffer0/gi, "<buffer><0"); //Restore newer buffers
+        translatedText = translatedText.replaceAll("<", "{").replaceAll(">", "}"); //Convert all buffers back to Crown macros
         return translatedText;
     }
 

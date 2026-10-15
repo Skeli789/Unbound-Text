@@ -1,6 +1,6 @@
 name: Release Pipeline
 
-# Run when pushing to master or manually triggered
+# Run when pushing to crown or manually triggered
 on:
   push:
     branches: ["master", "crown"]
@@ -26,32 +26,6 @@ jobs:
     name: Run Front-End Tests
     uses: ./.github/workflows/frontend_tests.yml
 
-  # Update the deploy branch
-  update_deploy_branch:
-    name: Update Deployment Branch
-    needs: run_frontend_tests
-    runs-on: ubuntu-latest
-    env:
-      # Use personal access token so the workflows run on the deployment branch after the push
-      GITHUB_PAT: ${{ secrets.ACTIONS_PAT }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-
-      - name: Configure Git
-        uses: ./.github/actions/configure_bot_git
-
-      - name: Rebase master onto ${{ env.DEPLOY_BRANCH }}
-        run: |
-          git fetch origin
-          git checkout ${{ env.DEPLOY_BRANCH }}
-          git rebase origin/master
-
-      - name: Push updated branch
-        run: git push origin ${{ env.DEPLOY_BRANCH }} --force
-
   # Deploy to GitHub Pages
   deploy_to_gh_pages:
     name: Deploy to GitHub Pages
@@ -59,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       VITE_TRANSLATION_EMAIL: ${{ vars.VITE_TRANSLATION_EMAIL }}
+      VITE_DEPLOY_ENV: gh-pages
     steps:
     # Checkout the code
     - name: Checkout Repository
@@ -80,4 +55,5 @@ jobs:
         github_token: ${{ secrets.GITHUB_TOKEN }}
         publish_dir: ./build
         publish_branch: ${{ env.GH_PAGES_BRANCH }}
+        destination_dir: crown
         keep_files: true

@@ -24,6 +24,7 @@
     grid-template-columns: 2.5rem minmax(0, auto) minmax(0, auto) 2.5rem; /* Equal gutters keep the frame balanced; the middle columns can shrink so long lines scroll */
     grid-template-areas: 
         ". quickButtons quickButtons ."
+        ". trainerName trainerName ."
         "colourButton textAreaMain textAreaMain undoButtons"
         "lockButton textAreaMain textAreaMain undoButtons"
         ". textAreaSub textAreaSub ."
@@ -111,6 +112,16 @@
     line-height: 1 !important;
     word-spacing: 0.25em !important;
     letter-spacing: -0.01785714em !important;
+}
+
+.trainer-name-input
+{
+    grid-area: trainerName;
+    width: 100%;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    overflow-y: hidden !important;
+    overflow-x: auto !important;
 }
 
 .main-textarea-container
@@ -345,6 +356,7 @@ button, svg
         position: relative; /* Anchors the overlaid colour symbol to the grid */
         grid-template-areas:
             "quickButtons"
+            "trainerName"
             "textAreaMain"
             "textAreaSub"
             "bottomActions"

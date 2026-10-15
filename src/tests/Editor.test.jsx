@@ -59,7 +59,9 @@ describe('Editor layout stylesheet', () =>
     {
         const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
         expect(narrow).toMatch(/grid-template-columns:\s*minmax\(0,\s*1fr\);/);
+        expect(narrow).toMatch(/"quickButtons"\s*"trainerName"\s*"textAreaMain"/);
         expect(narrow).toMatch(/\.main-textarea-container,\s*\.converted-text-container\s*\{\s*justify-self:\s*stretch;\s*\}/);
+        expect(css).toMatch(/\.trainer-name-input\s*\{[^}]*width:\s*100%;/);
     });
 
     test('game text scales with available page width using matching line height and proportional spacing', () =>
@@ -90,7 +92,7 @@ describe('Editor layout stylesheet', () =>
     test('narrow screens place every control in one non-wrapping row beneath the field', () =>
     {
         const narrow = css.slice(css.indexOf('@media (max-width: 640px)'));
-        expect(narrow).toMatch(/"quickButtons"\s*"textAreaMain"\s*"textAreaSub"\s*"bottomActions"\s*"translator";/);
+        expect(narrow).toMatch(/"quickButtons"\s*"trainerName"\s*"textAreaMain"\s*"textAreaSub"\s*"bottomActions"\s*"translator";/);
         expect(narrow).toMatch(/\.editor-bottom-actions\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\) auto minmax\(0,\s*1fr\);[^}]*\}/);
         expect(narrow).toMatch(/\.editor-bottom-actions\s*\{[^}]*justify-self:\s*stretch;[^}]*\}/);
         expect(narrow).toMatch(/\.undo-redo-buttons\s*\{[^}]*grid-column:\s*2;[^}]*justify-self:\s*center;[^}]*flex-direction:\s*row;/);
@@ -215,13 +217,14 @@ describe('Editor is rendered and can be typed in', () =>
         const {getByTestId} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
         const textarea = getByTestId('main-textarea');
         expect(textarea).toHaveValue(initialText);
+        expect(screen.getByPlaceholderText('Trainer Name')).toBeInTheDocument();
     });
 
     test('keeps all three text insertion tags in one group separate from the colours', () =>
     {
         const {container} = render(<Editor text={initialText} isTranslation={false} showTranslationBox={dummyFunc} test={true} />);
         const group = container.querySelector('.quick-button-tags');
-        expect(Array.from(group.querySelectorAll('button'), button => button.textContent)).toEqual(['[PLAYER]', '[RIVAL]', '[PAUSE]']);
+        expect(Array.from(group.querySelectorAll('button'), button => button.textContent)).toEqual(['{PLAYER}', '{RIVAL}', '{PAUSE}']);
         expect(group.querySelector('.quick-button-symbol')).toBeNull();
         expect(container.querySelectorAll('.quick-buttons > .quick-button-symbol')).toHaveLength(4);
     });
@@ -350,7 +353,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         {
             name: "Typing when blank always keeps cursor at end",
             default: "",
-            insert: "Hello[[.]] It's me, the bestest editor ever!",
+            insert: "Hello{{.}} It's me, the bestest editor ever!",
             expected: "Hello… It's me, the bestest editor\never!|"
         },
         {
@@ -374,7 +377,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         {
             name: "Adding a colour stays at the end of the colour",
             default: "Hello… It's me, the |coolest,\nawesome!",
-            insert: "[[GREEN", //"[[" types "["; the ] is added automatically
+            insert: "{{GREEN", //The } is added automatically
             expected: "Hello… It's me, the 🟢|coolest,\nawesome!"
         },
         {
@@ -390,39 +393,39 @@ describe('Typing in editor moves the cursor where expected', () =>
             expected: "Hello, one two three four five sixty\nthirty| seventy, eighty.",
         },
         {
-            name: "Adding [ to .] completes the ellipsis",
-            default: "Hello|.] one",
-            insert: "[[]",
+            name: "Adding { to .} completes the ellipsis",
+            default: "Hello|.} one",
+            insert: "{{}",
             expected: "Hello…| one",
         },
         {
-            name: "Adding . to [] completes the ellipsis",
-            default: "Hello[|] one",
+            name: "Adding . to {} completes the ellipsis",
+            default: "Hello{|} one",
             insert: ".",
             expected: "Hello…| one",
         },
         {
-            name: "Adding ] to [. completes the ellipsis",
-            default: "Hello[.| one",
-            insert: "]",
+            name: "Adding } to {. completes the ellipsis",
+            default: "Hello{.| one",
+            insert: "}",
             expected: "Hello…| one",
         },
         {
-            name: "Typing ] before ] moves past it",
-            default: "Hello [|] one",
-            insert: "]",
-            expected: "Hello []| one",
+            name: "Typing } before } moves past it",
+            default: "Hello {|} one",
+            insert: "}",
+            expected: "Hello {}| one",
         },
         {
-            name: "Typing ] before ] in a macro moves past it",
-            default: "Hello [PLAYER|] one",
-            insert: "]",
-            expected: "Hello [PLAYER]| one",
+            name: "Typing } before } in a macro moves past it",
+            default: "Hello {PLAYER|} one",
+            insert: "}",
+            expected: "Hello {PLAYER}| one",
         },
         {
-            name: "Typing ] before ] completes the macro",
-            default: "Hello [RED| one",
-            insert: "]",
+            name: "Typing } before } completes the macro",
+            default: "Hello {RED| one",
+            insert: "}",
             expected: "Hello 🔴| one",
         },
         {
@@ -445,21 +448,21 @@ describe('Typing in editor moves the cursor where expected', () =>
         },
         {
             name: "Deleting multiple characters to finish a macro",
-            default: "Hello, one two [GRE|\n\n|EN] text.",
+            default: "Hello, one two {GRE|\n\n|EN} text.",
             insert: -1,
             expected: "Hello, one two 🟢| text.",
         },
         {
             name: "Replace multiple characters to finish a macro",
-            default: "Hello, one two [GR|\n\nE|N] text.",
+            default: "Hello, one two {GR|\n\nE|N} text.",
             insert: "EE",
             expected: "Hello, one two 🟢| text.",
         },
         {
-            name: "Replace full macro with just [",
-            default: "Hello, |[PLAYER]|",
-            insert: "[[",
-            expected: "Hello, [|]",
+            name: "Replace full macro with just {",
+            default: "Hello, |{PLAYER}|",
+            insert: "{{",
+            expected: "Hello, {|}",
         },
         {
             name: "Replace text with the first character of the text",
@@ -469,7 +472,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         },
         {
             name: "Replace one character with another to finish a macro",
-            default: "Hello [R|B|D] man",
+            default: "Hello {R|B|D} man",
             insert: "E",
             expected: "Hello 🔴| man",
         },
@@ -488,7 +491,7 @@ describe('Typing in editor moves the cursor where expected', () =>
         {
             name: "Pasting a colour and other text",
             default: "",
-            paste: "[RED_FR] is best!",
+            paste: "{RED_FR} is best!",
             expected: "🔴 is best!|",
         },
         {
@@ -659,8 +662,8 @@ describe.each([false, true])('Editor selection transactions (translation: %s)', 
     {
         const editor = CreateEditor('ABC');
         Select(editor, 1, 3, 'backward');
-        act(() => editor.editorRef.current.addTextAtSelectionStart('[]'));
-        expect(editor.textarea).toHaveValue('A[]BC');
+        act(() => editor.editorRef.current.addTextAtSelectionStart('{}'));
+        expect(editor.textarea).toHaveValue('A{}BC');
         ExpectSelection(editor, 2);
         expect(editor.textarea).toHaveFocus();
         act(() => editor.editorRef.current.undoLastChange());
@@ -726,9 +729,9 @@ describe.each([false, true])('Editor selection transactions (translation: %s)', 
     {
         const editor = CreateEditor('ABC');
         editor.textarea.setSelectionRange(1, 3, 'backward');
-        fireEvent(editor.textarea, new InputEvent('beforeinput', {bubbles: true, inputType: 'insertText', data: '['}));
-        fireEvent.input(editor.textarea, {target: {value: 'A[', selectionStart: 2, selectionEnd: 2}, inputType: 'insertText'});
-        expect(editor.textarea).toHaveValue('A[]');
+        fireEvent(editor.textarea, new InputEvent('beforeinput', {bubbles: true, inputType: 'insertText', data: '{'}));
+        fireEvent.input(editor.textarea, {target: {value: 'A{', selectionStart: 2, selectionEnd: 2}, inputType: 'insertText'});
+        expect(editor.textarea).toHaveValue('A{}');
         ExpectSelection(editor, 2);
         act(() => editor.editorRef.current.undoLastChange());
         ExpectSelection(editor, 1, 3, 'backward');
@@ -739,18 +742,18 @@ describe.each([false, true])('Editor selection transactions (translation: %s)', 
         const editor = CreateEditor('ABC');
         await editor.user.click(editor.textarea);
         Select(editor, 1, 3, 'backward');
-        const bracketButton = Array.from(editor.textarea.closest('.editor-grid').querySelectorAll('.quick-button'))
-            .find((button) => button.textContent === '[PAUSE]');
-        expect(bracketButton).toBeDefined();
-        await editor.user.click(bracketButton);
-        expect(editor.textarea).toHaveValue('A[PAUSE][]BC');
+        const pauseButton = Array.from(editor.textarea.closest('.editor-grid').querySelectorAll('.quick-button'))
+            .find((button) => button.textContent === '{PAUSE}');
+        expect(pauseButton).toBeDefined();
+        await editor.user.click(pauseButton);
+        expect(editor.textarea).toHaveValue('A{PAUSE}{}BC');
         ExpectSelection(editor, 9);
         Select(editor, 1, 4, 'backward');
-        act(() => editor.editorRef.current.setPrettifiedText('  [RED] nice  '));
+        act(() => editor.editorRef.current.setPrettifiedText('  {RED} nice  '));
         expect(editor.textarea).toHaveValue('🔴 nice');
         ExpectSelection(editor, 7);
         act(() => editor.editorRef.current.undoLastChange());
-        expect(editor.textarea).toHaveValue('A[PAUSE][]BC');
+        expect(editor.textarea).toHaveValue('A{PAUSE}{}BC');
         ExpectSelection(editor, 1, 4, 'backward');
     });
 
@@ -1231,7 +1234,7 @@ describe('Editor latest derivations', () =>
         expect(textarea).toHaveValue(pastedExpected);
         expect(textarea.value.substring(textarea.selectionStart - 5, textarea.selectionStart)).toBe('Paste');
         expect(textarea.selectionEnd).toBe(textarea.selectionStart);
-        expect(container.querySelector('.converted-text')).toHaveValue(CreateIngameText(pastedExpected));
+        expect(container.querySelector('.converted-text')).toHaveValue(CreateIngameText(pastedExpected, "", "gray"));
         expect(editorRef.current.getMirrorHtml().__html).toBe(TextUtils.ParseColouredTextToHtml(pastedExpected, undefined));
         expect(container.querySelector('.mirror-textarea').querySelectorAll('span').length).toBeLessThan(pastedExpected.length / 4);
     });

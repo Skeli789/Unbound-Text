@@ -7,11 +7,11 @@
     --text: #111827;
     --muted: #4b5563;
     --border: #d1d5db;
-    --focus: #9333ea;
-    --focus-ring: rgb(147 51 234 / 25%);
+    --focus: #20c8e8;
+    --focus-ring: #20c7e857;
     --caret: #111827;
     --radius: 6px;
-    --theme: #9333ea;
+    --theme: #20c8e8;
 }
 
 [data-color-mode="dark"]
@@ -23,10 +23,10 @@
     --text: #f3f4f6;
     --muted: #9ca3af;
     --border: #3a3f46;
-    --focus: #c084fc;
-    --focus-ring: rgb(192 132 252 / 30%);
+    --focus: #20c8e8;
+    --focus-ring: #20c7e825;
     --caret: #f3f4f6;
-    --theme: #6812a3;
+    --theme: #20c7e857;
 }
 
 .app, #root
