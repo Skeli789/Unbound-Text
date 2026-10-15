@@ -43,6 +43,7 @@ export class PrettifyButton extends Component
         let skipNextCharIfWhitespace = false;
         let text = this.props.text;
 
+        text = text.replaceAll("[.]", "…");
         text = text.replaceAll("\n", " "); //First, remove all of the new lines
         text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
         text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
@@ -131,9 +132,31 @@ export class PrettifyButton extends Component
         }
 
         //Format each text box individually so the first line of each can be max length
-        finalText = finalText.split("\n\n") //Split the text by textboxes
-            .map((line) => FormatStringForDisplay(line, false)) //Format the line for display
-            .join("\n\n"); //Join the lines back together
+        const textboxes = [];
+        let ellipsisContinued = false;
+        for (const sentence of finalText.split("\n\n"))
+        {
+            const formattedSentence = FormatStringForDisplay(sentence, false).trim();
+            if (!formattedSentence)
+                continue;
+
+            const previous = textboxes.at(-1);
+            if (previous !== undefined && !ellipsisContinued)
+            {
+                const combined = FormatStringForDisplay(previous + " " + formattedSentence, false);
+                if (combined.startsWith(previous + " ")
+                && combined.split("\n").length === previous.split("\n").length)
+                {
+                    textboxes[textboxes.length - 1] = combined;
+                    ellipsisContinued = previous.endsWith("…");
+                    continue;
+                }
+            }
+
+            textboxes.push(formattedSentence);
+            ellipsisContinued = false;
+        }
+        finalText = textboxes.join("\n\n");
         this.setParentPrettifiedText(finalText.trim()); //Remove the last new lines
     }
 

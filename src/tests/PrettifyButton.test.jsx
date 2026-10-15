@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 
 import {CreateAppTheme} from '../AppTheme';
 import {NotificationProvider} from '../NotificationContext';
+import {FormatStringForDisplay} from '../TextUtils';
 import {PrettifyButton} from '../subcomponents/PrettifyButton';
 
 
@@ -48,9 +49,34 @@ describe('PrettifyButton', () =>
         fireEvent.click(doIt); //A repeated click must not reformat the text again
 
         expect(setPrettifiedText).toHaveBeenCalledTimes(1);
-        expect(setPrettifiedText).toHaveBeenCalledWith("Hi.\n\nThere");
+        expect(setPrettifiedText).toHaveBeenCalledWith("Hi. There");
         expect(await screen.findByRole('status')).toHaveTextContent('Prettified!');
         await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+    });
+
+    test.each([
+        ["Hi! Great to meet you!", "Hi! Great to meet you!"],
+        ["Hi! Yes. OK?", "Hi! Yes. OK?"],
+        ["And I command you to cease these childish antics of yours… NOW!",
+            "And I command you to cease these\nchildish antics of yours… NOW!"],
+        ["And I command you to cease these childish antics of yours[.] NOW!",
+            "And I command you to cease these\nchildish antics of yours… NOW!"],
+        ["And I command you to cease these childish antics of yours… NOW! Hi! Great to meet you!",
+            "And I command you to cease these\nchildish antics of yours… NOW!\n\nHi! Great to meet you!"],
+        ["Wait… NOW! Hi! Great to meet you!", "Wait… NOW!\n\nHi! Great to meet you!"],
+        ["Wait[.] NOW! Hi! Great to meet you!", "Wait… NOW!\n\nHi! Great to meet you!"],
+        ['Hi!? "Yes!" OK.', 'Hi!? "Yes!" OK.'],
+        ["Hi! [RED]Great to meet you!", "Hi! 🔴Great to meet you!"],
+        ["Hi! Great to meet you! This next sentence is much too long to fit on that same line.",
+            "Hi! Great to meet you!\n\n" + FormatStringForDisplay("This next sentence is much too long to fit on that same line.", false)],
+    ])('keeps following sentences on the current line only when they fit: %s', (text, expected) =>
+    {
+        const {setPrettifiedText, getByTestId} = renderPrettifyButton(text);
+
+        fireEvent.click(getByTestId('prettify-button'));
+        fireEvent.click(screen.getByRole('button', {name: 'Do It'}));
+
+        expect(setPrettifiedText).toHaveBeenCalledWith(expected);
     });
 
     test.each([false, true])('Cancel uses the regular text colour in both themes (dark mode: %s)', (darkMode) =>
