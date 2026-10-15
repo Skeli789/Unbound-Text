@@ -13,8 +13,7 @@
     box-sizing: border-box;
     width: 100%;
     container-type: inline-size;
-    flex-grow: 1; /* Fills the space between the header and footer */
-    flex-shrink: 0;
+    flex: 1 0 auto;
     padding: 1rem;
 }
 

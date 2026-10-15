@@ -60,19 +60,28 @@ describe("App shell height", () =>
         const indexCss = readFileSync(join(process.cwd(), "src", "styles", "index.css"), "utf8");
         const appCss = readFileSync(join(process.cwd(), "src", "styles", "App.css"), "utf8");
         expect(indexCss).toMatch(/\bhtml\s*\{[^}]*height:\s*100%/);
-        expect(indexCss).toMatch(/\bbody\s*\{[^}]*height:\s*100%/);
-        expect(appCss).toMatch(/\.app,\s*#root\s*\{\s*height:\s*100%/);
+        expect(indexCss).toMatch(/\bbody\s*\{[^}]*height:\s*100vh;\s*height:\s*100dvh;/);
+        expect(indexCss).toMatch(/\bbody\s*\{[^}]*overflow:\s*hidden/);
+        expect(appCss).toMatch(/\.app,\s*#root\s*\{\s*height:\s*100vh;\s*height:\s*100dvh;/);
+        expect(appCss).toMatch(/\.app\s*\{[^}]*display:\s*flex;\s*flex-direction:\s*column/);
     });
 
-    test("the app scrolls and the editor does not shrink, allowing the footer below the viewport", () =>
+    test("the main container scrolls without overscroll and the editor keeps its content height", () =>
     {
         const appCss = readFileSync(join(process.cwd(), "src", "styles", "App.css"), "utf8");
         const editorCss = readFileSync(join(process.cwd(), "src", "styles", "Editor.css"), "utf8");
+        const mainContainer = appCss.match(/\.main-container\s*\{([^}]*)\}/)[1];
         const editorPage = editorCss.match(/\.editor-page\s*\{([^}]*)\}/)[1];
 
-        expect(appCss).toMatch(/\.app\s*\{[^}]*overflow-y:\s*auto/);
-        expect(editorPage).toMatch(/flex-grow:\s*1/);
-        expect(editorPage).toMatch(/flex-shrink:\s*0/);
+        expect(appCss).toMatch(/\.app\s*\{[^}]*overflow:\s*hidden/);
+        expect(mainContainer).toMatch(/display:\s*flex/);
+        expect(mainContainer).toMatch(/flex-direction:\s*column/);
+        expect(mainContainer).toMatch(/flex:\s*1\s+1\s+auto/);
+        expect(mainContainer).toMatch(/min-height:\s*0/);
+        expect(mainContainer).toMatch(/overflow-y:\s*auto/);
+        expect(mainContainer).toMatch(/overscroll-behavior-y:\s*none/);
+        expect(mainContainer).toMatch(/-webkit-overflow-scrolling:\s*touch/);
+        expect(editorPage).toMatch(/flex:\s*1\s+0\s+auto/);
         expect(editorPage).not.toMatch(/overflow(?:-y)?:\s*(auto|scroll|hidden)/);
     });
 
@@ -175,6 +184,8 @@ describe("footer credit", () =>
         const {container} = render(<App />);
         const footer = container.querySelector(".footer");
 
+        expect(footer.parentElement).toBe(screen.getByRole("main"));
+        expect(footer.previousElementSibling).toBe(screen.getByTestId("editor-page"));
         expect(footer).toHaveTextContent("Created by Skeli for Unbound");
         const link = within(footer).getByRole("link", {name: "Unbound"});
         expect(link).toHaveAttribute("href", "https://www.pokecommunity.com/threads/pok%C3%A9mon-unbound-completed.382178/");

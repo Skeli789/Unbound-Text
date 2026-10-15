@@ -8,7 +8,8 @@ html
 body
 {
     margin: 0;
-    height: 100%;
+    height: 100vh;
+    height: 100dvh;
     font-family: "Trebuchet MS", "Lucida Grande", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;

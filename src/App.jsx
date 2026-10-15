@@ -46,8 +46,10 @@ function App()
             <NotificationProvider>
                 <div className="app">
                     <Header darkMode={darkMode} toggleParentDarkMode={toggleDarkMode} />
-                    <EditorPage darkMode={darkMode} />
-                    <Footer />
+                    <main className="main-container">
+                        <EditorPage darkMode={darkMode} />
+                        <Footer />
+                    </main>
                 </div>
             </NotificationProvider>
         </AppThemeProvider>
