@@ -108,7 +108,7 @@
 {
     font-family: "Pokemon Fire Red", monospace !important;
     font-size: clamp(18px, 6.5cqi, 2rem) !important;
-    font-size-adjust: 0.312; /* So the fallback text is the same size as the original font */
+    font-size-adjust: 0.312 !important; /* Keep fallback glyph metrics identical despite MUI's input reset */
     line-height: 1 !important;
     word-spacing: 0.25em !important;
     letter-spacing: -0.01785714em !important;

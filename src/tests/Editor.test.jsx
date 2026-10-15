@@ -70,6 +70,11 @@ describe('Editor layout stylesheet', () =>
         expect(narrow).not.toMatch(/\.fr-text\s*\{/);
     });
 
+    test('fallback glyph sizing overrides the input reset so ellipses and following caret positions match the mirror', () =>
+    {
+        expect(css).toMatch(/\.fr-text\s*\{[^}]*font-size-adjust:\s*0\.312 !important;[^}]*\}/);
+    });
+
     test('translation buttons can shrink on narrow screens while retaining their desktop minimum', () =>
     {
         const breakpoint = css.indexOf('@media (max-width: 640px)');
