@@ -69,6 +69,8 @@ describe('PrettifyButton', () =>
         ["Hi! [RED]Great to meet you!", "Hi! 🔴Great to meet you!"],
         ["Hi! Great to meet you! This next sentence is much too long to fit on that same line.",
             "Hi! Great to meet you!\n\n" + FormatStringForDisplay("This next sentence is much too long to fit on that same line.", false)],
+        ["And I command you to cease these childish antics of yours…🟢[PAUSE][18]🔴 NOW!",
+            "And I command you to cease these\nchildish antics of yours…🟢[PAUSE][18]🔴 NOW!"],
     ])('keeps following sentences on the current line only when they fit: %s', (text, expected) =>
     {
         const {setPrettifiedText, getByTestId} = renderPrettifyButton(text);
