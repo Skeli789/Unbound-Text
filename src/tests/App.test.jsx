@@ -186,9 +186,9 @@ describe("footer credit", () =>
 
         expect(footer.parentElement).toBe(screen.getByRole("main"));
         expect(footer.previousElementSibling).toBe(screen.getByTestId("editor-page"));
-        expect(footer).toHaveTextContent("Created by Skeli for Unbound");
-        const link = within(footer).getByRole("link", {name: "Unbound"});
-        expect(link).toHaveAttribute("href", "https://www.pokecommunity.com/threads/pok%C3%A9mon-unbound-completed.382178/");
+        expect(footer).toHaveTextContent("Created by Skeli for Crown");
+        const link = within(footer).getByRole("link", {name: "Crown"});
+        expect(link).toHaveAttribute("href", "https://www.pokecommunity.com/threads/pok%C3%A9mon-crown.463821/");
         expect(link).toHaveAttribute("target", "_blank");
         expect(link).toHaveAttribute("rel", "noopener noreferrer");
     });

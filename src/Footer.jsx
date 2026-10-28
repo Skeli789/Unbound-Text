@@ -34,14 +34,14 @@ export class Footer extends Component
             <AppBar position="static" component="footer" elevation={0} color="primary" enableColorOnDark className="footer">
                 <Toolbar variant="dense" className="footer-toolbar">
                     <Typography variant="body2" className="skeli-games-logo">
-                        &copy; 2021-{currentYear} Unbound Text
+                        &copy; 2021-{currentYear} Crown Text
                     </Typography>
                     <Typography variant="body2" className="footer-credit">
                         Created by Skeli for{" "}
-                        <Link href="https://www.pokecommunity.com/threads/pok%C3%A9mon-unbound-completed.382178/"
+                        <Link href="https://www.pokecommunity.com/threads/pok%C3%A9mon-crown.463821/"
                               target="_blank" rel="noopener noreferrer"
                               color="inherit" underline="hover">
-                            Unbound
+                            Crown
                         </Link>
                     </Typography>
                 </Toolbar>

@@ -23,5 +23,5 @@ export function BuildValidatedFormatChange(typeOfTextChange, oldText, newText, r
         return {...typeOfTextChange, type: TextChange.NO_CHANGE};
 
     const inserted = newText.slice(range.start, range.start + insertedLength);
-    return {...typeOfTextChange, start: range.start, inserted, validatedBracket: inserted === "["};
+    return {...typeOfTextChange, start: range.start, inserted, validatedMacroStart: inserted === "{" || inserted === "["};
 }

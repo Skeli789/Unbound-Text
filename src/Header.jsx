@@ -66,7 +66,7 @@ export function Header({darkMode, toggleParentDarkMode})
         <AppBar position="static" component="header" elevation={0} color="primary" enableColorOnDark className="header">
             <Toolbar variant="dense" className="header-toolbar">
                 <Typography variant="h6" component="h1" className="header-title">
-                    Unbound Text Editor
+                    Crown Text Editor
                 </Typography>
 
                 <Box className="header-actions">

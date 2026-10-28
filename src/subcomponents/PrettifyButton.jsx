@@ -43,7 +43,7 @@ export class PrettifyButton extends Component
         let skipNextCharIfWhitespace = false;
         let text = this.props.text;
 
-        text = text.replaceAll("[.]", "…");
+        text = text.replaceAll("{.}", "…");
         text = text.replaceAll("\n", " "); //First, remove all of the new lines
         text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
         text = text.replaceAll("  ", " "); //Then, remove all of the duplicate white spaces created above
@@ -63,9 +63,9 @@ export class PrettifyButton extends Component
             if (!IsColour(letter)) //Not a real character, so continue trying to skip
                 skipNextCharIfWhitespace = false;
 
-            if (letter === "[")
+            if (letter === "{")
                 inMacro = true;
-            else if (letter === "]")
+            else if (letter === "}")
                 inMacro = false;
             else if (!inMacro)
             {
@@ -111,7 +111,7 @@ export class PrettifyButton extends Component
                                     if (/^[A-Z]*$/.test(text[secondNextLetterIndex])) //And next character is an uppercase letter
                                     {
                                         let nextIndex = i + 1;
-                                        while (text[nextIndex] === " " || IsColour(text[nextIndex])) ++nextIndex; //Fixes problems like "... [PAUSE][20]I hate it!"
+                                        while (text[nextIndex] === " " || IsColour(text[nextIndex])) ++nextIndex; //Fixes problems like "... {PAUSE}{20}I hate it!"
 
                                         if (!IsPause(text, nextIndex)) //Pause between ... and capital letter clearly indicates it should be in the same textbox
                                         {

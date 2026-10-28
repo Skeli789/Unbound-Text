@@ -57,7 +57,8 @@ export class Editor extends Component
         this.state =
         {
             text: props.text || "",
-            textColour: GetPreviouslyUsedTextColour() || "black",
+            trainerName: props.trainerName || "",
+            textColour: GetPreviouslyUsedTextColour() || "gray",
             cursorPosition: 0,
             selectionEnd: 0,
             selectionDirection: NO_SELECTION_DIRECTION,
@@ -74,7 +75,8 @@ export class Editor extends Component
 
         this.showTranslationBox = (translatedText) =>
         {
-            this.props.showTranslationBox(FormatStringForDisplay(FormatStringForDisplay(translatedText, this.state.lockFinalLine), this.state.lockFinalLine));
+            this.props.showTranslationBox(FormatStringForDisplay(FormatStringForDisplay(translatedText, this.state.lockFinalLine), this.state.lockFinalLine),
+                                          this.state.trainerName);
         }
         this.scheduleMirrorSync = this.scheduleMirrorSync.bind(this);
         this.handleLayoutChange = this.handleLayoutChange.bind(this);
@@ -294,6 +296,16 @@ export class Editor extends Component
 
     //Text state
     /**
+     * Automatically saves the text in the editor if auto-save is enabled.
+     */
+    tryAutoSaveText()
+    {
+        if (!this.props.isTranslation //Don't save the translated text
+        && !this.props.test) //Don't auto save in the test environment
+            AutoSaveText(this.state.text, this.state.trainerName); //Auto save the text for future visits
+    }
+
+    /**
      * Sets the text state of the editor.
      * @param {string} newText - The new text to be set.
      * @param {number} selectionStart - The starting position of the selection/cursor position.
@@ -317,10 +329,7 @@ export class Editor extends Component
             selectionDirection,
         }, () =>
         {
-            //Save the text
-            if (!this.props.isTranslation //Don't save the translated text
-            && !this.props.test) //Don't auto save in the test environment
-                AutoSaveText(newText); //Auto save the text for future visits
+            this.tryAutoSaveText();
 
             //Restore the caret and mirror after the final text/width commit
             const synchronizeSelection = () =>
@@ -537,8 +546,8 @@ export class Editor extends Component
 
         //Determine the new cursor position
         let newCursorPos = textarea.selectionStart + textToAdd.length; //String length so unicode characters are treated properly
-        if (textToAdd.endsWith("[]"))
-            newCursorPos -= 1; //Start inside square brackets    
+        if (textToAdd.endsWith("{}") || textToAdd.endsWith("[]"))
+            newCursorPos -= 1; //Start inside curly braces
 
         //Format the text with the cursor after the inserted text
         this.setNewText(newText, true, {text: oldText, priorSelection,
@@ -660,6 +669,7 @@ export class Editor extends Component
         const textareaId = GetTextAreaId(isTranslation);
         const convertedId = (isTranslation) ? "translated-converted-text" : "converted-text";
         const idPrefix = (isTranslation) ? "translation-" : "";
+        const trainerNameId = `${idPrefix}trainer-name-input`;
 
         return (
             <div className="editor-grid" id={(!isTranslation) ? "editor-grid" : "editor-grid-translate"}>
@@ -668,6 +678,17 @@ export class Editor extends Component
 
                 {/*Toolbar*/}
                 <QuickButtons addTextAtSelectionStart={this.addTextAtSelectionStart.bind(this)}/>
+
+                {/*Trainer Name*/}
+                <label className="visually-hidden" htmlFor={trainerNameId}>Trainer name</label>
+                <InputBase
+                    className="text-field trainer-name-input"
+                    id={trainerNameId}
+                    value={this.state.trainerName}
+                    placeholder="Trainer Name"
+                    onChange={(e) => this.setState({trainerName: e.target.value}, () => this.tryAutoSaveText())} //Auto save the trainer name
+                    slotProps={{input: {className: "fr-text text-field-input", type: "text"}}}
+                />
 
                 {/*Text Input*/}
                 <div className="main-textarea-container">
@@ -710,7 +731,8 @@ export class Editor extends Component
                 </div>
 
                 {/*Converted Text*/}
-                <ConvertedText text={text} textAreaStyle={textAreaStyle} id={convertedId} />
+                <ConvertedText text={text} trainerName={this.state.trainerName} colour={this.state.textColour}
+                               textAreaStyle={textAreaStyle} id={convertedId} />
 
                 {/*Lock, prettifier, undo and space details share one row; the grid places each control in its column on wide screens*/}
                 <div className="editor-bottom-actions">

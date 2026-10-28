@@ -13,6 +13,7 @@ import {CONTROL_BUTTON_SX} from "../AppTheme";
 const LOCAL_STORAGE_ENABLED_KEY = "autosaveEnabled";
 const LOCAL_STORAGE_TEXT_KEY = "autoSavedText";
 const ON_COLOUR = "#66bb6a"; //Readable on both the light and dark header
+const LOCAL_STORAGE_TRAINER_NAME_KEY = "autoSavedTrainerName";
 
 
 export class AutoSaveButton extends Component
@@ -48,7 +49,10 @@ export class AutoSaveButton extends Component
 
         //Clear the previous auto-saved text if auto-save is turned off
         if (!on)
+        {
             localStorage.removeItem(LOCAL_STORAGE_TEXT_KEY);
+            localStorage.removeItem(LOCAL_STORAGE_TRAINER_NAME_KEY);
+        }
     }
 
     /**
@@ -74,11 +78,14 @@ export class AutoSaveButton extends Component
  * Auto-saves the text to local storage.
  * @param {string} text - The text to be auto-saved.
  */
-export function AutoSaveText(text)
+export function AutoSaveText(text, trainerName)
 {
     const autoSaveEnabled = localStorage.getItem(LOCAL_STORAGE_ENABLED_KEY) === "true";
     if (autoSaveEnabled)
+    {
         localStorage.setItem(LOCAL_STORAGE_TEXT_KEY, text);
+        localStorage.setItem(LOCAL_STORAGE_TRAINER_NAME_KEY, trainerName);
+    }
 }
 
 /**
@@ -88,6 +95,15 @@ export function AutoSaveText(text)
 export function GetAutoSavedText()
 {
     return localStorage.getItem(LOCAL_STORAGE_TEXT_KEY) || "";
+}
+
+/**
+ * Retrieves the auto-saved trainer name from local storage.
+ * @returns {string} The auto-saved trainer name.
+ */
+export function GetAutoSavedTrainerName()
+{
+    return localStorage.getItem(LOCAL_STORAGE_TRAINER_NAME_KEY) || "";
 }
 
 export default AutoSaveButton;

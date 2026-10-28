@@ -19,9 +19,11 @@ const COPY_BUTTON_SIZE = "2.25rem"; //Width reserved at the end of the field for
 /**
  * Converts the given text to the format needed for the game compiler.
  * @param {string} text - The text to be converted.
+ * @param {string} [trainerName=""] - Optional Crown trainer plate name.
+ * @param {string} [colour=""] - Current text colour.
  * @returns {string} The converted text.
  */
-export function CreateIngameText(text)
+export function CreateIngameText(text, trainerName = "", colour = "")
 {
     let finalText = "";
     let newTextbox = true;
@@ -33,6 +35,7 @@ export function CreateIngameText(text)
     text = text.replaceAll("–", "-");
     text = text.replaceAll("“", '"');
     text = text.replaceAll("”", '"');
+    text = text.replaceAll("…", "..."); // FBI doesn;'t like ellipses
     text = ReplaceWithMacros(text, COLOURS);
     text = ReplaceWithMacros(text, OTHER_REPLACEMENT_MACROS);
 
@@ -101,6 +104,15 @@ export function CreateIngameText(text)
             finalText += letter;
     }
 
+    if (finalText === "")
+        return "";
+
+    if (colour)
+        finalText = `{${colour.toUpperCase()}}` + finalText;
+
+    if (trainerName !== "")
+        finalText = `{PLATE=${trainerName}=}` + finalText;
+
     return finalText;
 }
 
@@ -129,9 +141,9 @@ export class ConvertedText extends Component
      */
     getConvertedText()
     {
-        const {text} = this.props;
-        if (!this.conversionCache || this.conversionCache.text !== text)
-            this.conversionCache = {text, convertedText: CreateIngameText(text)};
+        const {text, trainerName = "", colour = ""} = this.props;
+        if (!this.conversionCache || this.conversionCache.text !== text || this.conversionCache.trainerName !== trainerName || this.conversionCache.colour !== colour)
+            this.conversionCache = {text, trainerName, colour, convertedText: CreateIngameText(text, trainerName, colour)};
 
         return this.conversionCache.convertedText;
     }

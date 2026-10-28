@@ -5,11 +5,13 @@ export const SEMI_LINE_WIDTH = 196;
 
 export const COLOURS =
 {
-    "BLACK": "⚫",
+    "GRAY": "⚫",
     "GREEN": "🟢",
     "BLUE": "🔵",
     "RED": "🔴",
-    "ORANGE": "🟠",
+    "YELLOW": "🟡",
+    "PINK": "🩷",
+    "TEAL": "💧",
 };
 
 export const SYMBOLS_TO_TEXT_COLOUR = //Light mode
@@ -18,7 +20,9 @@ export const SYMBOLS_TO_TEXT_COLOUR = //Light mode
     "🟢": "green",
     "🔵": "blue",
     "🔴": "red",
-    "🟠": "orange",
+    "🟡": "gold",
+    "🩷": "deeppink",
+    "💧": "deepskyblue",
 };
 
 export const SYMBOLS_TO_TEXT_COLOUR_DARK_MODE =
@@ -27,25 +31,28 @@ export const SYMBOLS_TO_TEXT_COLOUR_DARK_MODE =
     "🟢": "#75dd75",
     "🔵": "#5190ff",
     "🔴": "#d06666",
-    "🟠": "orange",
+    "🟡": "gold",
+    "🩷": "deeppink",
+    "💧": "deepskyblue",
 };
 
 export const OTHER_REPLACEMENT_MACROS =
 {
-    ".": "…",
     "ARROW_UP": "↑",
     "ARROW_DOWN": "↓",
     "ARROW_LEFT": "←",
     "ARROW_RIGHT": "→",
-    "A_BUTTON": "🅰",
-    "B_BUTTON": "🅱",
+    "KEY_A": "🅰",
+    "KEY_B": "🅱",
 };
 
 const NORMALIZATION_REPLACEMENTS =
 [
     ["\\pn", "\n\n"], ["\\n", "\n"], ["\\p", "\n\n"], ["\\l", "\n"],
-    ["[.]", "…"], ["...", "…"], ["…]", "…"], ["]]", "]"], ["\\e", "é"],
-    ["‘", "'"], ["’", "'"], ["“", '"'], ["”", '\\"'], ["—", "-"], ["–", "-"], ["_FR]", "]"], ["_EM]", "]"],
+    ["{.}", "…"], ["[.]", "…"], ["...", "…"], ["…}", "…"], ["…]", "…"],
+    ["}}", "}"], ["]]", "]"], ["\\e", "é"],
+    ["‘", "'"], ["’", "'"], ["“", '"'], ["”", '\\"'], ["—", "-"], ["–", "-"],
+    [/_FR}/gi, "}"], [/_EM}/gi, "}"], [/_FR\]/gi, "]"], [/_EM\]/gi, "]"], ["[", "{"], ["]", "}"],
 ];
 
 /**
@@ -57,7 +64,7 @@ const NORMALIZATION_REPLACEMENTS =
 export function ReplaceMacros(text, obj)
 {
     for (let key of Object.keys(obj))
-        text = text.replaceAll(`[${key}]`, obj[key]);
+        text = text.replaceAll(`{${key}}`, obj[key]);
 
     return text;
 }
@@ -71,7 +78,7 @@ export function ReplaceMacros(text, obj)
 export function ReplaceWithMacros(text, obj)
 {
     for (let key of Object.keys(obj))
-        text = text.replaceAll(obj[key], `[${key}]`);
+        text = text.replaceAll(obj[key], `{${key}}`);
 
     return text;
 }
@@ -87,7 +94,7 @@ function ReplaceDisplayMacros(text, boundaries)
     for (const obj of [COLOURS, OTHER_REPLACEMENT_MACROS])
     {
         for (const key of Object.keys(obj))
-            ({text, boundaries} = ReplaceWithBoundaries(text, boundaries, `[${key}]`, obj[key]));
+            ({text, boundaries} = ReplaceWithBoundaries(text, boundaries, `{${key}}`, obj[key]));
     }
 
     return {text, boundaries};
@@ -100,10 +107,7 @@ function ReplaceDisplayMacros(text, boundaries)
  */
 export function IsColour(char)
 {
-    return char === "🟢"
-        || char === "🔵"
-        || char === "🔴"
-        || char === "⚫";
+    return Object.values(COLOURS).includes(char);
 }
 
 /**
@@ -146,7 +150,7 @@ export function IsPunctuation(char)
  */
 export function IsPause(text, nextLetterIndex)
 {
-    return text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[PAUSE]";
+    return text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "{PAUSE}";
 }
 
 /**
@@ -164,15 +168,15 @@ export function GetNextLetterIndex(text, nextLetterIndex)
         return GetNextLetterIndex(text, nextLetterIndex + 1); //Skip past colour
     else if (IsPause(text, nextLetterIndex))
         return GetNextLetterIndex(text, nextLetterIndex + 7); //Skip past pause start
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[RIVAL]")
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "{RIVAL}")
         return nextLetterIndex + 1; //Return the index of the R
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 8).join("") === "[PLAYER]")
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 8).join("") === "{PLAYER}")
         return nextLetterIndex + 1; //Return the index of the P
-    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "[BUFFER")
+    else if (text.slice(nextLetterIndex, nextLetterIndex + 7).join("") === "{BUFFER")
         return nextLetterIndex + 1; //Return the index of the B
-    else if (text[nextLetterIndex] === "[")
+    else if (text[nextLetterIndex] === "{")
     {
-        while (nextLetterIndex < text.length && text[nextLetterIndex] !== "]")
+        while (nextLetterIndex < text.length && text[nextLetterIndex] !== "}")
             ++nextLetterIndex;
 
         ++nextLetterIndex;
@@ -234,14 +238,14 @@ export function GetStringWidth(text)
         if (letter === "\n")
             break; //End of line
 
-        if (letter === "[") //Start of macro
+        if (letter === "{") //Start of macro
         {
             inMacro = true;
             macroText = "";
         }
         else if (inMacro)
         {
-            if (letter === "]") //End of macro
+            if (letter === "}") //End of macro
             {
                 inMacro = false;
                 width += GetMacroWidth(macroText)
@@ -600,7 +604,7 @@ function WrapLines(text, finalLineLocked, textChange, bracketStart, joinedHyphen
             const piece = {text: letter, start, end: sourceOffset};
             if (letter === " " && j - 2 >= 0 && line[j - 1] === " " && line[j - 2] === " ") //Three whitespaces in a row
                 continue; //Don't allow
-            else if (letter === "[") //Start of macro
+            else if (letter === "{") //Start of macro
             {
                 inMacro = true;
                 macroText = "";
@@ -615,26 +619,26 @@ function WrapLines(text, finalLineLocked, textChange, bracketStart, joinedHyphen
                     currWord = []; //Reset
                 }
 
-                //Add a closing brace if there isn't one on the line yet and only if the user just added the [
-                if (!LineHasCharAfterIndex(line, j, "]")
-                && (textChange.type === TextChange.SINGLE_INSERT || textChange.validatedBracket)
-                && textChange.inserted === "[" //Only add if the user just added it
-                && start === bracketStart) //Only add if the user just added it
+                //Add a closing brace only when the user just inserted a macro opener
+                if (!LineHasCharAfterIndex(line, j, "}")
+                && (textChange.type === TextChange.SINGLE_INSERT || textChange.validatedMacroStart)
+                && (textChange.inserted === "{" || textChange.inserted === "[")
+                && start === bracketStart)
                 {
-                    letter += "]"; //Automatically add closing brace
+                    letter += "}"; //Automatically add closing brace
                     piece.caretLength = 1;
                 }
             }
             else if (inMacro)
             {
-                if (letter === "]") //End of macro
+                if (letter === "}") //End of macro
                 {
                     inMacro = false;
                     width += GetMacroWidth(macroText)
                 }
                 else //Build up the macro
                 {
-                    if (LineHasCharAfterIndexBeforeOtherChar(line, j, "]", "["))
+                    if (LineHasCharAfterIndexBeforeOtherChar(line, j, "}", "{"))
                         letter = letter.toUpperCase();
 
                     macroText += letter;

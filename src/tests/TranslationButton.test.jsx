@@ -83,7 +83,7 @@ describe('TranslationButton request outcomes', () =>
         chooseLanguage('Spanish');
         fireEvent.click(screen.getByRole('button', {name: 'Translate'}));
 
-        await waitFor(() => expect(showTranslationBox).toHaveBeenCalledWith("Hola [PLAYER]"));
+        await waitFor(() => expect(showTranslationBox).toHaveBeenCalledWith("Hola {PLAYER}"));
         expect(axios.get).toHaveBeenCalledTimes(1);
         expect(axios.get).toHaveBeenCalledWith(
             "https://api.mymemory.translated.net/get",

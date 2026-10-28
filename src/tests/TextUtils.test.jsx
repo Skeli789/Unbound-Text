@@ -14,7 +14,7 @@ describe('ReplaceMacros', () =>
     test('replaces keys with values', () =>
     {
         const obj = { HELLO: 'hi', WORLD: 'earth' };
-        expect(ReplaceMacros('A [HELLO] [WORLD]!', obj)).toBe('A hi earth!');
+        expect(ReplaceMacros('A {HELLO} {WORLD}!', obj)).toBe('A hi earth!');
     });
 });
 
@@ -24,7 +24,7 @@ describe('ReplaceWithMacros', () =>
     test('replaces values with keys', () =>
     {
         const obj = { HELLO: 'hi', WORLD: 'earth' };
-        expect(ReplaceWithMacros('A hi earth!', obj)).toBe('A [HELLO] [WORLD]!');
+        expect(ReplaceWithMacros('A hi earth!', obj)).toBe('A {HELLO} {WORLD}!');
     });
 });
 
@@ -50,21 +50,21 @@ describe('IsColour', () =>
 //Tests for GetDisplayColour light and dark palettes
 describe('GetDisplayColour', () =>
 {
-    test('light palette keeps the original colours', () =>
+    test('light palette includes all Crown colours', () =>
     {
-        expect(SYMBOLS_TO_TEXT_COLOUR).toEqual({'⚫': 'black', '🟢': 'green', '🔵': 'blue', '🔴': 'red', '🟠': 'orange'});
+        expect(SYMBOLS_TO_TEXT_COLOUR).toEqual({'⚫': 'black', '🟢': 'green', '🔵': 'blue', '🔴': 'red', '🟡': 'gold', '🩷': 'deeppink', '💧': 'deepskyblue'});
     });
 
-    test('dark palette uses the lighter green, blue and red', () =>
+    test('dark palette keeps all Crown colours readable', () =>
     {
-        expect(SYMBOLS_TO_TEXT_COLOUR_DARK_MODE).toEqual({'⚫': 'white', '🟢': '#75dd75', '🔵': '#5190ff', '🔴': '#d06666', '🟠': 'orange'});
+        expect(SYMBOLS_TO_TEXT_COLOUR_DARK_MODE).toEqual({'⚫': 'white', '🟢': '#75dd75', '🔵': '#5190ff', '🔴': '#d06666', '🟡': 'gold', '🩷': 'deeppink', '💧': 'deepskyblue'});
     });
 
     test.each([
         ['green', '#75dd75'],
         ['blue', '#5190ff'],
         ['red', '#d06666'],
-        ['black', 'white'],
+        ['gray', 'white'],
         ['orange', 'orange'],
     ])('returns the dark mode colour for %s', (colour, expected) =>
     {
@@ -75,7 +75,7 @@ describe('GetDisplayColour', () =>
         ['green', 'green'],
         ['blue', 'blue'],
         ['red', 'red'],
-        ['black', 'black'],
+        ['gray', 'black'],
         ['orange', 'orange'],
     ])('returns the light mode colour for %s', (colour, expected) =>
     {
@@ -120,30 +120,30 @@ describe('IsPunctuation', () =>
 //Tests for IsPause
 describe('IsPause', () =>
 {
-    test('detects [PAUSE] in text', () =>
+    test('detects {PAUSE} in text', () =>
     {
-        const text = Array.from('abc[PAUSE]def');
+        const text = Array.from('abc{PAUSE}def');
         expect(IsPause(text, 3)).toBe(true);
         expect(IsPause(text, 4)).toBe(false);
     });
 
-    test('detects [PAUSE] at end of text', () =>
+    test('detects {PAUSE} at end of text', () =>
     {
-        const text = Array.from('abc[PAUSE]');
+        const text = Array.from('abc{PAUSE}');
         expect(IsPause(text, 3)).toBe(true);
         expect(IsPause(text, 4)).toBe(false);
     });
 
-    test('detects [PAUSE] at start of text', () =>
+    test('detects {PAUSE} at start of text', () =>
     {
-        const text = Array.from('[PAUSE]abc');
+        const text = Array.from('{PAUSE}abc');
         expect(IsPause(text, 0)).toBe(true);
         expect(IsPause(text, 1)).toBe(false);
     });
 
-    test('detects [PAUSE] in empty text', () =>
+    test('detects {PAUSE} in empty text', () =>
     {
-        const text = Array.from('[PAUSE]');
+        const text = Array.from('{PAUSE}');
         expect(IsPause(text, 0)).toBe(true);
         expect(IsPause(text, 1)).toBe(false);
     });
@@ -166,15 +166,15 @@ describe('GetNextLetterIndex', () =>
 
     test('skips pauses', () =>
     {
-        const pauseText = Array.from('[PAUSE]X');
+        const pauseText = Array.from('{PAUSE}X');
         expect(GetNextLetterIndex(pauseText, 0)).toBe(7);
     });
 
     test('returns markers for rival, player, buffer', () =>
     {
-       expect(GetNextLetterIndex(Array.from('[RIVAL]'), 0)).toBe(1);
-       expect(GetNextLetterIndex(Array.from('[PLAYER]'), 0)).toBe(1);
-       expect(GetNextLetterIndex(Array.from('[BUFFER]'), 0)).toBe(1);
+       expect(GetNextLetterIndex(Array.from('{RIVAL}'), 0)).toBe(1);
+       expect(GetNextLetterIndex(Array.from('{PLAYER}'), 0)).toBe(1);
+       expect(GetNextLetterIndex(Array.from('{BUFFER}'), 0)).toBe(1);
     });
 });
 
@@ -223,7 +223,7 @@ describe('GetStringWidth', () =>
 
     test('handles macros', () =>
     {
-        expect(GetStringWidth('[PLAYER]')).toBe(42);
+        expect(GetStringWidth('{PLAYER}')).toBe(42);
     });
 
     test('stops at newline', () =>
@@ -599,17 +599,17 @@ describe('FormatStringForDisplayWithSelection', () =>
         expect(FormatStringForDisplay(raw, false)).toBe(text);
     });
 
-    test('keeps the caret inside an automatically completed bracket after an astral symbol', () =>
+    test('keeps the caret inside an automatically completed macro after an astral symbol', () =>
     {
-        expect(FormatStringForDisplayWithSelection('🔴 [', false, 4, 4,
-            {type: TextChange.SINGLE_INSERT, inserted: '[', start: 3})).toEqual(
-            {text: '🔴 []', selectionStart: 4, selectionEnd: 4});
+        expect(FormatStringForDisplayWithSelection('🔴 {', false, 4, 4,
+            {type: TextChange.SINGLE_INSERT, inserted: '{', start: 3})).toEqual(
+            {text: '🔴 {}', selectionStart: 4, selectionEnd: 4});
     });
 
-    test('composes both existing formatter passes for lowercase external macro suffixes', () =>
+    test('normalizes lowercase external macro suffixes', () =>
     {
-        const first = FormatStringForDisplayWithSelection('[red_fr] aa [blue_em]', false, 9, 10);
-        expect(first.text).toBe('[RED_FR] aa [BLUE_EM]');
+        const first = FormatStringForDisplayWithSelection('{red_fr} aa {blue_em}', false, 9, 10);
+        expect(first.text).toBe('🔴 aa 🔵');
         const second = FormatStringForDisplayWithSelection(first.text, false, first.selectionStart, first.selectionEnd);
         expect(second).toEqual({text: '🔴 aa 🔵', selectionStart: 3, selectionEnd: 4});
     });
@@ -640,8 +640,8 @@ describe('FormatStringForDisplayWithSelection', () =>
             'But, this provides me with an\nexcellent opportunity for some well-\n earned redemption against you too,\nMarlon.',
             'But, this provides me with an\nexcellent opportunity for some well-\nearned redemption against you too,\nMarlon.',
         ],
-        ['Hello, my name is Bob. You can call[PAUSE][20]me', 'Hello, my name is Bob. You can\ncall[PAUSE][20]me'],
-        ['You can call[[PAUSE][20]', 'You can call[[PAUSE][20]'],
+        ['Hello, my name is Bob. You can call[PAUSE][20]me', 'Hello, my name is Bob. You can\ncall{PAUSE}{20}me'],
+        ['You can call[[PAUSE][20]', 'You can call{{PAUSE}{20}'],
     ])('preserves corrected wrap groups and literal brackets across formatting passes in %s', (raw, expected) =>
     {
         const formatted = FormatStringForDisplay(raw, false);
@@ -1029,12 +1029,12 @@ describe('Test ParseColouredTextToHtml', () =>
 
     test('span count scales with colour runs rather than character count', () =>
     {
-        const text = 'Plain '.repeat(1000) + '🟢Green🟢'.repeat(1000) + '🔴Red⚫Black🟠Orange';
+        const text = 'Plain '.repeat(1000) + '🟢Green🟢'.repeat(1000) + '🔴Red⚫Gray🟡Yellow🩷Pink💧Teal';
         const html = ParseColouredTextToHtml(text, false);
-        expect(html.match(/<span /g)).toHaveLength(5);
+        expect(html.match(/<span /g)).toHaveLength(7);
         const mirror = document.createElement('div');
         mirror.innerHTML = html;
         expect(mirror.textContent).toBe(text);
-        expect(Array.from(mirror.children, (span) => span.getAttribute('style'))).toEqual(['color: inherit', 'color: green', 'color: red', 'color: black', 'color: orange']);
+        expect(Array.from(mirror.children, (span) => span.getAttribute('style'))).toEqual(['color: inherit', 'color: green', 'color: red', 'color: black', 'color: gold', 'color: deeppink', 'color: deepskyblue']);
     });
 });

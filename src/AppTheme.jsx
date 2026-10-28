@@ -99,7 +99,7 @@ export function CreateAppTheme(darkMode)
         palette: {
             mode: darkMode ? "dark" : "light",
             primary: {
-                main: darkMode ? "#6812a3" : "#9333ea",
+                main: darkMode ? "#20c7e857" : "#20c8e8",
                 contrastText: "#ffffff",
             },
             error: {main: darkMode ? "#f87171" : "#b91c1c"},
