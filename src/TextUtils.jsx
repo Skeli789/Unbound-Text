@@ -44,7 +44,7 @@ export const OTHER_REPLACEMENT_MACROS =
 const NORMALIZATION_REPLACEMENTS =
 [
     ["\\pn", "\n\n"], ["\\n", "\n"], ["\\p", "\n\n"], ["\\l", "\n"],
-    ["[.]", "…"], ["...", "…"], ["…]", "…"], ["[[", "["], ["]]", "]"], ["\\e", "é"],
+    ["[.]", "…"], ["...", "…"], ["…]", "…"], ["]]", "]"], ["\\e", "é"],
     ["‘", "'"], ["’", "'"], ["“", '"'], ["”", '\\"'], ["—", "-"], ["–", "-"], ["_FR]", "]"], ["_EM]", "]"],
 ];
 
@@ -534,9 +534,10 @@ function NormalizeSource(text, boundaries, finalLineLocked)
  * @param {boolean} finalLineLocked - Whether the final line is locked.
  * @param {Object} textChange - Validated edit information for bracket completion.
  * @param {number|undefined} bracketStart - Normalized boundary where the inserted bracket starts.
+ * @param {number|undefined} joinedHyphen - Normalized hyphen position whose line break was deleted.
  * @returns {Array<Array<Object>>} - The wrapped lines of pieces.
  */
-function WrapLines(text, finalLineLocked, textChange, bracketStart)
+function WrapLines(text, finalLineLocked, textChange, bracketStart, joinedHyphen)
 {
     let width = 0;
     let finalLines = [];
@@ -564,7 +565,8 @@ function WrapLines(text, finalLineLocked, textChange, bracketStart)
                 let prevAddedLine = finalLines.pop();
                 finalLine = finalLine.concat(prevAddedLine)
 
-                if (finalLine.at(-1)?.text !== " ") //Doesn't already have an extra whitespace at the end
+                //Empty wrap fragments and hyphenated continuations need no separating space.
+                if (finalLine.length > 0 && ![" ", "-"].includes(finalLine.at(-1).text))
                     finalLine = finalLine.concat({text: " ", start: finalLine.at(-1)?.end ?? sourceOffset, end: sourceOffset});
 
                 width = GetStringWidth(prevAddedLine.map((piece) => piece.text).join(""));
@@ -603,10 +605,15 @@ function WrapLines(text, finalLineLocked, textChange, bracketStart)
                 inMacro = true;
                 macroText = "";
 
-                //The beginning of a buffer always marks a new word
-                finalLine = finalLine.concat(currWord);
-                lastWordStartIndex = j;
-                currWord = []; //Reset
+                //Zero-width macros stay attached to the current word when wrapping.
+                const macroEnd = line.indexOf("]", j + 1);
+                if (macroEnd >= 0 && GetMacroWidth(line.slice(j + 1, macroEnd).join("").toUpperCase()) > 0)
+                {
+                    //The beginning of a buffer always marks a new word
+                    finalLine = finalLine.concat(currWord);
+                    lastWordStartIndex = j;
+                    currWord = []; //Reset
+                }
 
                 //Add a closing brace if there isn't one on the line yet and only if the user just added the [
                 if (!LineHasCharAfterIndex(line, j, "]")
@@ -650,7 +657,7 @@ function WrapLines(text, finalLineLocked, textChange, bracketStart)
                 lastWordStartIndex = j + 1;
                 currWord = []; //Reset
             }
-            else if (letter === "-") //Dash
+            else if (letter === "-" && start !== joinedHyphen) //Keep an explicitly joined hyphen inside its word.
             {
                 //Allow splitting dashes onto multiple lines
                 finalLine = finalLine.concat(currWord).concat(piece);
@@ -773,7 +780,8 @@ export function FormatStringForDisplayWithSelection(text, finalLineLocked, selec
 
     //Wrap the lines
     const bracketStart = normalized.boundaries[textChange.start];
-    const finalLines = WrapLines(normalized.text, finalLineLocked, textChange, bracketStart);
+    const joinedHyphen = normalized.boundaries[textChange.joinedHyphen];
+    const finalLines = WrapLines(normalized.text, finalLineLocked, textChange, bracketStart, joinedHyphen);
     const wrapped = MapWrappedBoundaries(finalLines, normalized.text.length);
     const wrappedBoundaries = normalized.boundaries.map((position) => wrapped.wrappedBoundaries[position]);
 

@@ -354,6 +354,11 @@ export class Editor extends Component
         const range = context.editRange || {start: prior.selectionStart, end: prior.selectionEnd};
         const formatChange = BuildValidatedFormatChange(typeOfTextChange, oldText, newText, range);
 
+        //Deleting a hyphen's line break joins the word instead of recreating that split.
+        if (typeOfTextChange.type === TextChange.SINGLE_DELETE && typeOfTextChange.deleted === "\n"
+        && newText[typeOfTextChange.start - 1] === "-")
+            formatChange.joinedHyphen = typeOfTextChange.start - 1;
+
         //Format the new text and map the selection through it
         const lockFinalLine = this.state.lockFinalLine;
         let result = FormatStringForDisplayWithSelection(newText, lockFinalLine, context.selectionStart, context.selectionEnd, formatChange);

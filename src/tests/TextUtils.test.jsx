@@ -634,6 +634,21 @@ describe('FormatStringForDisplayWithSelection', () =>
             previous = result.selectionStart;
         }
     });
+
+    test.each([
+        [
+            'But, this provides me with an\nexcellent opportunity for some well-\n earned redemption against you too,\nMarlon.',
+            'But, this provides me with an\nexcellent opportunity for some well-\nearned redemption against you too,\nMarlon.',
+        ],
+        ['Hello, my name is Bob. You can call[PAUSE][20]me', 'Hello, my name is Bob. You can\ncall[PAUSE][20]me'],
+        ['You can call[[PAUSE][20]', 'You can call[[PAUSE][20]'],
+    ])('preserves corrected wrap groups and literal brackets across formatting passes in %s', (raw, expected) =>
+    {
+        const formatted = FormatStringForDisplay(raw, false);
+        expect(formatted).toBe(expected);
+        expect(FormatStringForDisplay(formatted, false)).toBe(expected);
+    });
+
 });
 
 //Tests for DetermineTextChangeType

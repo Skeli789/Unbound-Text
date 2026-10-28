@@ -521,6 +521,31 @@ describe('Typing in editor moves the cursor where expected', () =>
             paste: "\n\n",
             expected: "A".repeat(32) + "\n\n|Z",
         },
+        {
+            name: "Deleting a space after a wrapped hyphen",
+            preserveInitialText: true, //Keep the unwanted space until Backspace, rather than formatting it away during setup.
+            default: "But, this provides me with an\nexcellent opportunity for some well-\n |earned redemption against you too,\nMarlon.",
+            insert: -1,
+            expected: "But, this provides me with an\nexcellent opportunity for some well-\n|earned redemption against you too,\nMarlon.",
+        },
+        {
+            name: "Backspacing a hyphen wrap keeps the joined word together",
+            default: "But, this provides me with an\nexcellent opportunity for some well-\n|earned redemption against you too,\nMarlon.",
+            insert: -1,
+            expected: "But, this provides me with an\nexcellent opportunity for some\nwell-|earned redemption against you\ntoo, Marlon.",
+        },
+        {
+            name: "Backspacing a newline keeps zero-width macros with their word",
+            default: "Hello, my name is Bob. You can call[PAUSE][20]\n|me",
+            insert: -1,
+            expected: "Hello, my name is Bob. You can\ncall[PAUSE][20]|me",
+        },
+        {
+            name: "Inserting a bracket before an existing macro",
+            default: "You can call|[PAUSE][20]",
+            insert: "[[",
+            expected: "You can call[|[PAUSE][20]",
+        },
         ...["|aa", "a|a", "aa|"].flatMap((text) => ["a", "aa"].flatMap((insert) =>
         [
             {name: `Typing ${insert} into ${text}`, default: text, insert, expected: text.replace("|", insert + "|")},
@@ -534,13 +559,16 @@ describe('Typing in editor moves the cursor where expected', () =>
         {
             //Create the editor
             const editorRef = React.createRef();
-            const {getByTestId} = render(<Editor ref={editorRef} text="" isTranslation={isTranslation} showTranslationBox={() => {}} test={true} />);
+            const {getByTestId} = render(<Editor ref={editorRef} text={data.preserveInitialText ? data.default.replaceAll("|", "") : ""} isTranslation={isTranslation} showTranslationBox={() => {}} test={true} />);
             const textarea = getByTestId(isTranslation ? 'translated-textarea' : 'main-textarea');
+            if (data.preserveInitialText)
+                textarea.focus();
             fireEvent.focus(textarea);
 
             //Set the default text
             const defaultText = data.default.replaceAll("|", "");
-            fireEvent.change(textarea, {target: {value: defaultText}});
+            if (!data.preserveInitialText)
+                fireEvent.change(textarea, {target: {value: defaultText}});
 
             //Set the default cursor position
             let cursorStart = data.default.indexOf("|");
@@ -635,6 +663,27 @@ describe.each([false, true])('Editor selection transactions (translation: %s)', 
         editor.textarea.setSelectionRange(start, end, direction);
         fireEvent.select(editor.textarea);
     }
+
+    test('joins a hyphenated word with synchronized undo and redo selections', async () =>
+    {
+        const text = 'But, this provides me with an\nexcellent opportunity for some well-\nearned redemption against you too,\nMarlon.';
+        const joined = 'But, this provides me with an\nexcellent opportunity for some\nwell-earned redemption against you\ntoo, Marlon.';
+        const editor = CreateEditor(text);
+        const start = text.indexOf('earned');
+        Select(editor, start);
+
+        await editor.user.keyboard('{Backspace}');
+        expect(editor.textarea).toHaveValue(joined);
+        ExpectSelection(editor, joined.indexOf('earned'));
+
+        act(() => editor.editorRef.current.undoLastChange());
+        expect(editor.textarea).toHaveValue(text);
+        ExpectSelection(editor, start);
+
+        act(() => editor.editorRef.current.redoLastChange());
+        expect(editor.textarea).toHaveValue(joined);
+        ExpectSelection(editor, joined.indexOf('earned'));
+    });
 
     test('finalizes macro paste and consecutive input with synchronized undo/redo snapshots', async () =>
     {
